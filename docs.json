@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Hookie",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#8B5CF6",
+    "light": "#06B6D4",
+    "dark": "#8B5CF6"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -18,20 +18,34 @@
         ]
       }
     ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
+    "groups": [
+      {
+        "group": "Get started",
+        "icon": "rocket",
+        "pages": [
+          "index",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Guides",
+        "icon": "book-open",
+        "pages": [
+          "signatures",
+          "streaming",
+          "workflows",
+          "customer-portal",
+          "mcp"
+        ]
+      },
+      {
+        "group": "Reference",
+        "icon": "code",
+        "pages": [
+          "api-reference"
+        ]
+      }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -40,14 +54,22 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "https://hookie.ai",
+        "label": "Hookie.ai"
+      },
+      {
+        "href": "https://hookie.ai/use-cases",
+        "label": "Use cases"
+      },
+      {
+        "href": "https://hookie.ai/pricing",
+        "label": "Pricing"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "label": "Open console",
+      "href": "https://app.hookie.ai/"
     }
   },
   "contextual": {
@@ -64,9 +86,61 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
-  }
+      "website": "https://hookie.ai"
+    },
+    "links": [
+      {
+        "header": "Product",
+        "items": [
+          {
+            "label": "Features",
+            "href": "https://hookie.ai/features"
+          },
+          {
+            "label": "Use cases",
+            "href": "https://hookie.ai/use-cases"
+          },
+          {
+            "label": "Pricing",
+            "href": "https://hookie.ai/pricing"
+          }
+        ]
+      },
+      {
+        "header": "Docs",
+        "items": [
+          {
+            "label": "Quickstart",
+            "href": "/quickstart"
+          },
+          {
+            "label": "API reference",
+            "href": "/api-reference"
+          },
+          {
+            "label": "Connected agents",
+            "href": "/mcp"
+          }
+        ]
+      },
+      {
+        "header": "Legal",
+        "items": [
+          {
+            "label": "Terms",
+            "href": "https://hookie.ai/legal/terms"
+          },
+          {
+            "label": "Privacy",
+            "href": "https://hookie.ai/legal/privacy"
+          },
+          {
+            "label": "Acceptable use",
+            "href": "https://hookie.ai/legal/acceptable-use"
+          }
+        ]
+      }
+    ]
+  },
+  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows."
 }

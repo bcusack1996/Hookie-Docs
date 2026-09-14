@@ -3,18 +3,40 @@ title: "Introduction"
 description: "Welcome to your project"
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+Hookie is one place to collect everything that gets sent to you: **ingest** any payload — JSON from a webhook provider, or a plain HTML form posting straight at a URL — **route** it into datasets with rules, and **deliver** signed events with retries, a live stream, AI triggers, and multi-step [workflows](/workflows). You can also [connect a coding agent](/mcp) and have it build the whole thing for you.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+## The request lifecycle
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+Every ingested payload follows the same path:
+
+1. Authenticate the ingest key (constant-time) and check the IP allowlist.
+2. Apply the edge rate limit, then short-circuit on `Idempotency-Key`.
+3. Enforce the monthly event quota for your plan.
+4. Store the raw body verbatim in `submissions` — decoding form encodings into fields first, if that is what arrived.
+5. Route into `records` via the identity dataset, your rules, or a webhook's mapping.
+6. Fan out to outbound deliveries, the live stream, and any matching AI triggers — then start or resume any [workflows](/workflows) whose entry conditions match.
+
+## Start here
+
+<Columns cols={2}>
+  <Card title="Ingest quickstart" icon="rocket" href="/quickstart">
+  </Card>
+
+  <Card title="Verify signatures" icon="shield-check" href="/signatures">
+  </Card>
+
+  <Card title="Live streaming" icon="radio" href="/streaming">
+  </Card>
+
+  <Card title="Workflows & AI agents" icon="workflow" href="/workflows">
+  </Card>
+
+  <Card title="Customer portal" icon="users" href="/customer-portal">
+  </Card>
+
+  <Card title="Connected agents" icon="plug" href="/mcp">
+  </Card>
+
+  <Card title="API reference" icon="code" href="/api-reference">
+  </Card>
+</Columns>

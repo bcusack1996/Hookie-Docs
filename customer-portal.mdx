@@ -1,0 +1,53 @@
+---
+title: "Customer portal"
+description: "Give your customers a self-serve portal to manage webhook destinations and inspect deliveries."
+icon: "users"
+---
+
+The **customer portal** is an embeddable, token-authed surface your _end customers_ use to manage their own webhook destinations and inspect deliveries — so "ship webhooks to our customers" stops generating support tickets. No separate auth backend: you issue a signed access token per customer, and everything the token can see is scoped to that customer.
+
+<Steps>
+  <Step title="Create a portal">
+    In the console, open **Project → Portals → + Portal**. Give it a name and choose which datasets (event types) it exposes. Customers can only subscribe destinations to those datasets.
+  </Step>
+
+  <Step title="Issue a customer token">
+    On the portal row, open **Tokens** and issue one per customer using your own id for them. You get a one-time link:
+
+    ```http
+    https://app.hookie.ai/portal/{workspace}/{portal-slug}?token={token}
+    ```
+
+    The token (`hpt_…`) is shown once and stored hashed. Set an expiry if you want tokens to rotate; revoke from the same list at any time.
+  </Step>
+
+  <Step title="Share or embed">
+    Send the link directly, or embed the portal in your own dashboard in an `iframe` — pass `?token=…` when you render the frame from your authenticated app. The SPA stores the token in `sessionStorage` and strips it from the address bar.
+  </Step>
+</Steps>
+
+## Portal API
+
+Everything the portal UI does is also available as a small token-authed API:
+
+```http
+# All requests: Authorization: Bearer <token>   (or ?token=…)
+GET  /portal/api/me                   # portal + customer info + exposed event types
+GET  /portal/api/event-types          # datasets the portal exposes
+GET  /portal/api/destinations         # the customer's own destinations
+POST /portal/api/destinations         # create one (https URL; signing secret shown once)
+PUT  /portal/api/destinations/{id}    # enable/disable or change the URL
+GET  /portal/api/deliveries           # recent deliveries to the customer's destinations
+```
+
+## Scoping guarantees
+
+| Boundary | Guarantee |
+| --- | --- |
+| **Tenant + project** | A token is bound to one portal in one project of your workspace. |
+| **Customer** | A customer only ever sees and manages destinations tagged with their own customer_id. |
+| **Datasets** | Destinations may only subscribe to the datasets the portal exposes — anything else is rejected. |
+| **Transport** | Destination URLs must be HTTPS; each gets its own HMAC signing secret, shown once. |
+| **Tokens** | Stored hashed (SHA-256), never recoverable; optional expiry; revocable at any time. |
+
+Deliveries made to customer destinations behave exactly like every other Hookie delivery — HMAC-signed, retried with backoff, dead-lettered, and [verifiable](/signatures). [Sign in](https://app.hookie.ai/) and open a project's **Portals** tab to try it.
