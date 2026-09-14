@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Hookie",
   "colors": {
-    "primary": "#8B5CF6",
-    "light": "#06B6D4",
-    "dark": "#8B5CF6"
+    "primary": "#2B56A1",
+    "light": "#749ADC",
+    "dark": "#2CB8B8"
   },
   "favicon": "/favicon.svg",
   "navigation": {
