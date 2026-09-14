@@ -26,7 +26,7 @@
           "streaming",
           "workflows",
           "customer-portal",
-          "mcp"
+          "connected-agents"
         ]
       },
       {
@@ -115,7 +115,7 @@
           },
           {
             "label": "Connected agents",
-            "href": "/mcp"
+            "href": "/connected-agents"
           }
         ]
       },
