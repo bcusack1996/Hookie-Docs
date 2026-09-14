@@ -39,7 +39,7 @@
       {
         "group": "API reference",
         "icon": "terminal",
-        "openapi": "https://hookie.ai/openapi.json"
+        "openapi": "openapi.json"
       }
     ]
   },
@@ -140,7 +140,7 @@
   },
   "description": "Capture, route and deliver webhooks on Cloudflare \u2014 ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
   "api": {
-    "openapi": "https://hookie.ai/openapi.json",
+    "openapi": "openapi.json",
     "playground": {
       "display": "interactive"
     },
