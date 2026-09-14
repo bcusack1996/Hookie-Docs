@@ -1,0 +1,75 @@
+---
+title: "Hookie"
+sidebarTitle: "Overview"
+description: "Capture any HTTP event, route it into structured datasets, run it through a workflow, and deliver it signed — on Cloudflare's edge."
+icon: "house"
+---
+
+Hookie is a webhook platform: it gives you a URL to receive events, somewhere structured to keep them, logic to act on them, and a signed, retrying delivery out the other side. Everything runs on Cloudflare Workers, D1 and Durable Objects.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Zero to a routed event in three steps — create an endpoint, send it JSON, see the record.
+  </Card>
+
+  <Card title="Workflows & AI agents" icon="robot" href="/workflows">
+    Multi-step, event-driven pipelines with branching, AI steps and reusable agents.
+  </Card>
+
+  <Card title="API reference" icon="code" href="/api-reference">
+    Every ingest, admin and streaming endpoint, with an interactive playground.
+  </Card>
+
+  <Card title="Connected agents" icon="plug" href="/mcp">
+    Point Claude Code, Cursor or any MCP client at your workspace over OAuth.
+  </Card>
+</CardGroup>
+
+## How an event moves through Hookie
+
+<Steps>
+  <Step title="It arrives">
+    Post to an endpoint's URL — the high-entropy slug in `app.hookie.ai/{workspace}/{project}/{webhook}` is the credential — or to `/v1/ingest/{key}` with an ingest key. JSON, form posts and multipart all work, so an HTML `<form>` can point straight at an endpoint with no JavaScript and no backend of your own.
+
+    Before anything is stored, the request passes the endpoint's IP allowlist, its rate limit, an `Idempotency-Key` check and your plan quota.
+  </Step>
+  <Step title="It's captured, then routed">
+    The raw body is stored as a **submission** — exactly as it arrived, before anything reshapes it — so "no rule matched" is always distinguishable from "the event never arrived."
+
+    Addressed requests store the payload whole into the dataset the URL names. A keyed request with no dataset in the path is the one shape that consults **rules**: each enabled rule tests its conditions against the payload and, where they hold, maps fields out into a **record**. Rules are not first-match — one event can land in several datasets at once.
+  </Step>
+  <Step title="It fans out">
+    A new record triggers every matching **destination** (an outbound webhook, signed HMAC-SHA256, retried with backoff), pushes onto the **live stream** for anyone tailing it, and starts any **workflow** whose trigger it satisfies.
+  </Step>
+  <Step title="It gets acted on">
+    A workflow runs steps in order: call a model, branch on the result, write to a dataset, emit a further event. Workflows also start on a schedule or from a WebSocket condition, not only from an inbound event.
+  </Step>
+</Steps>
+
+## What's in the box
+
+<CardGroup cols={2}>
+  <Card title="Signed delivery" icon="signature" href="/signatures">
+    Outbound webhooks carry an HMAC-SHA256 signature and a timestamp. Verify them in a few lines, in any language.
+  </Card>
+
+  <Card title="Live streaming" icon="radio" href="/streaming">
+    Tail events in real time over SSE or WebSocket, with resume after a disconnect.
+  </Card>
+
+  <Card title="Customer portal" icon="users" href="/customer-portal">
+    Let your own customers manage their webhook destinations and inspect their deliveries, without a support ticket.
+  </Card>
+
+  <Card title="Observability & search" icon="magnifying-glass" href="/quickstart#3-see-it-in-the-console">
+    Search submissions, records and deliveries, and follow any id along the whole chain it belongs to.
+  </Card>
+</CardGroup>
+
+<Note>
+  Every resource — datasets, rules, endpoints, destinations, workflows — is scoped to a **project**, and every workspace starts with a Default project. If you are just trying things out, you can ignore projects entirely and use that one.
+</Note>
+
+## Start here
+
+Create a free workspace at [app.hookie.ai](https://app.hookie.ai/) — one is provisioned automatically the first time you sign in — then follow the [Quickstart](/quickstart).
