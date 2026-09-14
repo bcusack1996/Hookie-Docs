@@ -45,6 +45,21 @@ This is the same diagram whether you're looking at the workflow's definition or 
 
 A `branch` step evaluates one or more conditions against the instance context — the same condition shape used everywhere else in Hookie (`equals · not_equals · contains · exists · gt · lt`) — and runs `then` when they match, `else` otherwise. Because conditions read the context, you can branch on _anything an earlier step produced_: score a lead with AI, then route high-scorers one way and everyone else another. Branches nest up to **3 levels deep**, and every taken path is recorded in step history so you can see exactly which way an instance went.
 
+### Where a branch condition's path points
+
+This is the one thing worth getting right before you write a branch, because the two condition fields on a workflow read **different things**:
+
+| Field | Evaluated against | Path to use |
+| --- | --- | --- |
+| `entry_conditions` | the raw record | the bare field — `"topic"` |
+| a `branch` step's `conditions` | the instance context | `"entry.topic"` |
+
+The context is a scratchpad seeded from the entry record, and the record sits under `entry` there. Alongside it are the keys earlier steps wrote: `call_ai` puts its reply under its `output_key` (default `ai_result`), `agent_call` under `agent_result`, and `wait_for_event` under `waited_event`. So `"entry.tier"` reads the incoming lead, and `"score"` reads what the AI step just produced — as in the example below.
+
+<Warning>
+  Writing a branch condition as `"topic"` when you mean `"entry.topic"` used to be silent: the path resolved to nothing, the comparison failed, and the branch took `else` on every event for the life of the workflow. Hookie now **refuses a branch whose condition path cannot resolve**, and the error names the keys that do exist. A path pointing at a key an earlier step has not written yet is refused for the same reason.
+</Warning>
+
 Branch sub-steps run _synchronously_ — `emit_event`, `call_ai`, `agent_call`, and nested `branch` only. A `delay` or `wait_for_event` can't sit inside a branch; put it after the branch instead. This keeps a branch's execution atomic and its outcome immediately visible in the diagram.
 
 ### Branching on an AI answer
@@ -56,7 +71,7 @@ That gives you two shapes that work, and it is worth picking one deliberately:
 - **Ask for the bare value** — "reply with the number only" with `"output_key": "score"`, then branch on `{ "path": "score", "op": "gt", "value": 7 }`. That is the example above.
 - **Ask for an object** — "reply with JSON: score and reason" with `"output_key": "ai"`, then branch on `{ "path": "ai.score", "op": "gt", "value": 7 }`. Conditions take dotted paths, so the reason travels with the score and both are visible in the instance context.
 
-What does _not_ work is asking for JSON and then branching on the `output_key` itself — `path: "score"` would resolve to the whole object, and a numeric comparison against an object is false. A branch whose condition can never hold isn't an error; it just takes `else` every time. The instance context is shown in full on the instance drill-down — check there first when a branch always goes the same way.
+What does _not_ work is asking for JSON and then branching on the `output_key` itself — `path: "score"` would resolve to the whole object, and a numeric comparison against an object is false. That one is still accepted, because the path resolves; it is the _value_ that cannot compare. The instance context is shown in full on the instance drill-down — check there first when a branch always goes the same way.
 
 `output_dataset` is unaffected by any of this: it always records the model's reply as the text it actually wrote, so the audit trail is what was said, not what was inferred from it.
 
