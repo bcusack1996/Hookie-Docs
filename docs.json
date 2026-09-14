@@ -9,20 +9,12 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
     "groups": [
       {
         "group": "Get started",
         "icon": "rocket",
         "pages": [
+          "index",
           "quickstart"
         ]
       },
@@ -43,6 +35,11 @@
         "pages": [
           "api-reference"
         ]
+      },
+      {
+        "group": "API reference",
+        "icon": "terminal",
+        "openapi": "https://hookie.ai/openapi.json"
       }
     ]
   },
@@ -141,5 +138,18 @@
       }
     ]
   },
-  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows."
+  "description": "Capture, route and deliver webhooks on Cloudflare \u2014 ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
+  "api": {
+    "openapi": "https://hookie.ai/openapi.json",
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": [
+        "bash",
+        "javascript",
+        "python"
+      ]
+    }
+  }
 }
