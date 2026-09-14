@@ -4,7 +4,7 @@ description: "Hookie public HTTP API — ingest and streaming endpoints."
 icon: "code"
 ---
 
-Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console — authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/mcp) is acting on your behalf.
+Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console — authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf.
 
 ## Ingest
 
@@ -47,7 +47,7 @@ A separate, token-authed surface for your _end customers_, scoped to one portal 
 
 ## Admin API
 
-The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app — [sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/mcp) reaches the very same routes. Project-scoped resources:
+The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app — [sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes. Project-scoped resources:
 
 | Resources | Covers |
 | --- | --- |
