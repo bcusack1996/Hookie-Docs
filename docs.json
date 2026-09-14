@@ -23,7 +23,6 @@
         "group": "Get started",
         "icon": "rocket",
         "pages": [
-          "index",
           "quickstart"
         ]
       },
