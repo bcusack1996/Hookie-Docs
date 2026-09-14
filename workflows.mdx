@@ -1,7 +1,10 @@
 ---
 title: "Workflows & AI agents"
 description: "Multi-step, event-driven workflows with a visual canvas, branching logic, and reusable AI agents built into Hookie."
-icon: "workflow"
+icon:
+  name: "robot"
+  style: "regular"
+  library: "fontawesome"
 ---
 
 A **workflow** is a project-scoped, multi-step process that starts when a record lands in its _entry dataset_. Steps run in order, share a JSON _context_ scratchpad seeded from the entry record, and can emit events, call AI, branch on a condition, wait for other events, or sleep. You compose pipelines like _lead → AI score → branch on score → notify → wait for approval → follow up_ without running your own queue or state store.
