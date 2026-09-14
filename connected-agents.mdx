@@ -72,13 +72,19 @@ Available with `hookie:read`:
 
 | Tool | What it does |
 | --- | --- |
+| `get_workspace` | The workspace's slug, id, your role and plan. The slug is the first segment of every public endpoint URL. |
 | `list_projects` | The workspace's projects. |
 | `get_project_overview` | A project's details plus its dataset summary. |
 | `list_datasets` | Datasets in a project, with record counts. |
 | `query_records` | Recent records from a dataset, newest first. |
-| `list_webhooks · list_rules · list_destinations` | A project's routing configuration. |
+| `list_webhooks · list_rules · list_destinations` | A project's routing configuration. Endpoints come with a ready-to-send `public_path`. |
+| `list_sources · list_triggers` | Polled source connectors, and AI triggers. |
+| `list_ingest_keys` | Ingest keys as metadata only — name, prefix, last used, revoked. Never the plaintext. |
 | `list_deliveries` | Recent outbound deliveries — status, response code, destination. |
-| `list_workflows` | Workflow definitions in a project. |
+| `get_delivery` | One delivery in full. The only call that returns the stored response body. |
+| `search_deliveries · search_events · search_submissions` | Filtered, paged search with a time window. Use these rather than the `list_` tools for anything but a glance. |
+| `list_workflows · get_workflow` | Workflow definitions in a project. |
+| `list_workflow_runs · get_workflow_run` | Execution history, including which branch each instance took. |
 | `send_test_event` | POST a sample payload to a public endpoint URL. |
 
 Available with `hookie:write`:
@@ -89,11 +95,38 @@ Available with `hookie:write`:
 | `create_webhook · update_webhook · delete_webhook` | Endpoints. Update toggles enabled. |
 | `create_rule · update_rule · delete_rule` | Mapping rules. Update toggles enabled. |
 | `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. |
-| `create_workflow` | A multi-step workflow — entry dataset, entry conditions, and the ordered steps. |
+| `create_workflow · update_workflow` | A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
+| `delete_workflow` | Despite the name, this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. |
 | `replay_delivery` | Re-queue a past delivery to its destination. |
 | `create_ingest_key` | A new ingest key. Returns the plaintext once — treat it as a credential. |
+| `revoke_ingest_key` | Kill a key. It stops authenticating on the next request; the row and its audit trail survive. Not reversible. |
 
 There is no `create_dataset`, because a dataset is not something you create. A dataset is a name records carry: it exists the moment the first record is routed into it, and the console has no way to make an empty one either. Name it in a rule, an endpoint, or a workflow's `entry_dataset` and it appears.
+
+Every tool carries MCP annotations, so a client can tell at a glance which calls are safe. `readOnlyHint` is derived from the tool's required scope rather than maintained by hand, so it cannot disagree with what the tool is allowed to do. `destructiveHint` is set only where something is genuinely unrecoverable — the four `delete_` tools and `revoke_ingest_key`. It is deliberately **not** set on `delete_workflow`, which only deactivates, or on `replay_delivery`, which re-sends: prompting for confirmation on a reversible action trains people to click through the ones that matter.
+
+## Addressing an endpoint you just created
+
+An endpoint's public URL is `{workspace}/{project}/{endpoint-slug}`, and the endpoint slug is a high-entropy value the server mints — not the readable `slug` you passed in, which is stored as `base_slug` and never appears in a URL.
+
+You do not have to assemble any of that. `create_webhook` and `list_webhooks` both return `public_path` and `public_url`, and `public_path` is exactly the string `send_test_event` takes:
+
+```json
+{
+  "id": "97249267-…",
+  "base_slug": "orders",
+  "version": "1",
+  "webhook_slug": "aBcXyz0123456789abcdefgh",
+  "public_path": "acme-3f9a/orders/aBcXyz0123456789abcdefgh",
+  "public_url": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
+}
+```
+
+<Warning>
+  `webhook_slug` **is the credential** — anyone holding it can post events to your workspace, which is why the URL needs no other authentication. So are `public_path` and `public_url`, which contain it. `base_slug` and `version` are the readable identity and are safe to log.
+</Warning>
+
+If you do need the pieces, `get_workspace` gives the first segment. A wrong path and a disabled endpoint both answer the same 404, so check `enabled` before assuming the URL is wrong.
 
 The `update_` tools are narrower than they sound, deliberately. An endpoint's slug is the credential in its public URL, and its criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. A destination's URL and signing secret are fixed for the same reason: a delivery's signature is verified against the URL it was sent to. To change any of them, create the replacement and delete the old one.
 
