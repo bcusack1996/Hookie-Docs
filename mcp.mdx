@@ -1,0 +1,116 @@
+---
+title: "Connected agents"
+description: "Connect a coding agent to your Hookie account over OAuth and let it build and run your pipeline for you."
+icon: "plug"
+---
+
+Hookie runs a hosted [MCP](https://modelcontextprotocol.io) server. Point an AI coding agent — Claude Code, Cursor, any MCP client — at one URL and it can do, on your behalf, the things you would otherwise do in the console: create endpoints, write routing rules, point events at a destination, read records back, replay a failed delivery.
+
+Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only, and you decide in the console what more it may do — and can cut it off again in one click.
+
+<Note>
+  The assistant built into the console reads the same tool catalog, so you do not have to connect an external client to get an agent that can see your workspace. Connect one when you want your own coding agent — in your editor, next to your code — to build the pipeline for you.
+</Note>
+
+## Connect one
+
+Hookie hosts the MCP server. There is nothing to install — point your agent at:
+
+```http
+https://app.hookie.ai/mcp
+```
+
+For Claude Code that is one command; or, in an `.mcp.json` that you can commit to a repo:
+
+<CodeGroup>
+
+```bash Claude Code
+claude mcp add --transport http hookie https://app.hookie.ai/mcp
+```
+
+```json .mcp.json
+{
+  "mcpServers": {
+    "hookie": {
+      "type": "http",
+      "url": "https://app.hookie.ai/mcp"
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+No credential goes in that file, because there isn't one to put there. The first request your agent makes is refused with a pointer to Hookie's authorization server — WorkOS AuthKit, the same place you sign in. The agent registers itself there, opens a sign-in in your browser, and from then on holds a token it refreshes on its own. That is the standard OAuth 2.1 authorization-code flow with PKCE — the same one you'd get from any well-behaved MCP client.
+
+## What it may do
+
+Signing in proves _who_ the agent is acting for. _What_ it may do is decided separately, by you, in **Settings → Connected agents**: a newly connected agent can only read until you grant it more, and the change takes effect on its very next call.
+
+| Scope | Lets the agent… |
+| --- | --- |
+| `hookie:read` | Read the workspace — projects, datasets, rules, endpoints, destinations, deliveries and stored records. |
+| `hookie:write` | Also create, change and delete those resources. Equivalent to the developer role. |
+| `hookie:manage` | Also workspace administration — members, SSO, IP allowlist, audit export. Equivalent to admin. |
+
+An agent is never a principal of its own. It acts _as you_, and its authority is your workspace role narrowed to the scopes you granted — whichever is more restrictive wins. An agent granted `hookie:manage` by someone with the viewer role is still a viewer.
+
+### Two things it can never do
+
+- **Touch billing.** Subscribing, cancelling and changing a card are unreachable at every scope. Those stay decisions a person makes.
+- **Destroy data.** There is no tool to delete a project or drop a dataset's records. An agent manages routing configuration, which is visible and undoable; irreversible deletion stays in the console.
+
+Every action an agent takes is written to your audit log with **you** as the actor and the agent's client id recorded alongside — so "who deleted this endpoint" always has an honest answer.
+
+## Revoke
+
+**Settings → Connected agents** in the console lists everything you have connected, what each may do, and when it last acted. Revoking takes effect on the agent's very next call — even though its token is still valid, because Hookie checks its own grant on every request.
+
+## Tools
+
+Available with `hookie:read`:
+
+| Tool | What it does |
+| --- | --- |
+| `list_projects` | The workspace's projects. |
+| `get_project_overview` | A project's details plus its dataset summary. |
+| `list_datasets` | Datasets in a project, with record counts. |
+| `query_records` | Recent records from a dataset, newest first. |
+| `list_webhooks · list_rules · list_destinations` | A project's routing configuration. |
+| `list_deliveries` | Recent outbound deliveries — status, response code, destination. |
+| `list_workflows` | Workflow definitions in a project. |
+| `send_test_event` | POST a sample payload to a public endpoint URL. |
+
+Available with `hookie:write`:
+
+| Tool | What it does |
+| --- | --- |
+| `create_project` | A new project. Needs owner/admin, exactly as the console does. |
+| `create_webhook · update_webhook · delete_webhook` | Endpoints. Update toggles enabled. |
+| `create_rule · update_rule · delete_rule` | Mapping rules. Update toggles enabled. |
+| `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. |
+| `create_workflow` | A multi-step workflow — entry dataset, entry conditions, and the ordered steps. |
+| `replay_delivery` | Re-queue a past delivery to its destination. |
+| `create_ingest_key` | A new ingest key. Returns the plaintext once — treat it as a credential. |
+
+There is no `create_dataset`, because a dataset is not something you create. A dataset is a name records carry: it exists the moment the first record is routed into it, and the console has no way to make an empty one either. Name it in a rule, an endpoint, or a workflow's `entry_dataset` and it appears.
+
+The `update_` tools are narrower than they sound, deliberately. An endpoint's slug is the credential in its public URL, and its criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. A destination's URL and signing secret are fixed for the same reason: a delivery's signature is verified against the URL it was sent to. To change any of them, create the replacement and delete the old one.
+
+## Bringing your own client
+
+The hosted server speaks MCP's Streamable HTTP transport at `https://app.hookie.ai/mcp` — POST JSON-RPC, no session header required. Authentication is standard OAuth 2.1, so any client that speaks it can connect without an MCP library. Start at our protected-resource document, which names the authorization server to register with:
+
+```http
+GET  https://app.hookie.ai/.well-known/oauth-protected-resource   # RFC 9728 — names the authorization server
+GET  <issuer>/.well-known/oauth-authorization-server            # RFC 8414 — endpoints, PKCE methods
+POST <issuer>/oauth2/register                                   # RFC 7591 — dynamic client registration
+GET  <issuer>/oauth2/authorize                                  # authorization code + PKCE (S256 required)
+POST <issuer>/oauth2/token                                      # code → access + refresh token
+```
+
+<Warning>
+  Ask the authorization server only for the scopes it advertises (`openid`, `profile`, `email`, `offline_access`). Hookie's own `hookie:*` scopes are **not** requested there — they are granted by you in the console, and asking WorkOS for them fails the authorization outright.
+</Warning>
+
+PKCE is required — agents are public clients that cannot keep a secret, and the authorization code travels through a terminal. Registration is open because agents are installed per developer rather than registered by us ahead of time; a freshly registered client can only read until a human grants it more in the console. Hookie is the resource server: it verifies the access token offline against WorkOS's signing keys, then applies the grant you set. The token authenticates the same `/admin/api/*` routes the console itself calls, so there is no second, weaker API to learn.

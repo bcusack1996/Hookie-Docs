@@ -1,0 +1,96 @@
+---
+title: "API reference"
+description: "Hookie public HTTP API — ingest and streaming endpoints."
+icon: "code"
+---
+
+Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console — authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/mcp) is acting on your behalf.
+
+## Ingest
+
+```http
+# Path-form endpoint (recommended) — the webhook slug IS the credential
+POST /{workspace}/{project}/{webhook}            # store whole into the endpoint's dataset
+POST /{workspace}/{project}/{webhook}/{dataset}  # …override the dataset
+
+# Ingest-key plane (machine-to-machine) — Authorization by key
+POST /v1/ingest/{ingest_key}            # no dataset → run the project's mapping rules
+POST /v1/ingest/{ingest_key}/{dataset}  # store whole into {dataset}
+POST /v1/webhooks/{ingest_key}/{slug}   # a configured webhook: its own criteria + mappings
+```
+
+Bodies may be JSON, `application/x-www-form-urlencoded`, or `multipart/form-data` — so an HTML form can post straight to an endpoint with no JavaScript (see the [quickstart](/quickstart)). Anything else is read as JSON regardless of its `Content-Type`, which is what most webhook providers send.
+
+Whenever the URL names a dataset — a path-form endpoint, or a trailing `{dataset}` — the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. Endpoints can additionally require an HMAC signature and an IP allowlist.
+
+## Streaming
+
+```http
+GET  /v1/stream                         # live tail (SSE or WebSocket)
+```
+
+See [Live streaming](/streaming) for SSE/WebSocket details and resume.
+
+## Customer portal API
+
+```http
+# Authorization: Bearer <portal token>   (or ?token=…)
+GET  /portal/api/me                     # portal + customer info + event types
+GET  /portal/api/event-types            # datasets the portal exposes
+GET  /portal/api/destinations           # the customer's destinations
+POST /portal/api/destinations           # create (https only; signing secret shown once)
+PUT  /portal/api/destinations/{id}      # enable/disable or change URL
+GET  /portal/api/deliveries             # deliveries to the customer's destinations
+```
+
+A separate, token-authed surface for your _end customers_, scoped to one portal + customer — see [Customer portal](/customer-portal) for issuing tokens and embedding.
+
+## Admin API
+
+The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app — [sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/mcp) reaches the very same routes. Project-scoped resources:
+
+| Resources | Covers |
+| --- | --- |
+| `datasets · submissions · rules · webhooks` | Routing: raw capture, mapping rules, versioned endpoints. |
+| `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. |
+| `sources · triggers · cron-triggers · ws-triggers` | DB polling, AI triggers, scheduled + WebSocket sources. |
+| `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. |
+| `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. |
+| `portals (+ /tokens)` | Customer portals and per-customer access tokens. |
+
+Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` segment:
+
+| Resources | Covers |
+| --- | --- |
+| `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. |
+| `projects` | List, create and manage the projects everything else hangs off. |
+| `audit` | Audit log, with CSV export. |
+| `agents` | Coding agents you have connected over OAuth — list and revoke. |
+| `sso` | SAML configuration (Team plan). |
+| `destination-presets · source-presets` | Integration presets for outbound sinks and sources. |
+| `billing · stream` | Subscription state and the live event tail. |
+
+## Request headers
+
+| Header | Purpose |
+| --- | --- |
+| `Content-Type` | application/json, application/x-www-form-urlencoded, or multipart/form-data on ingest — anything else is read as JSON. |
+| `Idempotency-Key` | Optional. Dedupes retries; the same submission is returned and never double-counted. |
+| `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. |
+| `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` as a connected agent. |
+
+## Response codes
+
+| Status | Meaning |
+| --- | --- |
+| `201 Created` | Event stored and routed. |
+| `200 OK` | Idempotent replay — the original submission is returned. |
+| `400 Bad Request` | Body isn't valid JSON, or isn't a well-formed form encoding. |
+| `401 Unauthorized` | Missing/invalid inbound signature (when required), or missing stream key. |
+| `403 Forbidden` | Source IP not in the allowlist, or an agent token without the scope for this call. |
+| `404 Not Found` | Unknown ingest key or webhook endpoint. |
+| `429 Too Many Requests` | Ingest burst rate limit or the monthly event quota (both send retry_after); on `/v1/stream`, the plan's concurrent-connection cap. |
+
+## Outbound (to your endpoints)
+
+Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered — dedupe on the event id and [verify the signature](/signatures).

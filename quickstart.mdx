@@ -3,45 +3,124 @@ title: "Quickstart"
 description: "Begin with a guide on the fastest path to a successful outcome"
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+Get from zero to a routed event in three steps.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+## 1. Create a project & endpoint
 
-## Prerequisites
+[Sign in](https://app.hookie.ai/) (a free workspace is provisioned automatically), click **Create Project**, then open the project's **Endpoints** tab and **Add Endpoint**. Hookie generates a high-entropy webhook URL — the URL itself is the secret, so anyone who has it can send events:
 
-Before you begin, you must have:
+```http
+https://app.hookie.ai/{workspace}/{project}/{webhook}
+```
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example.
 
-## Get started
+## 2. Send an event
 
-<Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+POST any JSON to your endpoint URL. The whole payload is stored into the endpoint's dataset:
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+```bash
+curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
+  -H "Content-Type: application/json" \
+  -d '{"order":1042,"email":"ada@example.com","total":59.9}'
+```
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+You'll get back the submission id and where it routed:
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+```http
+201 Created
+{
+  "submission_id": "9d3f…",
+  "routed": ["orders"],
+  "records": 1
+}
+```
+
+## Or point an HTML form straight at it
+
+An endpoint accepts what a browser actually posts, so a plain form needs no JavaScript and no backend of your own — set `action` to your endpoint URL and you are done:
+
+```html
+<form action="https://app.hookie.ai/your-workspace/contact/aBcXyz…" method="post">
+  <input name="name" required>
+  <input name="email" type="email" required>
+  <textarea name="message"></textarea>
+  <button>Send</button>
+</form>
+```
+
+The fields arrive as an ordinary record, stored whole into the endpoint's dataset:
+
+```json
+{
+  "name": "Ada Lovelace",
+  "email": "ada@example.com",
+  "message": "Hello, world!"
+}
+```
+
+Both form encodings work — `application/x-www-form-urlencoded` and `multipart/form-data`. A few details worth knowing:
+
+- A field that repeats (checkboxes, a multi-select) becomes an **array** rather than losing all but one value.
+- Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` — it does not become a nested object — so a mapping rule sees exactly what the form sent.
+- A **file** part is recorded as a descriptor and its bytes are discarded. Hookie stores records, not blobs, so you get proof something was attached without the contents:
+  ```json
+  {
+    "email": "grace@example.com",
+    "attachment": { "filename": "report.pdf", "type": "application/pdf", "size": 18244 }
+  }
+  ```
+- Everything else is still parsed as JSON regardless of its `Content-Type`, which is what most webhook providers send.
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  Because the browser navigates to the endpoint on submit, the visitor lands on Hookie's JSON response. For a polished flow, submit with `fetch` and a `FormData` body — that is also a form encoding, so it needs no preflight — then show your own thank-you state.
 </Tip>
+
+## 3. See it in the console
+
+Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab — every id there links to the rest of its chain.
+
+## Safe retries
+
+Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate — and it never counts twice against your quota:
+
+```bash
+curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: order-1042" \
+  -d '{"order":1042,"total":59.9}'
+```
+
+## Prefer a key?
+
+Machine-to-machine senders can also use an **ingest key** (`ik_live_…`, created on the admin API — `POST /admin/api/projects/:id/ingest-keys` — stored hashed and returned once):
+
+```bash
+curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
+  -H "Content-Type: application/json" \
+  -d '{"order":1042,"total":59.9}'
+```
+
+## Route with rules
+
+<Warning>
+  Everything above routes by _address_: the URL names the dataset — an endpoint's own, or the `/{dataset}` segment on the end — and the payload is stored whole. There is nothing to decide, so **rules are not consulted on any of those requests.** Adding a rule and then posting to an endpoint URL is the one thing that looks like it should work and doesn't.
+</Warning>
+
+Rules are for the case where the sender _can't_ say where an event belongs — one stream carrying several kinds of event. They are evaluated by exactly one shape: an ingest key with **no dataset in the path**.
+
+```bash
+curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
+  -H "Content-Type: application/json" \
+  -d '{"type":"refund","order":1042,"total":59.9}'
+```
+
+Every enabled rule in the project is then tried against that payload. A rule's _conditions_ are exact matches on a path (`type` equals `refund`), all of which must hold; its _mappings_ pick fields out into a record of your own shape. Leave conditions empty to match everything, and mappings empty to store the payload whole.
+
+Rules are not first-match: every rule that matches writes its own record, so one event can land in several datasets at once. If none match, the response comes back with `"routed": []` and the raw submission is still captured — find it under **Observability → Submissions**, which is how you tell "no rule matched" from "the event never arrived".
+
+## Next
+
+- [Verify outbound signatures](/signatures) on your receiving endpoint.
+- [Tail the live stream](/streaming) over SSE or WebSocket.
+- [Browse the API reference.](/api-reference)

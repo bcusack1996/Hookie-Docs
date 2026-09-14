@@ -1,0 +1,72 @@
+---
+title: "Verify signatures"
+description: "Verify Hookie's outbound webhook signatures with HMAC-SHA256."
+icon: "signature"
+---
+
+Every outbound delivery is signed with the destination's secret — a `whsec_`-prefixed value Hookie generates when you create the destination. Verify it before trusting the payload.
+
+You never have to write it down. The secret is encrypted at rest and masked in the console, and the destination's **Reveal** button fetches it on demand — an owner or admin only, and every reveal is written to your audit log. Alongside it, **Rotate** issues a new one; the very next delivery is signed with it, so update your receiver first or it will reject deliveries until you do.
+
+## The headers
+
+Each delivery carries:
+
+```http
+Hookie-Signature: t=1718000000,v1=5f2b8c…e11a
+Hookie-Event-Id: 9d3f2a10-…
+Hookie-Delivery-Id: 4c7b…
+```
+
+- `Hookie-Signature` — `t=<unix>,v1=<hex>`, an HMAC-SHA256 (Stripe-style).
+- `Hookie-Event-Id` — the event id; **dedupe on this**, since delivery is at-least-once and unordered.
+- `Hookie-Delivery-Id` — the specific delivery attempt (useful in logs).
+
+## What's signed
+
+The signed string is `<t>.<raw body>` — the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex and compare it to `v1` in constant time.
+
+## Node.js
+
+```js
+const crypto = require("crypto");
+
+// Verify a Hookie outbound webhook signature.
+// header: the raw "Hookie-Signature" value ("t=<unix>,v1=<hex>")
+// rawBody: the exact request body bytes (do NOT re-serialize the JSON)
+function verifyHookie(secret, header, rawBody) {
+  const parts = Object.fromEntries(header.split(",").map((kv) => kv.split("=")));
+  if (!parts.t || !parts.v1) return false;
+  const signed = `${parts.t}.${rawBody}`;
+  const expected = crypto.createHmac("sha256", secret).update(signed).digest("hex");
+  const a = Buffer.from(parts.v1);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+```
+
+## Express handler
+
+```js
+const express = require("express");
+const app = express();
+
+// Capture the RAW body — signature is over the exact bytes.
+app.post("/hook", express.raw({ type: "*/*" }), (req, res) => {
+  const raw = req.body.toString("utf8");
+  const ok = verifyHookie(process.env.HOOKIE_SECRET, req.get("Hookie-Signature"), raw);
+  if (!ok) return res.status(401).end();
+
+  const eventId = req.get("Hookie-Event-Id"); // dedupe on this — delivery is at-least-once
+  const event = JSON.parse(raw);
+  // … handle event …
+  res.status(200).end();
+});
+```
+
+## Notes
+
+- Verify against the **raw bytes** — re-serializing the JSON will change the signature.
+- Reject if the header is missing or `v1` doesn't match. Optionally reject old `t` values to limit replay.
+- Always compare with a constant-time function (`crypto.timingSafeEqual`).
+- A destination's URL is fixed once created — a signature is only meaningful against the URL it was sent to. To move a destination, create the replacement and delete the old one.
