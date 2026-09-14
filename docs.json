@@ -141,5 +141,18 @@
       }
     ]
   },
-  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows."
+  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
+  "api": {
+    "openapi": "https://hookie.ai/openapi.json",
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": [
+        "bash",
+        "javascript",
+        "python"
+      ]
+    }
+  }
 }
