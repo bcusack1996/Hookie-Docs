@@ -19,6 +19,13 @@
         ]
       },
       {
+        "group": "CLI",
+        "icon": "terminal",
+        "pages": [
+          "cli/index"
+        ]
+      },
+      {
         "group": "Guides",
         "icon": "book-open",
         "pages": [
