@@ -46,7 +46,8 @@
           "use-cases/index",
           "use-cases/lead-intake-ai-qualification",
           "use-cases/support-ticket-triage",
-          "use-cases/billing-account-lifecycle"
+          "use-cases/billing-account-lifecycle",
+          "use-cases/product-led-onboarding"
         ]
       },
       {
