@@ -23,7 +23,8 @@
         "icon": "terminal",
         "pages": [
           "cli/index",
-          "cli/local-development"
+          "cli/local-development",
+          "cli/commands"
         ]
       },
       {
