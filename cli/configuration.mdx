@@ -1,0 +1,141 @@
+---
+title: "Configuration"
+description: "hookie.yml, environment variables, profiles and exit codes."
+icon: "gear"
+---
+
+## Your workspace in a file
+
+```yaml hookie.yml
+project: default
+
+endpoints:
+  - name: Checkout
+    slug: checkout
+    dataset: orders
+    enabled: true
+    criteria: [{"path": "type", "equals": "order.created"}]
+
+rules:
+  - name: Normalise totals
+    dataset: orders
+    mappings: [{"path": "data.total_cents", "key": "total_cents"}]
+
+destinations:
+  - name: Warehouse
+    url: https://warehouse.internal/hook
+    dataset_filter: orders,shipments
+```
+
+```bash
+hookie diff  -f hookie.yml     # what apply would change
+hookie apply -f hookie.yml     # do it, after asking
+hookie apply -f hookie.yml --prune   # also delete what the file omits
+```
+
+`project:` in the file wins over `--project`, so a config file is self-describing: you can run it without remembering which project it was for.
+
+## What apply will and will not do
+
+The admin API is not a reconciler, and `apply` does not pretend otherwise.
+
+| | |
+| --- | --- |
+| `+` | **Create** — the resource is in the file and not in the workspace. |
+| `~` | **Update** — something the API can change in place: `enabled`, and a destination's `dataset_filter`. |
+| `!` | **Cannot be changed in place** — reported with the reason, and left alone. |
+| `-` | **Delete** — only with `--prune`, and only for resources the file could have mentioned. |
+
+<Warning>
+  An endpoint PATCH accepts `enabled` and nothing else, so a changed `dataset` shows as `!` rather than silently not happening. Converging on what it can and never mentioning the rest would leave drift that no diff ever surfaces again — which is worse than saying so.
+</Warning>
+
+<Note>
+  **Nothing the file omits is deleted** unless you pass `--prune`. A config file describes part of a workspace far more often than all of it, and the failure mode of assuming otherwise is deleting a colleague's endpoint. A resource the file says nothing about is not even read; an explicit `endpoints: []` is how you say "there should be none".
+</Note>
+
+A run stops at the first failure rather than half-applying in scattered order, and `--json` gives the plan as data so a CI job can gate on it:
+
+```bash
+hookie diff -f hookie.yml --json | jq -e '.changes | map(select(.op != "same")) | length == 0'
+```
+
+## The YAML it reads
+
+Deliberately a **subset**, and it refuses the rest by name and line rather than guessing:
+
+| Supported | Refused |
+| --- | --- |
+| Nested maps, `- ` lists, quoted and bare scalars | Anchors and aliases (`&`, `*`) |
+| `true` / `false` / `null` / numbers | Tags (`!!str`) |
+| `#` comments, including after a value | Merge keys (`<<:`) |
+| Inline `[]` and `{}`, parsed as JSON | Block scalars (`\|`, `>`) |
+| A leading `---` | A second document |
+
+A parser that quietly mis-reads an anchor sends the wrong configuration to a live workspace, which is strictly worse than one that says it cannot read it. **`.json` is accepted too**, and is the escape hatch for anything this will not parse.
+
+## Environment
+
+| Variable | |
+| --- | --- |
+| `HOOKIE_URL` | Which Hookie. Default `http://localhost:8787`. |
+| `HOOKIE_PROJECT_ID` | Default project, skipping the slug lookup. |
+| `HOOKIE_TOKEN` | A bearer token instead of the stored connection. |
+| `HOOKIE_CREDENTIALS` | Where the credential store lives. Default `~/.hookie/credentials.json`. |
+| `HOOKIE_ALLOW_REMOTE=1` | Target a non-local origin with no stored connection. |
+| `HOOKIE_CALLBACK_PORTS` | Loopback ports `hookie login` may bind. |
+
+### Profiles
+
+There is no profile flag, because `HOOKIE_CREDENTIALS` and `HOOKIE_URL` already are one — the credential store is keyed by origin, so one file can hold several environments at once:
+
+```bash
+alias hookie-prod='HOOKIE_URL=https://app.hookie.ai hookie'
+alias hookie-preview='HOOKIE_URL=https://app.preview.hookie.ai hookie'
+
+hookie-prod whoami
+hookie-preview tail --dataset orders
+```
+
+For CI, keep the store out of the picture entirely and pass a token:
+
+```bash
+HOOKIE_URL=https://app.hookie.ai HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
+  hookie diff -f hookie.yml --json
+```
+
+## Exit codes
+
+| | | |
+| --- | --- | --- |
+| 0 | ok | |
+| 1 | unexpected | Something the CLI did not anticipate. |
+| 2 | usage | A bad flag, a missing argument, a file that will not parse. |
+| 3 | auth | Nothing connected, or the connection was revoked. |
+| 4 | not found | |
+| 5 | validation | The server rejected the request. |
+| 6 | network | The request never got a verdict — unreachable, `429`, or `5xx`. |
+
+`6` groups the three cases where retrying the identical command is the reasonable next move, so a script needs one test rather than three.
+
+```bash
+if ! hookie deliveries search --status failed --since 1h --json > out.json; then
+  case $? in
+    3) echo "reconnect: hookie login" >&2 ;;
+    6) echo "transient — retrying" >&2; sleep 30; exec "$0" "$@" ;;
+    *) exit $? ;;
+  esac
+fi
+```
+
+<Note>
+  A destructive command on a non-interactive stdin **refuses** rather than assuming yes. A CI job that means it passes `--yes`; one that did not mean to gets an error instead of a deletion.
+</Note>
+
+## Credentials on disk
+
+`~/.hookie/credentials.json`, mode `0600`, one entry per origin, written through a temp file and a rename so a crash cannot leave a half-written store. It holds the access token, the refresh token and the OAuth client registration.
+
+`hookie logout` drops the tokens and **keeps** the client registration, so reconnecting reuses the same OAuth client instead of adding another row to **Settings → Connected agents**. `hookie logout --all --purge` is not a thing; to remove a registration too, delete the file.
+
+The access token is refreshed before it expires, and a refresh shared between concurrent commands is only spent once. If the token endpoint is unreachable you are told that, rather than being told to reconnect — reconnecting needs the same endpoint.

@@ -24,7 +24,8 @@
         "pages": [
           "cli/index",
           "cli/local-development",
-          "cli/commands"
+          "cli/commands",
+          "cli/configuration"
         ]
       },
       {
