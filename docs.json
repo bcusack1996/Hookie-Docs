@@ -22,7 +22,8 @@
         "group": "CLI",
         "icon": "terminal",
         "pages": [
-          "cli/index"
+          "cli/index",
+          "cli/local-development"
         ]
       },
       {
