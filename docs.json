@@ -45,7 +45,8 @@
         "pages": [
           "use-cases/index",
           "use-cases/lead-intake-ai-qualification",
-          "use-cases/support-ticket-triage"
+          "use-cases/support-ticket-triage",
+          "use-cases/billing-account-lifecycle"
         ]
       },
       {
