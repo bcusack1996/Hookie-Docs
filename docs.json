@@ -44,7 +44,8 @@
         "icon": "lightbulb",
         "pages": [
           "use-cases/index",
-          "use-cases/lead-intake-ai-qualification"
+          "use-cases/lead-intake-ai-qualification",
+          "use-cases/support-ticket-triage"
         ]
       },
       {
