@@ -89,7 +89,7 @@ Every delivery is a POST of exactly this body:
 
 Signed with `Hookie-Signature: t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` using the destination's signing secret. Hookie generates that secret on create and shows it once; an owner or admin can reveal or rotate it later, and both are audited. Alongside it: `Hookie-Event-Id`, `Hookie-Delivery-Id`, `Idempotency-Key` (the record id, so a retry is safe to de-duplicate on) and `User-Agent: Hookie/1.0`.
 
-A non-2xx answer or a connection error is retried with exponential backoff up to 8 attempts, then dead-lettered. Your status code, the latency, and the first 16 KB of your response body are recorded against the delivery — which is what tells "my handler threw" apart from "a load balancer served an nginx 502". You can replay a delivery later, once whatever was broken is fixed.
+A non-2xx answer or a connection error is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h — eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends, then dead-lettered. Your status code, the latency, and the first 16 KB of your response body are recorded against the delivery — which is what tells "my handler threw" apart from "a load balancer served an nginx 502". You can replay a delivery later, once whatever was broken is fixed.
 
 ## Where Hookie stops, and what your service does
 
@@ -120,7 +120,7 @@ export async function onHookieDelivery(req, secret) {
 }
 ```
 
-One more thing you will see in the console: creating a destination offers Slack, Datadog, email and generic-endpoint presets. Picking one pre-fills the destination's *name* and shows that integration's URL as a greyed-out placeholder you still have to type over. Nothing else about the destination changes. They are not integrations: whatever the preset is called, what arrives at that URL is the fixed event body above.
+One more thing you will see in the console: **Add from preset** lists Slack, Datadog and email as well as a generic HTTPS endpoint, but only the generic one can be picked. The other three need their own request body or an API-key header, which a destination cannot send, so they are shown as *not available yet*, with the reason. The way to reach any of them today is the one this page describes: a small service of your own that receives Hookie's signed event and makes the call.
 
 ## A worked example
 

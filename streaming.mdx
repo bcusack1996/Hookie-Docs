@@ -61,9 +61,9 @@ wscat -c "wss://app.hookie.ai/v1/stream?key=ik_live_xxx&after_seq=4180"
 
 Signed-in users get the same stream over the session-authenticated `/admin/api/stream` endpoint — no ingest key required, same SSE and WebSocket behaviour, same resume. It is the endpoint to point a dashboard of your own at when you already have a browser session and would rather not mint an ingest key for it.
 
-The console itself does _not_ tail it. Its views read what has already landed: **Datasets** for routed records, and **Observability** for paged search across records, the raw submissions behind them, deliveries and AI runs — plus the correlation lookup that stitches one id's whole chain together. Refresh to see new arrivals.
+The console itself does _not_ tail it. Its views read what has already landed: **Datasets** for routed records, and **Observability** for paged search across records, the raw submissions behind them, deliveries and AI runs — plus the correlation lookup that stitches one id's whole chain together. Each view's **Refresh** button fetches new arrivals, and says when it last did.
 
 ## Limits
 
 - Concurrent connections are capped per plan (Free: 1, Pro: 5, Team: 20).
-- Authenticate with any active ingest key for the tenant (read-only tail; it never exposes stored data).
+- Authenticate with an active ingest key (read-only tail; it never exposes stored data). A key streams **its own project's events only**: `project_id` is optional, and naming any other project answers `403`.
