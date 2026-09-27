@@ -1,0 +1,105 @@
+---
+title: "CLI"
+sidebarTitle: "Overview"
+description: "Forward live events to localhost with no tunnel, and script everything the console can do."
+icon: "terminal"
+---
+
+The `hookie` CLI does two things the console cannot.
+
+**Development.** Getting a live event into the code you are writing used to mean a tunnel or a deploy. `hookie listen` forwards your real workspace's events to a port on your laptop, authenticated by the same OAuth connection a coding agent uses — no public URL, no third-party relay.
+
+**Management.** `--json` on every command, a real exit code when something fails, and a `hookie.yml` you can review in a pull request.
+
+```bash
+hookie login
+hookie listen --forward http://localhost:3000/webhook
+```
+
+## Install
+
+Node 20 or newer. No build step and no dependencies outside the Hookie repository.
+
+<CodeGroup>
+
+```bash npm
+npm i -g @hookie/cli
+hookie --version
+```
+
+```bash From the repository
+git clone https://github.com/bcusack1996/hookie-ai
+cd hookie-ai && npm ci
+node tools/hookie-cli/bin/hookie.mjs --version
+```
+
+</CodeGroup>
+
+## Sign in
+
+```bash
+hookie login --url https://app.hookie.ai
+```
+
+That opens Hookie in your browser, waits for you to approve the connection, and stores the resulting token in `~/.hookie/credentials.json` with mode `0600`. Nothing is pasted anywhere: it is the standard OAuth 2.1 authorization-code flow with PKCE, the same one [connected agents](/connected-agents) use, so `hookie login` and an agent you connect share one credential store.
+
+<Note>
+  A new connection starts **read-only**. Widen it in **Settings → Connected agents**, where you can also revoke it — immediately, and per connection. A CLI connection appears in that list exactly like an agent, because it is one.
+</Note>
+
+Three more commands round that out:
+
+| Command | What it does |
+| --- | --- |
+| `hookie whoami` | One request, and the one command that proves the whole chain works — credential, refresh, scopes, workspace. |
+| `hookie status` | What is stored on this machine. Offline, so it answers with the network down. |
+| `hookie logout` | Forgets the local token. Add `--all` for every origin. |
+
+`hookie logout` keeps the registered OAuth client so the next `hookie login` reuses it instead of adding another row to your agent list. Revoke it on the server too if you mean to cut it off there.
+
+## Which Hookie, which project
+
+```bash
+hookie --url https://app.hookie.ai --project growth endpoints list
+```
+
+`--url` defaults to `$HOOKIE_URL`, then `http://localhost:8787` — a local `wrangler dev`. `--project` takes a **slug or an id**; with neither, commands use your workspace's Default project.
+
+<Warning>
+  Pointing at a non-local origin needs either a stored connection for that exact origin or `HOOKIE_ALLOW_REMOTE=1`. That gate exists so a stray `HOOKIE_URL` cannot aim a development command at production by accident.
+</Warning>
+
+## What it will and will not print
+
+stdout is **data**; stderr is progress, warnings and prompts. So `hookie endpoints list --json | jq` works, and so does redirecting stdout while still watching what happens.
+
+| Flag | Effect |
+| --- | --- |
+| `--json` | Machine-readable on stdout. `tail` and `listen` print one line per event. |
+| `--reveal` | Print secret values. Ingest-key plaintext and destination signing secrets are redacted without it. |
+| `--redact` | Also hide endpoint URLs, for output that is going somewhere else. |
+| `--yes` | Do not ask before a destructive change. |
+| `--quiet` | Nothing on stderr. |
+
+<Warning>
+  An endpoint's public URL **is** a credential — the slug in it is what authenticates the request. It is printed by default anyway, because it is the point of `hookie endpoints create`, and the CLI says so on stderr when it does. Use `--redact` when the output is going into a ticket, a log or a chat.
+</Warning>
+
+A destructive command asks first. On a non-interactive stdin it **refuses** rather than assuming yes — a CI job that means it passes `--yes`, and one that did not mean to gets an error instead of a deletion.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Local development" icon="laptop-code" href="/cli/local-development">
+    listen, tail, send and replay — the loop that replaces a tunnel.
+  </Card>
+  <Card title="Command reference" icon="list" href="/cli/commands">
+    Every command, generated from the same catalog the CLI builds itself from.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    hookie.yml, environment variables and exit codes.
+  </Card>
+  <Card title="Connected agents" icon="plug" href="/connected-agents">
+    The same OAuth connection, from your coding agent instead.
+  </Card>
+</CardGroup>

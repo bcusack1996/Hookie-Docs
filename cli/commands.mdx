@@ -1,0 +1,194 @@
+---
+title: "Command reference"
+description: "Every hookie command, generated from the same tool catalog the CLI builds itself from."
+icon: "list"
+---
+
+Most of this CLI is **generated**. Commands, flags, help text and validation all come from the tool catalog that also defines what a [connected agent](/connected-agents) can do — so the console, your agent and your terminal are one API, and a new capability appears in all three at once rather than in whichever one someone remembered.
+
+Which is also why this page is worth trusting: it is produced from that catalog rather than written alongside it.
+
+## Reading it
+
+```bash
+hookie <group> <verb> [flags]
+hookie <group>                 # means <group> list
+hookie <group> <verb> --help   # the flags, their types, and which are required
+```
+
+- `*` marks a **required** flag.
+- ⚠️ marks a command that **asks before acting**. That gate reads the tool's own annotation, never the word "delete": `hookie workflows delete` only deactivates and an update undoes it, while `hookie keys revoke` destroys a credential and has no "delete" in its name.
+- A flag name is the API field in kebab case, so `webhook_id` is `--webhook-id`. Where two sibling routes spell the same field differently — create takes `datasetFilter`, update takes `dataset_filter` — the **flag** is the same on both and the CLI sends whichever spelling that route wants.
+- **An unknown flag is an error**, with a suggestion. `--datset orders` would otherwise be a successful call that quietly did the wrong thing.
+
+Every command also takes the global flags: `--url`, `--project`, `--json`, `--reveal`, `--redact`, `--yes`, `--quiet`.
+
+<Note>
+  `--project` takes a **slug or an id**, and with neither it uses your workspace's Default project. There is deliberately no `--project-id`: two ways to say the same thing, one of which silently 404s on a slug, is worse than one.
+</Note>
+
+## Hand-written commands
+
+These are not single API calls, so they are not generated. [Local development](/cli/local-development) covers them in full.
+
+| Command | |
+| --- | --- |
+| `hookie login` · `logout` · `whoami` · `status` | Connect this machine, and see what it is connected to. |
+| `hookie listen --forward <url>` | Live events → a port on your laptop. |
+| `hookie tail` | Watch the stream. |
+| `hookie send --endpoint <x> --data @f.json` | Post one event to the public ingest plane. |
+| `hookie replay <id>` · `replay --since 1h --failed` | Redeliver one, or a window. |
+| `hookie open --project x --tab deliveries` | Open the console where you are looking. |
+| `hookie apply -f hookie.yml` · `hookie diff -f hookie.yml` | See [Configuration](/cli/configuration). |
+
+## Generated commands
+
+### datasets
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie datasets list` | `—` | The datasets in a project, with per-dataset record counts. |
+| `hookie datasets query` | `--dataset*` | Recent records from a dataset, newest first. |
+
+### deliveries
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie deliveries list` | `—` | Recent outbound deliveries for a project — status, response code, destination. |
+| `hookie deliveries get` | `--delivery-id*` | One delivery in full, including the stored request and response body. |
+| `hookie deliveries search` | `--status --destination-id --response-code --min-latency-ms --since --until --limit --offset` | Search deliveries with filters and paging. |
+| `hookie deliveries replay` | `--delivery-id*` | Re-queue a past delivery to its destination. |
+
+### destinations
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie destinations list` | `—` | A project's outbound destinations. |
+| `hookie destinations create` | `--name* --url* --dataset-filter` | Create an outbound destination. |
+| `hookie destinations update` | `--destination-id* --enabled --dataset-filter` | Enable/disable a destination, or change which datasets it receives. |
+| `hookie destinations delete` ⚠️ | `--destination-id*` | Delete a destination. |
+
+### endpoints
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie endpoints list` | `—` | A project's webhook endpoints. |
+| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled` | Create a webhook endpoint. |
+| `hookie endpoints update` | `--webhook-id* --enabled*` | Enable or disable a webhook endpoint. |
+| `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
+
+### events
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie events search` | `--q --dataset --since --until --limit --offset` | Search stored records across datasets, with a free-text term, a dataset filter, a time window and paging. |
+
+### keys
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie keys list` | `—` | This project's ingest keys, metadata only — never the full token. |
+| `hookie keys create` | `--name* --dataset-default --require-signature` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. |
+| `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |
+
+### projects
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie projects list` | `—` | List the projects in the workspace. |
+| `hookie projects get` | `—` | A project's details plus its dataset summary. |
+| `hookie projects create` | `--name* --type` | Create a project. |
+
+### records
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie records query` | `--webhook-id* --view --limit` | Records received by one endpoint, as a table. |
+| `hookie records get` | `--record-id*` | One record in full, including fields no view selected. |
+
+### rules
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie rules list` | `—` | A project's mapping rules. |
+| `hookie rules create` | `--name* --dataset* --conditions --mappings --enabled` | Create a mapping rule. Empty conditions match everything; empty mappings pass the payload through. |
+| `hookie rules update` | `--rule-id* --enabled*` | Enable or disable a mapping rule. |
+| `hookie rules delete` ⚠️ | `--rule-id*` | Delete a mapping rule. |
+
+### sources
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie sources list` | `—` | This project's source connectors, with their last run and last error. |
+
+### submissions
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie submissions search` | `--q --since --until --limit --offset` | Search raw submissions — the body exactly as it arrived, before any rule reshaped it. |
+
+### triggers
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie triggers list` | `—` | This project's AI triggers — what each one matches and what it does when it fires. |
+
+### views
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie views list` | `--webhook-id` | The saved table views for a project. |
+| `hookie views create` | `--webhook-id* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for an endpoint. |
+| `hookie views delete` ⚠️ | `--view-id*` | Delete a saved table view. |
+
+### workflows
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie workflows list` | `—` | Workflow definitions in a project. |
+| `hookie workflows get` | `--workflow-id*` | One workflow definition in full: entry dataset, entry conditions and every step. |
+| `hookie workflows runs` | `--workflow-id* --state` | Instances of one workflow, newest first. |
+| `hookie workflows run` | `--instance-id*` | One instance with its per-step event log — which branch was taken, and where it stopped. |
+| `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow. |
+| `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | **Replace** a workflow's definition. |
+| `hookie workflows delete` | `--workflow-id*` | **Deactivate** a workflow. An update with `--active` turns it back on. |
+
+### workspace
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie workspace get` | `—` | The current workspace: its slug, id, your role and plan. |
+
+## Two that are narrower than they look
+
+`hookie workflows update` is a **full replace**, not a patch — which is why `--name`, `--entry-dataset` and `--steps` are all required. Omitting one would drop it. Read the current definition first:
+
+```bash
+hookie workflows get --workflow-id wf_123 --json > wf.json
+# edit wf.json, then send the whole thing back
+hookie workflows update --workflow-id wf_123 \
+  --name "$(jq -r .name wf.json)" \
+  --entry-dataset "$(jq -r .entry_dataset wf.json)" \
+  --steps @wf-steps.json
+```
+
+`hookie endpoints update` and `hookie rules update` only toggle `enabled`. An endpoint's slug is the credential in its public URL, and its criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. To change one, create the replacement and delete the old one.
+
+## JSON flags
+
+A flag whose value is a list or an object takes JSON, or `@file.json` to read it from disk — which is how a workflow's steps get past your shell's quoting:
+
+```bash
+hookie rules create --name Orders --dataset orders \
+  --conditions '[{"path":"type","equals":"order.created"}]' \
+  --mappings @mappings.json
+
+hookie workflows create --name Scoring --entry-dataset leads --steps @steps.json
+```
+
+A list of plain strings also takes a comma-separated list, because `'["orders","shipments"]'` is a quoting puzzle with no upside:
+
+```bash
+hookie destinations create --name Warehouse --url https://wh.internal/h --dataset-filter orders,shipments
+hookie destinations update --destination-id d_1 --dataset-filter null   # null means all datasets
+```

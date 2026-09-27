@@ -19,6 +19,16 @@
         ]
       },
       {
+        "group": "CLI",
+        "icon": "terminal",
+        "pages": [
+          "cli/index",
+          "cli/local-development",
+          "cli/commands",
+          "cli/configuration"
+        ]
+      },
+      {
         "group": "Guides",
         "icon": "book-open",
         "pages": [
@@ -27,6 +37,17 @@
           "workflows",
           "customer-portal",
           "connected-agents"
+        ]
+      },
+      {
+        "group": "Use Cases",
+        "icon": "lightbulb",
+        "pages": [
+          "use-cases/index",
+          "use-cases/lead-intake-ai-qualification",
+          "use-cases/support-ticket-triage",
+          "use-cases/billing-account-lifecycle",
+          "use-cases/product-led-onboarding"
         ]
       },
       {

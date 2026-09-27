@@ -117,8 +117,22 @@ Every enabled rule in the project is then tried against that payload. A rule's _
 
 Rules are not first-match: every rule that matches writes its own record, so one event can land in several datasets at once. If none match, the response comes back with `"routed": []` and the raw submission is still captured — find it under **Observability → Submissions**, which is how you tell "no rule matched" from "the event never arrived".
 
+## Developing against it
+
+Once an endpoint exists, you do not need a tunnel to build against it. The CLI forwards your workspace's live events to whatever you are running locally:
+
+```bash
+npm i -g @hookie/cli
+hookie login
+hookie listen --forward http://localhost:3000/webhook
+```
+
+Your endpoint URL stays the one you already configured — the CLI carries the events the last hop. See [Local development](/cli/local-development).
+
 ## Next
 
 - [Verify outbound signatures](/signatures) on your receiving endpoint.
 - [Tail the live stream](/streaming) over SSE or WebSocket.
+- [Use the CLI](/cli) to script the console, or [connect a coding agent](/connected-agents) to build the pipeline for you.
+- [See what people build with it.](/use-cases)
 - [Browse the API reference.](/api-reference)
