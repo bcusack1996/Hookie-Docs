@@ -4,10 +4,10 @@ description: "Tail Hookie events in real time over SSE or WebSocket, with resume
 icon: "radio"
 ---
 
-Watch events as they arrive — over **Server-Sent Events** or a **WebSocket**. Use it for live dashboards, tailing, and dev feedback.
+Watch events as they arrive over **Server-Sent Events** or a **WebSocket**. Use it for live dashboards, tailing, and dev feedback.
 
 <Warning>
-  Best-effort & lossy by design — the durable delivery guarantee is signed outbound webhooks. Use the stream to _observe_, not to guarantee receipt.
+  Best-effort and lossy by design: the durable delivery guarantee is signed outbound webhooks. Use the stream to _observe_, not to guarantee receipt.
 </Warning>
 
 ## Server-Sent Events
@@ -59,11 +59,11 @@ wscat -c "wss://app.hookie.ai/v1/stream?key=ik_live_xxx&after_seq=4180"
 
 ## From the console
 
-Signed-in users get the same stream over the session-authenticated `/admin/api/stream` endpoint — no ingest key required, same SSE and WebSocket behaviour, same resume. It is the endpoint to point a dashboard of your own at when you already have a browser session and would rather not mint an ingest key for it.
+Signed-in users get the same stream over the session-authenticated `/admin/api/stream` endpoint: no ingest key required, same SSE and WebSocket behavior, same resume. It is the endpoint to point a dashboard of your own at when you already have a browser session and would rather not mint an ingest key for it.
 
-The console itself does _not_ tail it. Its views read what has already landed: **Datasets** for routed records, and **Observability** for paged search across records, the raw submissions behind them, deliveries and AI runs — plus the correlation lookup that stitches one id's whole chain together. Refresh to see new arrivals.
+The console itself does _not_ tail it. Its views read what has already landed: **Datasets** for routed records, and **Observability** for paged search across records, the raw submissions behind them, deliveries, and AI runs, plus the correlation lookup that stitches one ID's whole chain together. Refresh to see new arrivals.
 
 ## Limits
 
 - Concurrent connections are capped per plan (Free: 1, Pro: 5, Team: 20).
-- Authenticate with any active ingest key for the tenant (read-only tail; it never exposes stored data).
+- Authenticate with any active ingest key for the tenant. The stream is a read-only tail and never exposes stored data.
