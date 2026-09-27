@@ -15,7 +15,18 @@
         "icon": "rocket",
         "pages": [
           "index",
-          "quickstart"
+          "quickstart",
+          {
+            "group": "Use Cases",
+            "icon": "lightbulb",
+            "pages": [
+              "use-cases/index",
+              "use-cases/lead-intake-ai-qualification",
+              "use-cases/support-ticket-triage",
+              "use-cases/billing-account-lifecycle",
+              "use-cases/product-led-onboarding"
+            ]
+          }
         ]
       },
       {
@@ -37,17 +48,6 @@
           "workflows",
           "customer-portal",
           "connected-agents"
-        ]
-      },
-      {
-        "group": "Use Cases",
-        "icon": "lightbulb",
-        "pages": [
-          "use-cases/index",
-          "use-cases/lead-intake-ai-qualification",
-          "use-cases/support-ticket-triage",
-          "use-cases/billing-account-lifecycle",
-          "use-cases/product-led-onboarding"
         ]
       },
       {
