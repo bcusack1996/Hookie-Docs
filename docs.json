@@ -47,16 +47,14 @@
           "streaming",
           "workflows",
           "customer-portal",
-          "connected-agents"
+          "connected-agents",
+          "api-reference"
         ]
       },
       {
         "group": "API reference",
         "icon": "terminal",
-        "openapi": "openapi.json",
-        "pages": [
-          "api-reference"
-        ]
+        "openapi": "openapi.json"
       }
     ]
   },

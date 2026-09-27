@@ -8,17 +8,6 @@ Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authe
 
 ## Ingest
 
-```http
-# Path-form endpoint (recommended) — the webhook slug IS the credential
-POST /{workspace}/{project}/{webhook}            # store whole into the endpoint's dataset
-POST /{workspace}/{project}/{webhook}/{dataset}  # same; {dataset} must be the endpoint's own (else 403)
-
-# Ingest-key plane (machine-to-machine) — Authorization by key
-POST /v1/ingest/{ingest_key}            # no dataset → run the project's mapping rules
-POST /v1/ingest/{ingest_key}/{dataset}  # store whole into {dataset}
-POST /v1/webhooks/{ingest_key}/{slug}   # a configured webhook: its own criteria + mappings
-```
-
 Bodies may be JSON, `application/x-www-form-urlencoded`, or `multipart/form-data`, so an HTML form can post straight to an endpoint with no JavaScript (see the [quickstart](/quickstart)). Anything else is read as JSON regardless of its `Content-Type`, which is what most webhook providers send.
 
 Whenever the URL names a dataset (a path-form endpoint, or a trailing `{dataset}`), the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project. To send one source into several datasets, use an ingest key. An ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the key, the project and the workspace.
