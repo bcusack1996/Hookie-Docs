@@ -101,7 +101,7 @@ hookie replay --since 2026-09-26T09:00:00Z --until 2026-09-26T11:00:00Z --failed
 The bulk form searches deliveries and replays each match, because the server replays one at a time and has no bulk route — this is the CLI doing the loop rather than pretending an endpoint exists. It asks first, since every replay sends a real request to a real destination.
 
 <Note>
-  **A replay cannot itself be replayed.** The source row's event id already carries a `#replay:` marker, so a second one would be rejected. The CLI detects those, skips them, and says how many it skipped — rather than emitting deliveries that are guaranteed to fail.
+  **Each event is replayed once per destination.** Replaying a replay works — the server resolves it to the original record — so the CLI sends one replay for each event and destination, however many failed attempts it had, and skips deliveries that are still being retried automatically. It says how many it skipped and why. An event that is past your plan's retention can't be replayed; the server answers `409`.
 </Note>
 
 If a destination starts pushing back with `429`, the run stops there rather than piling on.

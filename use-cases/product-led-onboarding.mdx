@@ -133,7 +133,7 @@ Every delivery is a POST of exactly this body:
 }
 ```
 
-Signed with `Hookie-Signature: t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` using that destination's secret, alongside `Hookie-Event-Id`, `Hookie-Delivery-Id`, `Idempotency-Key` (the record id, so your handler can de-duplicate a retry) and `User-Agent: Hookie/1.0`. A non-2xx answer or a connection error is retried with backoff up to 8 attempts, then dead-lettered. Your status code, latency and the first 16 KB of your response body are recorded against the delivery, and you can replay it once whatever broke is fixed.
+Signed with `Hookie-Signature: t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` using that destination's secret, alongside `Hookie-Event-Id`, `Hookie-Delivery-Id`, `Idempotency-Key` (the record id, so your handler can de-duplicate a retry) and `User-Agent: Hookie/1.0`. A non-2xx answer or a connection error is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h — eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends, then dead-lettered. Your status code, latency and the first 16 KB of your response body are recorded against the delivery, and you can replay it once whatever broke is fixed.
 
 ## Where Hookie stops, and what your service does
 

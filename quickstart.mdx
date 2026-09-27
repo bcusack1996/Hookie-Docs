@@ -106,7 +106,7 @@ curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
 ## Route with rules
 
 <Warning>
-  Everything above routes by _address_: the URL names the dataset (an endpoint's own, or the `/{dataset}` segment on the end), and the payload is stored whole. There is nothing to decide, so **rules are not consulted on any of those requests.** Adding a rule and then posting to an endpoint URL is the one thing that looks like it should work and doesn't.
+  Everything above routes by _address_: the URL names the dataset (the endpoint's own; a trailing `/{dataset}` may repeat it, and naming any other dataset is refused with `403`), and the payload is stored whole. There is nothing to decide, so **rules are not consulted on any of those requests.** Adding a rule and then posting to an endpoint URL is the one thing that looks like it should work and doesn't.
 </Warning>
 
 Rules are for the case where the sender _can't_ say where an event belongs, such as one stream carrying several kinds of event. They are evaluated by exactly one shape: an ingest key with **no dataset in the path**.

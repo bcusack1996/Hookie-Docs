@@ -11,7 +11,7 @@ Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authe
 ```http
 # Path-form endpoint (recommended) — the webhook slug IS the credential
 POST /{workspace}/{project}/{webhook}            # store whole into the endpoint's dataset
-POST /{workspace}/{project}/{webhook}/{dataset}  # …override the dataset
+POST /{workspace}/{project}/{webhook}/{dataset}  # same; {dataset} must be the endpoint's own (else 403)
 
 # Ingest-key plane (machine-to-machine) — Authorization by key
 POST /v1/ingest/{ingest_key}            # no dataset → run the project's mapping rules
@@ -21,7 +21,7 @@ POST /v1/webhooks/{ingest_key}/{slug}   # a configured webhook: its own criteria
 
 Bodies may be JSON, `application/x-www-form-urlencoded`, or `multipart/form-data`, so an HTML form can post straight to an endpoint with no JavaScript (see the [quickstart](/quickstart)). Anything else is read as JSON regardless of its `Content-Type`, which is what most webhook providers send.
 
-Whenever the URL names a dataset (a path-form endpoint, or a trailing `{dataset}`), the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. Endpoints can additionally require an HMAC signature and an IP allowlist.
+Whenever the URL names a dataset (a path-form endpoint, or a trailing `{dataset}`), the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project. To send one source into several datasets, use an ingest key. An ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the key, the project and the workspace.
 
 ## Streaming
 
@@ -76,7 +76,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | --- | --- |
 | `Content-Type` | application/json, application/x-www-form-urlencoded, or multipart/form-data on ingest. Anything else is read as JSON. |
 | `Idempotency-Key` | Optional. Dedupes retries; the same submission is returned and never double-counted. |
-| `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. |
+| `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. `t` must be within 5 minutes of now, and several `v1=` values may be sent while you rotate the secret. |
 | `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` as a connected agent. |
 
 ## Response codes
@@ -93,4 +93,4 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 
 ## Outbound (to your endpoints)
 
-Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures).
+Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A failed attempt is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends); then the delivery is marked `dead` and can be replayed. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, and events from cron and WebSocket triggers, fan out exactly like ingested ones.

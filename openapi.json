@@ -376,7 +376,7 @@
     "/{workspace}/{project}/{webhook}/{dataset}": {
       "post": {
         "operationId": "ingestPathFormToDataset",
-        "summary": "Ingest an event through the public webhook URL, overriding the dataset",
+        "summary": "Ingest an event through the public webhook URL, naming its dataset",
         "tags": [
           "Ingest"
         ],
@@ -448,11 +448,19 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 the client IP failed the webhook allowlist or the tenant allowlist.",
+            "description": "The fourth segment names a dataset other than the endpoint's own.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -514,7 +522,7 @@
             }
           }
         },
-        "description": "Four-segment form of the public webhook URL. POST only (index.ts:190); other methods fall through to the SPA. The fourth segment overrides the webhook's configured dataset for this request only.",
+        "description": "Four-segment form of the public webhook URL. POST only (index.ts:190); other methods fall through to the SPA. The fourth segment must be the endpoint's OWN dataset: any other value is refused with 403. It used to override the dataset with any dataset in the project, which let anyone holding a public endpoint URL (one embedded in an HTML form, say) write into every dataset in the project and set off its destinations, triggers and workflows. To route one source into several datasets, use an ingest key: POST /v1/ingest/{ingest_key}/{dataset}.",
         "parameters": [
           {
             "name": "workspace",
@@ -2195,16 +2203,16 @@
     "/v1/stream": {
       "get": {
         "operationId": "streamEvents",
-        "summary": "Tail the tenant's live event stream over SSE or WebSocket",
+        "summary": "Tail the ingest key's project live event stream over SSE or WebSocket",
         "tags": [
           "Streaming"
         ],
         "responses": {
           "101": {
-            "description": "WebSocket upgrade accepted (the request carried 'Upgrade: websocket'). Each live event arrives as one JSON text frame: {seq, id, dataset, received_at, data}. When a resume cursor was supplied and part of the requested window had been evicted, a {\"type\":\"stream-gap\",\"missed_from\":<int>,\"resume_from\":<int>} frame is sent first, followed by the replayable buffered events. The socket is hibernatable and answers a 'ping' text frame with 'pong'. The live path is lossy by contract \u2014 durable delivery is the outbound-delivery queue, not this stream."
+            "description": "WebSocket upgrade accepted (the request carried 'Upgrade: websocket'). Each live event arrives as one JSON text frame: {seq, id, dataset, received_at, data, project_id, webhook_id}. When a resume cursor was supplied and part of the requested window had been evicted, a {\"type\":\"stream-gap\",\"missed_from\":<int>,\"resume_from\":<int>} frame is sent first, followed by the replayable buffered events. The socket is hibernatable and answers a 'ping' text frame with 'pong'. The live path is lossy by contract \u2014 durable delivery is the outbound-delivery queue, not this stream."
           },
           "200": {
-            "description": "Server-sent event stream (no Upgrade header). Frames: ': connected' on open, ': keep-alive' every 25 seconds, one 'id: <seq>\\ndata: <json>\\n\\n' frame per event where the JSON is {seq, id, dataset, received_at, data}, and \u2014 on a resume that missed evicted events \u2014 an un-ided 'event: stream-gap\\ndata: {\"missed_from\":<int>,\"resume_from\":<int>}' control frame. A subscriber that stops draining is dropped once its backlog runs past the stream's high-water mark.",
+            "description": "Server-sent event stream (no Upgrade header). Frames: ': connected' on open, ': keep-alive' every 25 seconds, one 'id: <seq>\\ndata: <json>\\n\\n' frame per event where the JSON is {seq, id, dataset, received_at, data, project_id, webhook_id}, and \u2014 on a resume that missed evicted events \u2014 an un-ided 'event: stream-gap\\ndata: {\"missed_from\":<int>,\"resume_from\":<int>}' control frame. A subscriber that stops draining is dropped once its backlog runs past the stream's high-water mark.",
             "headers": {
               "X-Accel-Buffering": {
                 "description": "Always 'no' \u2014 disables proxy/CDN buffering so events flush immediately.",
@@ -2251,11 +2259,19 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 the Cloudflare client IP must satisfy both the key's allowlist and the tenant's (an empty allowlist matches everything). Unlike ingest, this block is not written to the audit log.",
+            "description": "The request named a project_id other than the key's own, the key has no project (a pre-projects key; create a new one), or the source IP is outside the key's or workspace's allowlist.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2309,7 +2325,7 @@
             }
           }
         },
-        "description": "Read-only live tail of every event fanned out for the key's tenant. It never exposes stored records or the admin API, and it is not project-scoped \u2014 it carries the whole tenant's stream. GET only: any other method returns 405 {\"error\":\"Use GET\"}.",
+        "description": "Read-only live tail of every event fanned out in the key's PROJECT. It never exposes stored records or the admin API. An ingest key belongs to one project, and the stream it opens is pinned to that project: it cannot be widened by leaving project_id off, and naming a different project is a 403. Narrow further with dataset. GET only: any other method returns 405 {\"error\":\"Use GET\"}.",
         "parameters": [
           {
             "name": "key",
@@ -2350,6 +2366,24 @@
               "enum": [
                 "websocket"
               ]
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "description": "Optional, and only ever the key's own project: the stream is already pinned to it, so this can only restate it. Naming a different project returns 403 {\"error\":\"An ingest key can only stream its own project.\"}. STRICT: an event with no project (a workflow instance outside one) never reaches a key's stream.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataset",
+            "in": "query",
+            "required": false,
+            "description": "Only deliver events in this dataset. Combines with project_id \u2014 both have to match. Applied server-side for the same reason.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2415,7 +2449,7 @@
                   "portal": {
                     "name": "Acme Webhooks",
                     "branding": {
-                      "color": "#8B5CF6"
+                      "color": "#2B56A1"
                     }
                   },
                   "customer_id": "cus_9182",
@@ -3509,6 +3543,176 @@
                 "agent_runs"
               ],
               "default": "events"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/api/stream": {
+      "get": {
+        "operationId": "adminStreamEvents",
+        "summary": "Tail the current workspace's live event stream over SSE or WebSocket",
+        "tags": [
+          "Streaming"
+        ],
+        "responses": {
+          "101": {
+            "description": "WebSocket upgrade accepted (the request carried 'Upgrade: websocket'). Each live event arrives as one JSON text frame: {seq, id, dataset, received_at, data, project_id, webhook_id}. When a resume cursor was supplied and part of the requested window had been evicted, a {\"type\":\"stream-gap\",\"missed_from\":<int>,\"resume_from\":<int>} frame is sent first, followed by the replayable buffered events. The socket is hibernatable and answers a 'ping' text frame with 'pong'. The live path is lossy by contract \u2014 durable delivery is the outbound-delivery queue, not this stream."
+          },
+          "200": {
+            "description": "Server-sent event stream (no Upgrade header). Frames: ': connected' on open, ': keep-alive' every 25 seconds, one 'id: <seq>\\ndata: <json>\\n\\n' frame per event where the JSON is {seq, id, dataset, received_at, data, project_id, webhook_id}, and \u2014 on a resume that missed evicted events \u2014 an un-ided 'event: stream-gap\\ndata: {\"missed_from\":<int>,\"resume_from\":<int>}' control frame. A subscriber that stops draining is dropped once its backlog runs past the stream's high-water mark.",
+            "headers": {
+              "X-Accel-Buffering": {
+                "description": "Always 'no' \u2014 disables proxy/CDN buffering so events flush immediately.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no"
+                  ]
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Always '*'. Safe because the stream is key-authenticated and never cookie-authenticated; it also blocks any credentialed cross-origin EventSource.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "*"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always 'no-store'.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE frame stream; Content-Type is 'text/event-stream; charset=utf-8'."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The tenant's plan cap on concurrent stream connections is reached (open SSE responses and WebSockets are counted together). This response comes from the stream Durable Object rather than the shared apiError helper, so it carries a Retry-After header and no CSP/security headers.",
+            "headers": {
+              "Retry-After": {
+                "description": "Always '30'.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "30"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "limit"
+                      ],
+                      "properties": {
+                        "limit": {
+                          "type": "integer",
+                          "description": "the plan's concurrent-connection cap"
+                        }
+                      }
+                    }
+                  ],
+                  "description": "error is always 'stream connection limit reached'."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session cookie and no usable bearer token, or the agent token failed verification against the issuer's JWKS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An agent token whose granted scopes do not include hookie:read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The same live tail as /v1/stream, for the console and the CLI (`hookie tail`, `hookie listen`) rather than for a server-side integration: it authenticates with the browser session or a connected agent's bearer token instead of an ingest key, and the tenant comes from that credential rather than from the key. GET only \u2014 the route resolves before the admin CSRF guard, which only inspects mutating methods.\n\nThe stream is BEST-EFFORT by contract. Durable delivery is the outbound-delivery queue; a tail is for watching, and the absence of an event here never proves the event was not received. The resume buffer holds 1000 events and 5 minutes, and a resume outside that window succeeds but is preceded by a stream-gap control event.\n\nAn agent token needs hookie:read. Its 429 is the plan's concurrent-connection cap, counted across SSE responses and WebSockets together and across the console and the CLI alike \u2014 a console Observability tab left open counts as one.",
+        "parameters": [
+          {
+            "name": "after_seq",
+            "in": "query",
+            "required": false,
+            "description": "Resume cursor: replay buffered events with seq greater than this value. Ignored when a Last-Event-ID header is present. Non-numeric or negative values are treated as absent. The resume buffer holds at most 1000 events and drops anything older than 5 minutes; a request for evicted events still succeeds but is preceded by a stream-gap control event.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "description": "Standard SSE resume header, sent automatically by EventSource on reconnect. Takes precedence over after_seq when present. Same semantics and same 1000-event / 5-minute buffer window.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Upgrade",
+            "in": "header",
+            "required": false,
+            "description": "Send exactly 'websocket' (compared case-sensitively) to get a 101 WebSocket upgrade instead of an SSE stream. Any other value, or its absence, yields the SSE response.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "websocket"
+              ]
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "description": "Only deliver events belonging to this project. Applied by the stream Durable Object, not by the client, because the plan caps CONCURRENT CONNECTIONS (one, on Free) \u2014 a subscriber that attached to everything and filtered locally would spend its whole allowance to watch one project. STRICT: an event with no project (a workflow instance outside one, or anything buffered before events carried a project at all) does NOT match a project filter. The per-tenant `seq` cursor is unaffected, so a filtered stream skips numbers by design; a gap in seq is not a lost event. This is not a security boundary \u2014 the tenant gate is; an id from another tenant simply matches nothing.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataset",
+            "in": "query",
+            "required": false,
+            "description": "Only deliver events in this dataset. Combines with project_id \u2014 both have to match. Applied server-side for the same reason.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -5637,7 +5841,9 @@
                             "type": "string"
                           },
                           "base_slug": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "The readable identity you supplied. NOT the public URL segment. Safe to log.",
+                            "example": "orders"
                           },
                           "version": {
                             "type": "string",
@@ -5666,7 +5872,8 @@
                           },
                           "slug": {
                             "type": "string",
-                            "description": "High-entropy public slug - treat as a secret."
+                            "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                            "example": "aBcXyz0123456789abcdefgh"
                           },
                           "require_signature": {
                             "type": "integer",
@@ -5684,6 +5891,22 @@
                           "created_at": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "webhook_slug": {
+                            "type": "string",
+                            "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                            "example": "aBcXyz0123456789abcdefgh"
+                          },
+                          "public_path": {
+                            "type": "string",
+                            "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                            "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
+                          },
+                          "public_url": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                            "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                           }
                         }
                       }
@@ -5779,11 +6002,34 @@
                     },
                     "slug": {
                       "type": "string",
-                      "description": "Versioned route slug, base-v1."
+                      "description": "DEPRECATED shape: the versioned readable id, `<base_slug>-v<version>`. Matches no column and never appears in a URL. Use base_slug + version, or webhook_slug for the URL.",
+                      "example": "orders-v1"
                     },
                     "webhook_slug": {
                       "type": "string",
-                      "description": "High-entropy public slug - treat as a secret."
+                      "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                      "example": "aBcXyz0123456789abcdefgh"
+                    },
+                    "base_slug": {
+                      "type": "string",
+                      "description": "The readable identity you supplied. NOT the public URL segment. Safe to log.",
+                      "example": "orders"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "Endpoint version within `base_slug`.",
+                      "example": "1"
+                    },
+                    "public_path": {
+                      "type": "string",
+                      "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                      "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
+                    },
+                    "public_url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                      "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                     }
                   }
                 }
@@ -5979,7 +6225,34 @@
                     },
                     "slug": {
                       "type": "string",
-                      "description": "Versioned route slug, base-v<version>."
+                      "description": "DEPRECATED shape: the versioned readable id, `<base_slug>-v<version>`. Matches no column and never appears in a URL. Use base_slug + version, or webhook_slug for the URL.",
+                      "example": "orders-v1"
+                    },
+                    "base_slug": {
+                      "type": "string",
+                      "description": "The readable identity you supplied. NOT the public URL segment. Safe to log.",
+                      "example": "orders"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "Endpoint version within `base_slug`.",
+                      "example": "1"
+                    },
+                    "webhook_slug": {
+                      "type": "string",
+                      "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                      "example": "aBcXyz0123456789abcdefgh"
+                    },
+                    "public_path": {
+                      "type": "string",
+                      "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                      "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
+                    },
+                    "public_url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                      "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                     }
                   }
                 }
@@ -8419,7 +8692,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The 500 newest deliveries of the project, joined to their destination for name and URL. The stored response body is deliberately omitted here - fetch one delivery for it. No pagination parameters; use POST search/deliveries for filtering and paging.",
+            "description": "The project's deliveries, newest first, joined to their destination for name and URL, optionally filtered by status and destination. With `limit`/`offset` the list is paged and `total` counts every match; without them it is the 500 newest. The stored response body is deliberately omitted here - fetch one delivery for it.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8529,6 +8802,16 @@
                           }
                         }
                       }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Deliveries matching the filters, across all pages."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -8574,6 +8857,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "An unknown `status`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Top-level alias: GET /admin/api/deliveries. Readable by any role.",
@@ -8585,6 +8878,46 @@
             "description": "Project id (UUID) belonging to the caller workspace.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Only these statuses: one or more of queued, delivered, failed, dead, comma-separated. Anything else is a 400.",
+            "schema": {
+              "type": "string",
+              "example": "failed,dead"
+            }
+          },
+          {
+            "name": "destination_id",
+            "in": "query",
+            "required": false,
+            "description": "Only deliveries to this destination.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size (default 25, max 100). Giving limit or offset turns paging on; without either the answer is the 500 newest, as before.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Rows to skip, newest first.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         ],
@@ -9322,6 +9655,11 @@
                     "type": "integer",
                     "minimum": 0,
                     "default": 0
+                  },
+                  "until": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Upper bound on created_at (ISO 8601)."
                   }
                 }
               }
@@ -17071,7 +17409,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Static, read-only catalog compiled into the Worker \u2014 identical for every workspace, with no plan or role gate. Currently: slack, datadog, email, generic.",
+            "description": "Static, read-only catalog compiled into the Worker \u2014 identical for every workspace, with no plan or role gate. Currently: slack, datadog, email, generic. Only `generic` has `available: true`: a destination sends Hookie's fixed signed envelope with no custom headers or body template, so the other three are listed with an `unavailable_reason` and cannot deliver directly yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17091,7 +17429,8 @@
                           "url_hint",
                           "headers",
                           "example_payload",
-                          "docs"
+                          "docs",
+                          "available"
                         ],
                         "properties": {
                           "id": {
@@ -17124,6 +17463,14 @@
                           "docs": {
                             "type": "string",
                             "description": "Repository-relative documentation path, e.g. docs/integrations/slack.md."
+                          },
+                          "available": {
+                            "type": "boolean",
+                            "description": "Whether a destination made from this preset can deliver. False when the service needs a header or body a destination cannot send yet."
+                          },
+                          "unavailable_reason": {
+                            "type": "string",
+                            "description": "Present when `available` is false: why, and how to reach the service through a Generic HTTPS relay."
                           }
                         }
                       }

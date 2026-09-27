@@ -30,7 +30,7 @@ That last part is the one worth reading before you build anything. **Hookie deli
 | --- | --- |
 | **The raw body is kept first** | Stored verbatim in `submissions` before any rule runs, so a routing change cannot retroactively lose what already arrived. |
 | **Datasets are just names** | A dataset exists the moment a record is routed into it. There is nothing to create and no migration to run. |
-| **Delivery is signed and retried** | HMAC-SHA256 over timestamp and body, exponential backoff up to 8 attempts, then dead-lettered — and replayable once you have fixed whatever was broken. |
+| **Delivery is signed and retried** | HMAC-SHA256 over timestamp and body, retried for about a day (8 attempts), then dead-lettered — and replayable once you have fixed whatever was broken. |
 | **Everything is visible afterwards** | The submission, the records, the workflow instance with its per-step log, and the delivery with your service's status code, latency and response body. |
 
 <Note>
