@@ -4,7 +4,7 @@ description: "Hookie public HTTP API — ingest and streaming endpoints."
 icon: "code"
 ---
 
-Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console — authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf.
+Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console (authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf).
 
 ## Ingest
 
@@ -19,9 +19,9 @@ POST /v1/ingest/{ingest_key}/{dataset}  # store whole into {dataset}
 POST /v1/webhooks/{ingest_key}/{slug}   # a configured webhook: its own criteria + mappings
 ```
 
-Bodies may be JSON, `application/x-www-form-urlencoded`, or `multipart/form-data` — so an HTML form can post straight to an endpoint with no JavaScript (see the [quickstart](/quickstart)). Anything else is read as JSON regardless of its `Content-Type`, which is what most webhook providers send.
+Bodies may be JSON, `application/x-www-form-urlencoded`, or `multipart/form-data`, so an HTML form can post straight to an endpoint with no JavaScript (see the [quickstart](/quickstart)). Anything else is read as JSON regardless of its `Content-Type`, which is what most webhook providers send.
 
-Whenever the URL names a dataset — a path-form endpoint, or a trailing `{dataset}` — the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project — to send one source into several datasets, use an ingest key. An ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the key, the project and the workspace.
+Whenever the URL names a dataset (a path-form endpoint, or a trailing `{dataset}`), the payload is stored whole into it and project [mapping rules are not evaluated](/quickstart). Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A `/v1/webhooks/{key}/{slug}` request is evaluated against that webhook's own criteria and mappings, not the project's rules. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project. To send one source into several datasets, use an ingest key. An ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the key, the project and the workspace.
 
 ## Streaming
 
@@ -43,11 +43,11 @@ PUT  /portal/api/destinations/{id}      # enable/disable or change URL
 GET  /portal/api/deliveries             # deliveries to the customer's destinations
 ```
 
-A separate, token-authed surface for your _end customers_, scoped to one portal + customer — see [Customer portal](/customer-portal) for issuing tokens and embedding.
+A separate, token-authed surface for your _end customers_, scoped to one portal and customer. See [Customer portal](/customer-portal) for issuing tokens and embedding.
 
 ## Admin API
 
-The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app — [sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes. Project-scoped resources:
+The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app. [Sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes. Project-scoped resources:
 
 | Resources | Covers |
 | --- | --- |
@@ -74,7 +74,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 
 | Header | Purpose |
 | --- | --- |
-| `Content-Type` | application/json, application/x-www-form-urlencoded, or multipart/form-data on ingest — anything else is read as JSON. |
+| `Content-Type` | application/json, application/x-www-form-urlencoded, or multipart/form-data on ingest. Anything else is read as JSON. |
 | `Idempotency-Key` | Optional. Dedupes retries; the same submission is returned and never double-counted. |
 | `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. `t` must be within 5 minutes of now, and several `v1=` values may be sent while you rotate the secret. |
 | `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` as a connected agent. |
@@ -84,8 +84,8 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | Status | Meaning |
 | --- | --- |
 | `201 Created` | Event stored and routed. |
-| `200 OK` | Idempotent replay — the original submission is returned. |
-| `400 Bad Request` | Body isn't valid JSON, or isn't a well-formed form encoding. |
+| `200 OK` | Idempotent replay. The original submission is returned. |
+| `400 Bad Request` | Body is not valid JSON or is not a well-formed form encoding. |
 | `401 Unauthorized` | Missing/invalid inbound signature (when required), or missing stream key. |
 | `403 Forbidden` | Source IP not in the allowlist, or an agent token without the scope for this call. |
 | `404 Not Found` | Unknown ingest key or webhook endpoint. |
@@ -93,4 +93,4 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 
 ## Outbound (to your endpoints)
 
-Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered — dedupe on the event id and [verify the signature](/signatures). A failed attempt is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h — eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends; then the delivery is marked `dead` and can be replayed. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, and events from cron and WebSocket triggers, fan out exactly like ingested ones.
+Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A failed attempt is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends); then the delivery is marked `dead` and can be replayed. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, and events from cron and WebSocket triggers, fan out exactly like ingested ones.
