@@ -51,16 +51,12 @@
         ]
       },
       {
-        "group": "Reference",
-        "icon": "code",
+        "group": "API reference",
+        "icon": "terminal",
+        "openapi": "openapi.json",
         "pages": [
           "api-reference"
         ]
-      },
-      {
-        "group": "API reference",
-        "icon": "terminal",
-        "openapi": "openapi.json"
       }
     ]
   },
