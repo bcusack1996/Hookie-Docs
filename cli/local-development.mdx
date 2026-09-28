@@ -113,14 +113,3 @@ hookie open --project growth --tab deliveries
 ```
 
 Prints the URL and opens it. The print is what makes it work over SSH and on a headless box.
-
-## A local Hookie
-
-Everything above works against a local `wrangler dev` too, which is the default target:
-
-```bash
-npm run dev --workspace apps/api      # http://localhost:8787
-hookie tail                            # no --url needed
-```
-
-No connection is needed for a local origin: set `HOOKIE_TOKEN`, or just point at it. The remote gate only applies to origins that are not localhost.
