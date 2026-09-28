@@ -78,29 +78,29 @@ A parser that quietly mis-reads an anchor sends the wrong configuration to a liv
 
 | Variable | |
 | --- | --- |
-| `HOOKIE_URL` | Which Hookie. Default `http://localhost:8787`. |
+| `HOOKIE_URL` | Which Hookie. Default `https://app.hookie.ai`. |
 | `HOOKIE_PROJECT_ID` | Default project, skipping the slug lookup. |
 | `HOOKIE_TOKEN` | A bearer token instead of the stored connection. |
 | `HOOKIE_CREDENTIALS` | Where the credential store lives. Default `~/.hookie/credentials.json`. |
-| `HOOKIE_ALLOW_REMOTE=1` | Target a non-local origin with no stored connection. |
+| `HOOKIE_ALLOW_REMOTE=1` | Use `HOOKIE_TOKEN` with no stored connection (a safeguard, so a stray token is never sent anywhere you did not approve). |
 | `HOOKIE_CALLBACK_PORTS` | Loopback ports `hookie login` may bind. |
 
 ### Profiles
 
-There is no profile flag, because `HOOKIE_CREDENTIALS` and `HOOKIE_URL` already are one — the credential store is keyed by origin, so one file can hold several environments at once:
+There is no profile flag, because `HOOKIE_CREDENTIALS` already is one. Give each Hookie account its own credential store, and sign in to each once:
 
 ```bash
-alias hookie-prod='HOOKIE_URL=https://app.hookie.ai hookie'
-alias hookie-preview='HOOKIE_URL=https://app.preview.hookie.ai hookie'
+alias hookie-acme='HOOKIE_CREDENTIALS=~/.hookie/acme.json hookie'
+alias hookie-globex='HOOKIE_CREDENTIALS=~/.hookie/globex.json hookie'
 
-hookie-prod whoami
-hookie-preview tail --dataset orders
+hookie-acme login
+hookie-globex tail --dataset orders
 ```
 
 For CI, keep the store out of the picture entirely and pass a token:
 
 ```bash
-HOOKIE_URL=https://app.hookie.ai HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
+HOOKIE_ALLOW_REMOTE=1 HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
   hookie diff -f hookie.yml --json
 ```
 

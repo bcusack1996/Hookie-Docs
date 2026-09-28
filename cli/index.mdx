@@ -18,27 +18,19 @@ hookie listen --forward http://localhost:3000/webhook
 
 ## Install
 
-Node 20 or newer. No build step and no dependencies outside the Hookie repository.
+Node 20 or newer. The CLI is a single file with no dependencies, served by Hookie itself:
 
-<CodeGroup>
-
-```bash npm
-npm i -g @hookie/cli
+```bash
+npm i -g https://app.hookie.ai/cli/hookie-cli.tgz
 hookie --version
 ```
 
-```bash From the repository
-git clone https://github.com/bcusack1996/hookie-ai
-cd hookie-ai && npm ci
-node tools/hookie-cli/bin/hookie.mjs --version
-```
-
-</CodeGroup>
+Run the same command again to update.
 
 ## Sign in
 
 ```bash
-hookie login --url https://app.hookie.ai
+hookie login
 ```
 
 That opens Hookie in your browser, waits for you to approve the connection, and stores the resulting token in `~/.hookie/credentials.json` with mode `0600`. Nothing is pasted anywhere: it is the standard OAuth 2.1 authorization-code flow with PKCE, the same one [connected agents](/connected-agents) use, so `hookie login` and an agent you connect share one credential store.
@@ -60,14 +52,14 @@ Three more commands round that out:
 ## Which Hookie, which project
 
 ```bash
-hookie --url https://app.hookie.ai --project growth endpoints list
+hookie --project growth endpoints list
 ```
 
-`--url` defaults to `$HOOKIE_URL`, then `http://localhost:8787` — a local `wrangler dev`. `--project` takes a **slug or an id**; with neither, commands use your workspace's Default project.
+Commands talk to `https://app.hookie.ai`. `--project` takes a **slug or an ID**; with neither, commands use your workspace's Default project.
 
-<Warning>
-  Pointing at a non-local origin needs either a stored connection for that exact origin or `HOOKIE_ALLOW_REMOTE=1`. That gate exists so a stray `HOOKIE_URL` cannot aim a development command at production by accident.
-</Warning>
+<Note>
+  Until you run `hookie login`, a command stops before sending anything and says `Not connected to https://app.hookie.ai. Run: hookie login`. To use a token instead of a stored connection (in CI, for example), see [Configuration](/cli/configuration#environment).
+</Note>
 
 ## What it will and will not print
 
