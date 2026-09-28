@@ -53,7 +53,8 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | --- | --- |
 | `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. |
 | `projects` | List, create and manage the projects everything else hangs off. |
-| `audit` | Audit log, with CSV export. |
+| `audit` | Audit log, with CSV export (UTF-8 with a BOM; cells a spreadsheet would run as a formula are neutralised). |
+| `ip-allowlist` | The workspace IP allowlist: `GET` to read it, `PUT {"ip_allowlist": [...]}` to replace it (`[]` allows every address). Owners and admins. |
 | `agents` | Coding agents you have connected over OAuth — list and revoke. |
 | `sso` | SAML configuration (Team plan). |
 | `destination-presets · source-presets` | Integration presets for outbound sinks and sources. |
