@@ -98,7 +98,7 @@ Available with `hookie:write`:
 | `create_project` | A new project. Needs owner/admin, exactly as the console does. |
 | `create_webhook · update_webhook · delete_webhook` | Endpoints. Update toggles enabled. |
 | `create_rule · update_rule · delete_rule` | Mapping rules. Update toggles enabled. |
-| `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. |
+| `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. An empty filter is refused; leave it out for every dataset. |
 | `create_workflow · update_workflow` | A multi-step workflow: entry dataset, entry conditions, and the ordered steps. A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
 | `delete_workflow` | Despite the name, this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. |
 | `replay_delivery` | Re-queue a past delivery to its destination. |

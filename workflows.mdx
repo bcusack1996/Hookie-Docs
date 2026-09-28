@@ -51,7 +51,7 @@ This is the one thing worth getting right before you write a branch, because the
 
 | Field | Evaluated against | Path to use |
 | --- | --- | --- |
-| `entry_conditions` | the raw record | the bare field — `"topic"` |
+| `entry_conditions` | the raw record | the bare field — `"topic"` (an `entry.` prefix is refused) |
 | a `branch` step's `conditions` | the instance context | `"entry.topic"` |
 
 The context is a scratchpad seeded from the entry record, and the record sits under `entry` there. Alongside it are the keys earlier steps wrote: `call_ai` puts its reply under its `output_key` (default `ai_result`), `agent_call` under `agent_result`, and `wait_for_event` under `waited_event`. So `"entry.tier"` reads the incoming lead, and `"score"` reads what the AI step just produced — as in the example below.
@@ -111,7 +111,7 @@ Create workflows in the console under **Project → Workflows**. Start in Canvas
 
 | Type | What it does |
 | --- | --- |
-| `emit_event` | Write a record into a dataset (entry context merged with an optional payload) and enqueue signed deliveries for it. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
+| `emit_event` | Write a record into a dataset (entry context merged with an optional payload) and enqueue signed deliveries for it. The payload is literal: there is no templating yet, so a `{{placeholder}}` value is refused rather than emitted as text. Leave a field out to pass the entry record's value through. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
 | `call_ai` | Run an AI prompt over the instance context. The reply lands in the context under output_key (default ai_result), as a number or object if the model replied with one, so a later branch can compare it, and, verbatim as text, in output_dataset. |
 | `agent_call` | Invoke a reusable AI agent by ID: its model, system prompt, and memory dataset apply. The result lands under output_key (default agent_result), interpreted the same way call_ai's is. |
 | `branch` | Conditional if/then/else. Evaluate conditions against the instance context and run the matching then or else sub-sequence, including branching on an earlier call_ai or agent_call result. Branches can nest up to 3 levels deep. |
@@ -124,7 +124,7 @@ An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bo
 
 ## Instances & observability
 
-Each matching entry record starts an **instance**. The console lists instances per workflow with a drill-down into the live context, the recolored progress diagram, and a per-step history (started, completed, or failed, including which branch was taken), so you can see exactly where a flow is and why it stopped.
+Each matching entry record starts an **instance**. The console lists instances per workflow with a drill-down into the live context, the recolored progress diagram, and a per-step history (started, completed, or failed, including which branch was taken), so you can see exactly where a flow is and why it stopped. Over the API, `GET /admin/api/projects/{pid}/workflows/{id}/instances` takes `state`, `since`, `until`, `limit` and `offset`, and answers with a `total`.
 
 | State | Meaning |
 | --- | --- |

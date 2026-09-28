@@ -44,7 +44,7 @@ The console's admin API lives at `/admin/api/projects/{pid}/…` and drives ever
 | `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. |
 | `sources · triggers · cron-triggers · ws-triggers` | DB polling, AI triggers, scheduled + WebSocket sources. |
 | `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. |
-| `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. |
+| `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. `q` matches the payload as literal text, ignoring case for any letter. Each result's `payload` is a preview of the first 2,000 characters; `payload_truncated` and `payload_length` say when it was cut. |
 | `portals (+ /tokens)` | Customer portals and per-customer access tokens. |
 
 Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` segment:
@@ -66,6 +66,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | `Content-Type` | application/json, application/x-www-form-urlencoded, or multipart/form-data on ingest. Anything else is read as JSON. |
 | `Idempotency-Key` | Optional. Dedupes retries; the same submission is returned and never double-counted. |
 | `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. `t` must be within 5 minutes of now, and several `v1=` values may be sent while you rotate the secret. |
+| `Hookie-Hop` | Optional. How many times this event has already passed through Hookie. Hookie sets it on its own deliveries; a relay that forwards a delivery back into Hookie should pass it on. At 8 the request is refused with `508`. |
 | `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` as a connected agent. |
 
 ## Response codes
@@ -78,8 +79,12 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | `401 Unauthorized` | Missing/invalid inbound signature (when required), or missing stream key. |
 | `403 Forbidden` | Source IP not in the allowlist, or an agent token without the scope for this call. |
 | `404 Not Found` | Unknown ingest key or webhook endpoint. |
+| `422 Unprocessable Entity` | The JSON body has no fields (`{}`), so there is nothing to store. |
 | `429 Too Many Requests` | Ingest burst rate limit or the monthly event quota (both send retry_after); on `/v1/stream`, the plan's concurrent-connection cap. |
+| `508 Loop Detected` | The `Hookie-Hop` header says this event has already been through Hookie 8 times. That almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. |
 
 ## Outbound (to your endpoints)
 
-Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, and `Hookie-Delivery-Id`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A failed attempt is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends); then the delivery is marked `dead` and can be replayed. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, and events from cron and WebSocket triggers, fan out exactly like ingested ones.
+Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, `Hookie-Delivery-Id` and `Hookie-Hop`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A 5xx, a network error, or a `404`, `408`, `409`, `425` or `429` is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends). Any other 4xx means your service refused the request, so it is not asked again: the delivery is marked `dead` after that one attempt, with the error `HTTP 4xx (not retried: the receiver refused the request)`. A dead delivery can be replayed.
+
+A delivery waiting on a **disabled** destination is `paused`, not failed. It keeps its last response and is sent when the destination is enabled again. A delivery whose destination was **deleted** is `cancelled`. Neither counts as a failure. A destination's dataset filter is a list of dataset names; leave it out (or send `null`) for every dataset. An empty list is refused, since it used to mean "every dataset" rather than "none"; to stop deliveries, disable the destination. Creating a destination whose URL is one of the same project's own endpoint URLs or ingest keys, with a filter that admits the dataset it writes to, still succeeds but returns a `warning`: every event would loop back until `Hookie-Hop` stops it. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, and events from cron and WebSocket triggers, fan out exactly like ingested ones.
