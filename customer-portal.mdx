@@ -7,12 +7,12 @@ icon: "users"
 The **customer portal** is an embeddable, token-authed surface your _end customers_ use to manage their own webhook destinations and inspect deliveries, so "ship webhooks to our customers" stops generating support tickets. No separate auth backend: you issue a signed access token per customer, and everything the token can see is scoped to that customer.
 
 <Steps>
-  <Step title="Create a portal">
-    In the console, open **Project → Portals → + Portal**. Give it a name and choose which datasets (event types) it exposes. Customers can only subscribe destinations to those datasets.
+  <Step title="Set up the project's portal">
+    Each project has exactly **one** customer portal. In the console, open the project's **Settings → Customer portal**, switch it on, give it a name, and pick which of the project's datasets it exposes. Customers can only subscribe destinations to those datasets.
   </Step>
 
   <Step title="Issue a customer token">
-    On the portal row, open **Tokens** and issue one per customer using your own ID for them. You get a one-time link:
+    In the same pane, under **Access tokens**, issue one per customer using your own ID for them. You get a one-time link:
 
     ```http
     https://app.hookie.ai/portal/{workspace}/{portal-slug}?token={token}
@@ -40,14 +40,18 @@ PUT  /portal/api/destinations/{id}    # enable/disable or change the URL
 GET  /portal/api/deliveries           # recent deliveries to the customer's destinations
 ```
 
+<Note>
+  Why one portal per project: a project is one customer's space. Two portals over the same project would show the same events to two audiences, so Hookie keeps it to one — creating a second is refused. Workspaces that had several portals in one project kept the most recently updated; the others were retired (tokens revoked, their destinations paused, nothing deleted), and each retirement is listed in **Settings → Audit log**.
+</Note>
+
 ## Scoping guarantees
 
 | Boundary | Guarantee |
 | --- | --- |
-| **Tenant + project** | A token is bound to one portal in one project of your workspace. |
+| **Tenant + project** | A project has one portal, and a token is bound to it: the portal only ever reads that project's data. |
 | **Customer** | A customer only ever sees and manages destinations tagged with their own customer_id. |
 | **Datasets** | Destinations may only subscribe to the datasets the portal exposes; anything else is rejected. |
 | **Transport** | Destination URLs must be HTTPS; each gets its own HMAC signing secret, shown once. |
 | **Tokens** | Stored hashed (SHA-256), never recoverable; optional expiry; revocable at any time. |
 
-Deliveries made to customer destinations behave exactly like every other Hookie delivery: HMAC-signed, retried with backoff, dead-lettered, and [verifiable](/signatures). [Sign in](https://app.hookie.ai/) and open a project's **Portals** tab to try it.
+Deliveries made to customer destinations behave exactly like every other Hookie delivery: HMAC-signed, retried with backoff, dead-lettered, and [verifiable](/signatures). [Sign in](https://app.hookie.ai/) and open a project's **Settings → Customer portal** to try it.

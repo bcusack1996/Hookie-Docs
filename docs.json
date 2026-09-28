@@ -37,6 +37,7 @@
           "workflows",
           "customer-portal",
           "connected-agents",
+          "data-api",
           "api-reference"
         ]
       },

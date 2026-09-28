@@ -3360,7 +3360,9 @@
                     "failed_7d",
                     "error_rate_7d",
                     "agent_runs_7d",
-                    "projects"
+                    "projects",
+                    "ai_tokens_this_month",
+                    "ai_tokens_quota"
                   ],
                   "properties": {
                     "plan": {
@@ -3445,6 +3447,14 @@
                           }
                         }
                       }
+                    },
+                    "ai_tokens_this_month": {
+                      "type": "integer",
+                      "description": "AI tokens (input + output) used this billing month, across every AI call in the workspace."
+                    },
+                    "ai_tokens_quota": {
+                      "type": "integer",
+                      "description": "The plan's monthly AI token allowance. A call made once it is used is refused and the step fails."
                     }
                   }
                 }
@@ -9970,6 +9980,500 @@
                     "minimum": 0,
                     "default": 0
                   }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{pid}/search/ai-calls": {
+      "post": {
+        "operationId": "searchAiCalls",
+        "summary": "Search the AI call log",
+        "tags": [
+          "Search"
+        ],
+        "description": "Every AI call an AI trigger, workflow call_ai step or agent_call step made in this project, including calls refused for being over the monthly AI token allowance. Newest first. Lists carry a preview of the output; GET one call for the full texts. Top-level alias: POST /admin/api/search/ai-calls.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "All filters optional and ANDed.",
+                "properties": {
+                  "q": {
+                    "type": "string",
+                    "description": "Case-insensitive substring of the instructions, input or output."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "error",
+                      "quota_exceeded"
+                    ]
+                  },
+                  "source_kind": {
+                    "type": "string",
+                    "enum": [
+                      "trigger",
+                      "workflow",
+                      "agent"
+                    ]
+                  },
+                  "source_id": {
+                    "type": "string"
+                  },
+                  "instance_id": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "since": {
+                    "type": "string",
+                    "description": "ISO 8601 timestamp; matches created_at >= since."
+                  },
+                  "until": {
+                    "type": "string",
+                    "description": "ISO 8601 timestamp; matches created_at <= until."
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "default": 25
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One page of AI calls, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "entity",
+                    "count",
+                    "total",
+                    "limit",
+                    "offset",
+                    "results"
+                  ],
+                  "properties": {
+                    "entity": {
+                      "type": "string",
+                      "const": "ai_calls"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "created_at",
+                          "error",
+                          "id",
+                          "input_tokens",
+                          "input_truncated",
+                          "instance_id",
+                          "instructions_truncated",
+                          "latency_ms",
+                          "model",
+                          "output_preview",
+                          "output_tokens",
+                          "output_truncated",
+                          "source_id",
+                          "source_kind",
+                          "status",
+                          "step",
+                          "tokens_estimated"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "source_kind": {
+                            "type": "string",
+                            "enum": [
+                              "trigger",
+                              "workflow",
+                              "agent"
+                            ],
+                            "description": "What made the call: an AI trigger, a workflow call_ai step, or an agent_call step."
+                          },
+                          "source_id": {
+                            "type": "string",
+                            "description": "The trigger, workflow or ai_agent id."
+                          },
+                          "instance_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "step": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Step path within the workflow, e.g. \"2\" or \"1.then[0]\"."
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "error",
+                              "quota_exceeded"
+                            ]
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "input_tokens": {
+                            "type": "integer"
+                          },
+                          "output_tokens": {
+                            "type": "integer"
+                          },
+                          "tokens_estimated": {
+                            "type": "boolean",
+                            "description": "True when the model reported no usage and the counts are estimated at about four characters a token."
+                          },
+                          "latency_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "instructions_truncated": {
+                            "type": "boolean"
+                          },
+                          "input_truncated": {
+                            "type": "boolean"
+                          },
+                          "output_truncated": {
+                            "type": "boolean"
+                          },
+                          "output_preview": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The first 200 characters of the output."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A cookie-authenticated request missing the X-Requested-With: fetch header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{pid}/search/ai-calls/{id}": {
+      "get": {
+        "operationId": "getAiCall",
+        "summary": "Get one AI call in full",
+        "tags": [
+          "Search"
+        ],
+        "description": "The instructions, input and output of one AI call, as logged. Top-level alias: GET /admin/api/search/ai-calls/{id}.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AI call id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ai_call"
+                  ],
+                  "properties": {
+                    "ai_call": {
+                      "type": "object",
+                      "required": [
+                        "created_at",
+                        "error",
+                        "id",
+                        "input",
+                        "input_tokens",
+                        "input_truncated",
+                        "instance_id",
+                        "instructions",
+                        "instructions_truncated",
+                        "latency_ms",
+                        "model",
+                        "output",
+                        "output_tokens",
+                        "output_truncated",
+                        "source_id",
+                        "source_kind",
+                        "status",
+                        "step",
+                        "tokens_estimated"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "source_kind": {
+                          "type": "string",
+                          "enum": [
+                            "trigger",
+                            "workflow",
+                            "agent"
+                          ],
+                          "description": "What made the call: an AI trigger, a workflow call_ai step, or an agent_call step."
+                        },
+                        "source_id": {
+                          "type": "string",
+                          "description": "The trigger, workflow or ai_agent id."
+                        },
+                        "instance_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "step": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Step path within the workflow, e.g. \"2\" or \"1.then[0]\"."
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "error",
+                            "quota_exceeded"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "input_tokens": {
+                          "type": "integer"
+                        },
+                        "output_tokens": {
+                          "type": "integer"
+                        },
+                        "tokens_estimated": {
+                          "type": "boolean",
+                          "description": "True when the model reported no usage and the counts are estimated at about four characters a token."
+                        },
+                        "latency_ms": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "instructions_truncated": {
+                          "type": "boolean"
+                        },
+                        "input_truncated": {
+                          "type": "boolean"
+                        },
+                        "output_truncated": {
+                          "type": "boolean"
+                        },
+                        "instructions": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The instructions / system prompt, capped at 8,000 characters (instructions_truncated says when cut)."
+                        },
+                        "input": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The data the model was given, as JSON, capped at 8,000 characters."
+                        },
+                        "output": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "What the model answered, capped at 8,000 characters."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A cookie-authenticated request missing the X-Requested-With: fetch header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such AI call in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
