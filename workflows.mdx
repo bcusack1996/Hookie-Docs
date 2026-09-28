@@ -116,15 +116,26 @@ Create workflows in the console under **Project → Workflows**. Start in Canvas
 | `agent_call` | Invoke a reusable AI agent by ID: its model, system prompt, and memory dataset apply. The result lands under output_key (default agent_result), interpreted the same way call_ai's is. |
 | `branch` | Conditional if/then/else. Evaluate conditions against the instance context and run the matching then or else sub-sequence, including branching on an earlier call_ai or agent_call result. Branches can nest up to 3 levels deep. |
 | `wait_for_event` | Suspend until a record matching the conditions arrives in a dataset. An optional timeout_seconds moves the instance to timed_out if nothing arrives. |
-| `delay` | Suspend for N seconds before the next step. |
+| `delay` | Suspend for N seconds before the next step, accurate to the second. |
+| `http` | Call an https endpoint on a public host: `method`, `url`, optional `headers` and `body`, `timeout_seconds` (1–30, default 10). The response lands in the context under `output_key` (default `http_result`) as `{status, body}`; the body is parsed as JSON when it can be, and capped at 64 KB. A non-2xx status is data, not a failure. Redirects are not followed, and each request carries an `Idempotency-Key` unless you set one. Header values are plain configuration: do not put secrets in them. |
+| `set` | Write values into the context: `{"values": {"tier": "gold", "email": "{{entry.email}}"}}`. |
+| `transform` | Build an object from context paths: `{"mapping": {"id": "entry.id", "score": "score"}, "output_key": "summary"}` (default `transformed`). |
 
 ## AI agents
 
 An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bounded token cap, and an optional _memory dataset_ that every output is also written to for recall. Define agents next to your workflows in the console, then reference one from any workflow with an `agent_call` step, including inside a branch. Update the agent once; every workflow that uses it picks up the change.
 
+## Templating
+
+`http`, `set` and `transform` read the instance context with `{{path}}`. A value that is exactly `"{{entry.email}}"` keeps its type (a number stays a number, an object stays an object). Inside longer text, as in `"https://api.example.com/users/{{entry.id}}"`, the value is inserted as text; in a URL it is also URL-encoded, and it may only appear after the host. `emit_event` payloads stay literal.
+
+## Durable execution
+
+Workflows run on [Cloudflare Workflows](https://developers.cloudflare.com/workflows/). Each step is durable: a step that fails on a transient error is retried, a run survives restarts, and `delay` and `wait_for_event` suspend the run without holding anything open. A step that already completed is never run twice, so a retried run does not emit the same event again. An AI step is the exception: re-running it calls the model again, and counts against your AI allowance again.
+
 ## Instances & observability
 
-Each matching entry record starts an **instance**. The console lists instances per workflow with a drill-down into the live context, the recolored progress diagram, and a per-step history (started, completed, or failed, including which branch was taken), so you can see exactly where a flow is and why it stopped. Over the API, `GET /admin/api/projects/{pid}/workflows/{id}/instances` takes `state`, `since`, `until`, `limit` and `offset`, and answers with a `total`.
+Each matching entry record starts an **instance**. The console lists instances per workflow with a drill-down into the live context, the recolored progress diagram, and a per-step history (started, completed, or failed, including which branch was taken), so you can see exactly where a flow is and why it stopped. A running or waiting instance can be **cancelled**, and a failed, timed-out or cancelled one **retried** from the start, from the console, the API (`POST …/workflow-instances/{id}/cancel` and `/retry`), the CLI (`hookie workflows cancel|retry`) or a connected agent. Over the API, `GET /admin/api/projects/{pid}/workflows/{id}/instances` takes `state`, `since`, `until`, `limit` and `offset`, and answers with a `total`.
 
 | State | Meaning |
 | --- | --- |
@@ -134,13 +145,15 @@ Each matching entry record starts an **instance**. The console lists instances p
 | `completed` | Every step finished. |
 | `failed` | A step errored; last_error records why. |
 | `timed_out` | A wait_for_event passed its deadline. |
+| `cancelled` | Stopped from the console or the API. |
 
 ## Limits
 
 - Up to **32 steps** per workflow (branch sub-steps count toward the total).
 - Branch nesting depth: **3** levels.
 - Active-instance cap per plan: **25** on Free, **500** on Pro, **2,000** on Team.
-- `delay` and `wait_for_event` timeouts resolve on the platform scheduler (~5-minute resolution).
+- `delay` and `wait_for_event` timeouts are exact to the second, up to **365 days**. A wait with no timeout gives up after 365 days.
+- A definition's steps are at most **256 KiB** of JSON, and an instance's context at most **768 KiB**. `set` writes at most 64 keys.
 - AI steps are bounded to 1,024 output tokens per step. (The monthly AI run quota applies to AI triggers, not to workflow steps.)
 
 Workflows are managed from the console. [Sign in](https://app.hookie.ai/) and open a project's **Workflows** tab. For end-to-end patterns, see the [use cases](https://hookie.ai/use-cases).
