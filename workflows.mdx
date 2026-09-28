@@ -141,6 +141,27 @@ Each matching entry record starts an **instance**. The console lists instances p
 - Branch nesting depth: **3** levels.
 - Active-instance cap per plan: **25** on Free, **500** on Pro, **2,000** on Team.
 - `delay` and `wait_for_event` timeouts resolve on the platform scheduler (~5-minute resolution).
-- AI steps are bounded to 1,024 output tokens per step. (The monthly AI run quota applies to AI triggers, not to workflow steps.)
+- AI steps are bounded to 1,024 output tokens and 8,000 characters of instructions per step.
+
+## AI allowance and the AI call log
+
+Every AI call counts the tokens it sends to the model and the tokens the model answers with against your plan's **monthly AI token allowance**. That includes a `call_ai` step, an `agent_call` step and an AI trigger run.
+
+| Plan | AI tokens / month |
+|---|---|
+| Free | 100,000 |
+| Pro | 750,000 |
+| Team | 1,500,000 |
+
+A typical classification step uses about 1,800 tokens. The largest a single step can use is about 4,600.
+
+Once the month's allowance is used, the next AI call is **refused before the model runs**. The step fails with the reason, for example *Monthly AI allowance used: 750,000 of 750,000 tokens on the Pro plan for 2026-09*, and so does the workflow instance or trigger run. AI steps work again on the 1st (UTC), or straight away after an upgrade. **Home** shows this month's usage against the allowance, with a warning from 80%.
+
+Every call is logged in the project's **Observability → AI calls**. Each entry records:
+- the step, agent or trigger that made the call, and the model;
+- the instructions, the input and the model's output, each kept up to 8,000 characters and marked when cut;
+- the tokens in and out, the latency, and whether the call succeeded, failed or was refused.
+
+Search matches the text of the instructions, input or output. The log is kept for your plan's retention window, and the audit log gets a daily summary of each day's AI usage.
 
 Workflows are managed from the console. [Sign in](https://app.hookie.ai/) and open a project's **Workflows** tab. For end-to-end patterns, see the [use cases](https://hookie.ai/use-cases).
