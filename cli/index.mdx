@@ -1,19 +1,18 @@
 ---
 title: "CLI"
 sidebarTitle: "Overview"
-description: "Forward live events to localhost with no tunnel, and script everything the console can do."
+description: "Manage your Hookie workspace and projects from a terminal, a script or an AI agent."
 icon: "terminal"
 ---
 
-The `hookie` CLI does two things the console cannot.
+The `hookie` CLI manages your Hookie account and its projects: everything the console and the [MCP tools](/connected-agents) can do, as commands. Use it from a terminal, a script, a CI job, or give it to an AI agent. Every command goes through your account in Hookie; nothing is received on, or forwarded to, the machine it runs on.
 
-**Development.** Getting a live event into the code you are writing used to mean a tunnel or a deploy. `hookie listen` forwards your real workspace's events to a port on your laptop, authenticated by the same OAuth connection a coding agent uses — no public URL, no third-party relay.
-
-**Management.** `--json` on every command, a real exit code when something fails, and a `hookie.yml` you can review in a pull request.
+- `--json` on every command and a real exit code when something fails, so a script or an agent can act on the result.
+- A `hookie.yml` you can review in a pull request, applied with `hookie apply`.
 
 ```bash
 hookie login
-hookie listen --forward http://localhost:3000/webhook
+hookie projects list
 ```
 
 ## Install
@@ -67,7 +66,7 @@ stdout is **data**; stderr is progress, warnings and prompts. So `hookie endpoin
 
 | Flag | Effect |
 | --- | --- |
-| `--json` | Machine-readable on stdout. `tail` and `listen` print one line per event. |
+| `--json` | Machine-readable on stdout. |
 | `--reveal` | Print secret values. Ingest-key plaintext and destination signing secrets are redacted without it. |
 | `--redact` | Also hide endpoint URLs, for output that is going somewhere else. |
 | `--yes` | Do not ask before a destructive change. |
@@ -82,8 +81,8 @@ A destructive command asks first. On a non-interactive stdin it **refuses** rath
 ## Where to go next
 
 <CardGroup cols={2}>
-  <Card title="Local development" icon="laptop-code" href="/cli/local-development">
-    listen, tail, send and replay — the loop that replaces a tunnel.
+  <Card title="Operations" icon="screwdriver-wrench" href="/cli/operations">
+    Send a test event, find what failed, and redeliver it.
   </Card>
   <Card title="Command reference" icon="list" href="/cli/commands">
     Every command, generated from the same catalog the CLI builds itself from.
