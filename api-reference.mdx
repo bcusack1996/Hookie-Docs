@@ -45,6 +45,7 @@ The console's admin API lives at `/admin/api/projects/{pid}/…` and drives ever
 | `sources · triggers · cron-triggers · ws-triggers` | DB polling, AI triggers, scheduled + WebSocket sources. |
 | `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. |
 | `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. `q` matches the payload as literal text, ignoring case for any letter. Each result's `payload` is a preview of the first 2,000 characters; `payload_truncated` and `payload_length` say when it was cut. |
+| `search/ai-calls` · `search/ai-calls/{id}` | The AI call log: every AI call a trigger, `call_ai` or `agent_call` step made, refusals included. `q` matches the instructions, input or output; filter by `status`, `source_kind`, `source_id`, `model`, `since` / `until`. The list carries a 200-character `output_preview`; `GET` one call for its full instructions, input and output (each capped at 8,000 characters, flagged when cut). |
 | `portals (+ /tokens)` | Customer portals and per-customer access tokens. |
 
 Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` segment:
