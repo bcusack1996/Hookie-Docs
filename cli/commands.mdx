@@ -29,16 +29,14 @@ Every command also takes the global flags: `--url`, `--project`, `--json`, `--re
 
 ## Hand-written commands
 
-These are not single API calls, so they are not generated. [Local development](/cli/local-development) covers them in full.
+These are not single API calls, so they are not generated. [Operations](/cli/operations) covers them in full.
 
 | Command | |
 | --- | --- |
 | `hookie login` · `logout` · `whoami` · `status` | Connect this machine, and see what it is connected to. |
-| `hookie listen --forward <url>` | Live events → a port on your laptop. |
-| `hookie tail` | Watch the stream. |
-| `hookie send --endpoint <x> --data @f.json` | Post one event to the public ingest plane. |
+| `hookie send --endpoint <x> --data @f.json` | Send a test event to an endpoint's public URL. |
 | `hookie replay <id>` · `replay --since 1h --failed` | Redeliver one, or a window. |
-| `hookie open --project x --tab deliveries` | Open the console where you are looking. |
+| `hookie open --project x --tab deliveries` | Open the console at a project. |
 | `hookie apply -f hookie.yml` · `hookie diff -f hookie.yml` | See [Configuration](/cli/configuration). |
 
 ## Generated commands

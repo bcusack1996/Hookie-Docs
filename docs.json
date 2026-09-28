@@ -34,7 +34,7 @@
         "icon": "terminal",
         "pages": [
           "cli/index",
-          "cli/local-development",
+          "cli/operations",
           "cli/commands",
           "cli/configuration"
         ]
@@ -170,5 +170,11 @@
   },
   "styling": {
     "codeblocks": "dark"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/cli/local-development",
+      "destination": "/cli/operations"
+    }
+  ]
 }
