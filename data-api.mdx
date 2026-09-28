@@ -1,0 +1,61 @@
+---
+title: "Data API"
+description: "Read the datasets and columns a project chooses to publish from BI tools, spreadsheets and scripts, with read-only project keys."
+icon: "database"
+---
+
+The **Data API** gives tools outside Hookie (a BI dashboard, a spreadsheet, a nightly script) read-only access to your records. A project decides exactly what leaves: which datasets, and within each dataset which columns. Everything else stays private, and looks, to a key, as if it does not exist.
+
+<Steps>
+  <Step title="Choose what to expose">
+    In the console, open the project's **Settings → Data API** (owners and admins). Pick the datasets to publish and, for each one, the columns: top-level fields, dotted paths into nested objects such as `customer.email`, or the record's own `_id`, `_received_at` and `_source`. Nothing is exposed until you choose it.
+  </Step>
+  <Step title="Create a key">
+    Under **Keys**, create one per tool and name it after the tool. The key (`hdk_…`) is shown **once**, so copy it then; Hookie stores only a hash. Each key belongs to this one project, and shows when it was last used.
+  </Step>
+  <Step title="Read">
+    Send the key as a bearer token.
+
+    ```bash
+    curl -H "Authorization: Bearer $HOOKIE_DATA_KEY" \
+      "https://app.hookie.ai/v1/data/orders?limit=100"
+    ```
+  </Step>
+</Steps>
+
+## Endpoints
+
+| Request | Returns |
+| --- | --- |
+| `GET /v1/data` | The datasets this key can read, each with its columns. |
+| `GET /v1/data/{dataset}` | One page of that dataset, **exposed columns only**, newest first: `{dataset, columns, rows, total, limit, offset}`. |
+
+`/v1/data/{dataset}` takes:
+
+| Parameter | Meaning |
+| --- | --- |
+| `limit` | Rows per page: 25 by default, up to 1,000. |
+| `offset` | Rows to skip. Page with `offset += limit` until you pass `total`. |
+| `since`, `until` | ISO 8601 timestamps bounding when the records were received (`since` inclusive, `until` exclusive). |
+| `format=csv` | A UTF-8 CSV (with a BOM, so Excel reads it correctly) instead of JSON. The total is in the `X-Total-Count` header. Cells that a spreadsheet would run as a formula are neutralised. |
+
+```json
+{
+  "dataset": "orders",
+  "columns": ["id", "email", "customer.tier", "_received_at"],
+  "rows": [{ "id": 1042, "email": "ada@example.com", "customer.tier": "gold", "_received_at": "2026-09-28T09:17:07.000Z" }],
+  "total": 1284,
+  "limit": 25,
+  "offset": 0
+}
+```
+
+## Guarantees
+
+| | |
+| --- | --- |
+| **Only what you exposed** | Rows are built from the exposed columns, one by one. A field added to your payloads later does not appear until you expose it. |
+| **Unexposed looks nonexistent** | A dataset you did not expose answers exactly like one that does not exist: `404`. |
+| **One project per key** | The workspace and project come only from the key. A key can never read another project, whatever the request says. |
+| **Revocable at once** | Revoke a key in Settings and its next request is a `401`. |
+| **Rate-limited** | Each key has the same burst limit as an ingest key; over it, `429`. |
