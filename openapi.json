@@ -262,6 +262,16 @@
                 }
               }
             }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Public webhook URL, app.hookie.ai/{workspace}/{project}/{webhook}. POST ONLY: index.ts:190 gates the route on req.method === 'POST', so PUT/GET/OPTIONS on this path never reach the ingest handler \u2014 they fall through to the SPA asset handler and return the console HTML, not a 405 JSON. Only 3- or 4-segment paths match.",
@@ -513,6 +523,16 @@
           },
           "500": {
             "description": "error: 'Could not store submission' \u2014 the submissions insert failed with no idempotency winner to fall back to.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
             "content": {
               "application/json": {
                 "schema": {
@@ -792,6 +812,16 @@
                 }
               }
             }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Generic ingest. PUT is accepted on this same path and behaves identically (see ingestEventPut); every other method returns 405 {\"error\":\"Use POST\"}, including OPTIONS \u2014 there are no CORS headers on this route.",
@@ -1038,6 +1068,16 @@
           },
           "500": {
             "description": "error: 'Key misconfigured' or 'Could not store submission'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1299,6 +1339,16 @@
                 }
               }
             }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Same pipeline as ingestEvent but with identity routing into {dataset}. PUT is accepted identically (ingestEventToDatasetPut); any other method returns 405 {\"error\":\"Use POST\"}.",
@@ -1553,6 +1603,16 @@
           },
           "500": {
             "description": "error: 'Key misconfigured' or 'Could not store submission'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1825,6 +1885,16 @@
                 }
               }
             }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Key-authenticated form of a webhook endpoint. PUT is accepted identically (ingestWebhookEventPut); any other method returns 405 {\"error\":\"Use POST\"}.",
@@ -2079,6 +2149,16 @@
           },
           "500": {
             "description": "error: 'Key misconfigured', 'Could not store submission', or 'Webhook rule is malformed'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "508": {
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3057,7 +3137,9 @@
                               "delivering",
                               "delivered",
                               "failed",
-                              "dead"
+                              "dead",
+                              "paused",
+                              "cancelled"
                             ]
                           },
                           "response_code": {
@@ -8120,6 +8202,10 @@
                     "signing_secret": {
                       "type": "string",
                       "description": "whsec_ followed by 48 hex characters."
+                    },
+                    "warning": {
+                      "type": "string",
+                      "description": "Present when the destination's URL is one of this project's own endpoint URLs or ingest keys and its dataset filter admits the dataset that writes to, so every event would loop back (stopped after 8 hops by Hookie-Hop). The destination is still created."
                     }
                   }
                 }
@@ -8755,7 +8841,9 @@
                               "delivering",
                               "delivered",
                               "failed",
-                              "dead"
+                              "dead",
+                              "paused",
+                              "cancelled"
                             ]
                           },
                           "response_code": {
@@ -9002,7 +9090,9 @@
                             "delivering",
                             "delivered",
                             "failed",
-                            "dead"
+                            "dead",
+                            "paused",
+                            "cancelled"
                           ]
                         },
                         "response_code": {
@@ -9626,7 +9716,9 @@
                       "delivering",
                       "delivered",
                       "failed",
-                      "dead"
+                      "dead",
+                      "paused",
+                      "cancelled"
                     ],
                     "description": "Matched exactly; any string is accepted by the handler."
                   },
@@ -14012,7 +14104,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Instances, newest first, hard-capped at 500 rows. There is no pagination. `context` is not included here \u2014 use getWorkflowInstance.",
+            "description": "Instances, newest first. Page with `limit`/`offset`; `total` counts every instance matching the filters. `context` is not included here \u2014 use getWorkflowInstance.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14064,6 +14156,16 @@
                           }
                         }
                       }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Instances matching the filters, across all pages."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -14119,6 +14221,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "`since` or `until` is not an ISO 8601 timestamp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -14154,6 +14266,47 @@
                 "timed_out",
                 "cancelled"
               ]
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Only instances created at or after this instant (ISO 8601). Unparseable \u2192 400.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Only instances created at or before this instant (ISO 8601). Unparseable \u2192 400.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1\u2013500 (default 50 when paging). With neither limit nor offset the answer is the newest 500.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Rows to skip, newest first.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         ],

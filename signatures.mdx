@@ -16,11 +16,13 @@ Each delivery carries:
 Hookie-Signature: t=1718000000,v1=5f2b8c…e11a
 Hookie-Event-Id: 9d3f2a10-…
 Hookie-Delivery-Id: 4c7b…
+Hookie-Hop: 1
 ```
 
 - `Hookie-Signature`: `t=<unix>,v1=<hex>`, an HMAC-SHA256 (Stripe-style).
 - `Hookie-Event-Id`: the event ID. **Dedupe on this**, since delivery is at-least-once and unordered.
 - `Hookie-Delivery-Id`: the specific delivery attempt, useful in logs.
+- `Hookie-Hop`: how many times this event has passed through Hookie. If your service forwards the event into Hookie again, pass this header on: Hookie refuses an event at 8 hops, which stops a delivery loop.
 
 ## What's signed
 

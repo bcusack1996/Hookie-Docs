@@ -138,7 +138,7 @@ These are not single API calls, so they are not generated. [Local development](/
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie views list` | `--webhook-id` | The saved table views for a project. |
-| `hookie views create` | `--webhook-id* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for an endpoint. |
+| `hookie views create` | `--webhook-id* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for an endpoint. A column or sort key can be a dotted path into a nested field, such as `customer.email`; a field literally named that wins. |
 | `hookie views delete` ⚠️ | `--view-id*` | Delete a saved table view. |
 
 ### workflows
@@ -147,7 +147,7 @@ These are not single API calls, so they are not generated. [Local development](/
 | --- | --- | --- |
 | `hookie workflows list` | `—` | Workflow definitions in a project. |
 | `hookie workflows get` | `--workflow-id*` | One workflow definition in full: entry dataset, entry conditions and every step. |
-| `hookie workflows runs` | `--workflow-id* --state` | Instances of one workflow, newest first. |
+| `hookie workflows runs` | `--workflow-id* --state --since --until --limit --offset` | Instances of one workflow, newest first, 50 per page by default. |
 | `hookie workflows run` | `--instance-id*` | One instance with its per-step event log — which branch was taken, and where it stopped. |
 | `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow. |
 | `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | **Replace** a workflow's definition. |
