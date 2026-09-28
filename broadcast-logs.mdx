@@ -1,0 +1,144 @@
+---
+title: "Broadcast Logs"
+description: "Forward a project's logs and traces over OTLP to Datadog, Grafana Cloud, an OpenTelemetry Collector, PostHog or Sentry."
+icon: "tower-broadcast"
+---
+
+**Broadcast Logs** sends what happens in a project to the observability tool you already use, as standard [OpenTelemetry](https://opentelemetry.io) logs and traces over **OTLP/HTTP (JSON)**. You can alert on failed deliveries in Datadog, chart AI latency in Grafana, or search every event of one webhook in Sentry, next to the rest of your stack.
+
+A project broadcasts to **one** tool: Datadog, Grafana Cloud, an OpenTelemetry Collector, PostHog or Sentry.
+
+## Set it up
+
+<Steps>
+  <Step title="Open the wizard">
+    In the console, open **Project → Observability** and choose **Broadcast Logs**. You need to be an owner or admin of the workspace; everyone else sees the integration's status but cannot change it.
+  </Step>
+
+  <Step title="Pick a tool">
+    Choose one of the five tools. If the project already broadcasts somewhere, the new tool **replaces** it. The wizard asks you to confirm before it does, because the old tool's settings, credentials and counts are deleted.
+  </Step>
+
+  <Step title="Fill in the tool's settings">
+    Each tool asks for exactly what its own OTLP documentation asks for. See [the sections below](#datadog), and follow the docs link in the wizard. Secrets such as API keys and tokens are stored encrypted (AES-256-GCM). Hookie never shows them again, so to change one you type a new value. To keep a secret when you edit other settings, leave its field blank.
+  </Step>
+
+  <Step title="Send a test event, then save">
+    **Send test event** posts one log record, and one span where the tool takes traces, with the settings you entered. The wizard shows what each endpoint answered. Save when the test is accepted. If it fails, you can still save, and the failure keeps showing on the Observability tab until the tool accepts the data.
+  </Step>
+</Steps>
+
+## What is sent
+
+Every one of these produces a **span** (for `/v1/traces`) and a **log record** (for `/v1/logs`) carrying the same trace and span ids, so you can jump from a log line to its trace:
+
+| Event | Span name | Notable attributes |
+| --- | --- | --- |
+| An event is received and stored | `hookie.ingest` | `hookie.submission.id`, `hookie.source`, `hookie.records`, `hookie.datasets` |
+| A record is routed into a dataset | `hookie.route` | `hookie.record.id`, `hookie.dataset` |
+| A delivery attempt | `hookie.delivery` | `http.response.status_code`, `hookie.delivery.attempt`, `hookie.delivery.max_attempts`, `hookie.delivery.latency_ms`, `server.address` |
+| A workflow step completes or fails | `hookie.workflow.step` | `hookie.workflow.id`, `hookie.workflow.instance_id`, `hookie.workflow.step_type` |
+| An AI call | `hookie.ai.call` | `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `hookie.ai.status` |
+| A trigger fires (cron, WebSocket, AI) | `hookie.trigger.fire` | `hookie.trigger.kind`, `hookie.trigger.id` |
+
+All spans for one event share its trace id: the submission id without dashes. The ingest, routing, delivery and AI-trigger spans for an event therefore show up as one trace. The resource carries `service.name = hookie`, your workspace as `service.namespace`, and `hookie.project.id`, `hookie.project.slug` and `hookie.project.name`.
+
+<Note>
+  **Payloads are not sent.** Hookie forwards what happened to an event, never the event's body. AI calls report the model, token counts, latency and outcome. They never include the prompt, the input or the output, which stay in **Observability → AI calls**.
+</Note>
+
+Severity follows the outcome: `INFO` for success, `WARN` for a failure that will be retried (or an event that matched no rule), and `ERROR` for a final failure.
+
+## Delivery, retries and status
+
+Forwarding never slows ingest. Spans are queued after the event is stored, and a queue consumer sends them in batches: one request per signal for all the spans of a project in a batch. Usually they arrive within seconds.
+
+- **Retries.** A `5xx`, a `404`, `408`, `409`, `425` or `429`, or a network error is retried with backoff at 30 seconds, 2 minutes, 10 minutes, 30 minutes and 2 hours. Only the signal that failed is resent, so logs that were already accepted are not duplicated when traces fail.
+- **Dropped.** Data the tool refuses outright (for example `401` or `403`) or that fails after the last retry is dropped and counted.
+- **Redirects are not followed.** A `3xx` answer is reported as an error. Point the integration at the final URL.
+- **Status.** The Observability tab shows the last success, the last error, how many log records and spans were exported, failed requests, dropped items and the last test.
+
+**Disable** pauses forwarding at once, including anything already queued, and keeps the settings. **Remove** deletes the integration. Every create, replace, edit, disable and removal is recorded in the audit log.
+
+## Datadog
+
+Datadog's [OTLP intake endpoint](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/) takes logs and traces directly, with no Agent or Collector.
+
+| Field | Where to find it |
+| --- | --- |
+| **Datadog site** | The site your organization is on: US1 (`datadoghq.com`), US3, US5, EU1 (`datadoghq.eu`), AP1, AP2, UK1, US1-FED or US2-FED. |
+| **API key** | **Organization settings → API keys**. Use an API key, not an application key. |
+
+Hookie posts to `https://otlp.<site>/v1/logs` and `https://otlp.<site>/v1/traces` with the `dd-api-key` header. It also sends `compute_stats: true` on traces so that Datadog computes trace metrics, which this intake does not do by default. A `403` usually means the site does not match your organization.
+
+## Grafana Cloud
+
+Grafana Cloud's [OTLP endpoint](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) routes logs to Loki and traces to Tempo.
+
+| Field | Where to find it |
+| --- | --- |
+| **OTLP endpoint** | Your stack → **OpenTelemetry → Configure**, for example `https://otlp-gateway-prod-us-east-0.grafana.net/otlp`. Hookie appends `/v1/logs` and `/v1/traces`. |
+| **Instance ID** | The numeric instance ID on the same page. It is the basic-auth username. |
+| **Access policy token** | Generate one on the same page. It needs the `logs:write` and `traces:write` scopes. |
+
+Hookie authenticates with `Authorization: Basic base64(<instance ID>:<token>)`, which is the header the OpenTelemetry tile generates.
+
+## OpenTelemetry Collector
+
+Use this for your own [Collector](https://opentelemetry.io/docs/collector/), Grafana Alloy, or any other backend with an OTLP/HTTP receiver.
+
+| Field | Notes |
+| --- | --- |
+| **OTLP/HTTP endpoint** | The receiver's base URL over `https`, for example `https://otel.example.com:4318`. Hookie appends `/v1/logs` and `/v1/traces`, as `OTEL_EXPORTER_OTLP_ENDPOINT` does in the [exporter specification](https://opentelemetry.io/docs/specs/otel/protocol/exporter/). |
+| **Headers** (optional) | A JSON object of extra headers, such as `{"Authorization": "Bearer …"}`. Stored encrypted. |
+
+The receiver must accept JSON-encoded OTLP (`Content-Type: application/json`), which the standard `otlp` receiver's HTTP protocol does.
+
+## PostHog
+
+[PostHog Logs](https://posthog.com/docs/logs/installation/other) accepts OTLP **logs**.
+
+| Field | Where to find it |
+| --- | --- |
+| **PostHog region** | US Cloud (`us.i.posthog.com`) or EU Cloud (`eu.i.posthog.com`), the region in your PostHog URL. |
+| **Project token** | **Project settings → Project token**. It starts `phc_`. A personal API key (`phx_`) does not work. |
+
+Hookie posts to `https://<region>.i.posthog.com/i/v1/logs` with `Authorization: Bearer <project token>`.
+
+<Warning>
+  PostHog does not ingest OTLP traces, so a PostHog integration receives **log records only**. Each log record still carries its trace and span ids, so related events stay grouped.
+</Warning>
+
+## Sentry
+
+Sentry [ingests OpenTelemetry logs and traces over OTLP](https://docs.sentry.io/concepts/otlp/) directly. The feature is in open beta at Sentry.
+
+| Field | Where to find it |
+| --- | --- |
+| **DSN** | **Project settings → Client Keys (DSN)**. Its public key authenticates the export. |
+| **OTLP traces endpoint** (optional) | The same page, for example `https://o123.ingest.us.sentry.io/api/456/integration/otlp/v1/traces`. Leave it blank to derive it from the DSN. It must be for the DSN's project. |
+| **Headers** (optional) | A JSON object of extra headers. Stored encrypted. |
+
+Hookie sends traces to the traces endpoint and logs to the matching `…/v1/logs`, with `x-sentry-auth: sentry sentry_key=<public key>`.
+
+## API
+
+The integration is managed under `/admin/api/projects/{pid}/telemetry`. See the [API reference](/api-reference) under **Broadcast Logs**.
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `GET` | `/telemetry` | The integration (or `null`) and the vendor catalog. Secret values are never returned. `secrets_set` names the secret fields that are set. |
+| `POST` | `/telemetry` | Create one. If the project already has one, this answers `409` with `code: "integration_exists"` unless the body says `"replace": true`. |
+| `PATCH` | `/telemetry` | Change settings or secrets (a blank secret keeps its value), or `{"enabled": false}` to disable. |
+| `DELETE` | `/telemetry` | Remove it. |
+| `POST` | `/telemetry/test` | Send a test event to a draft (`vendor`, `settings`, `secrets` in the body) or, with an empty body, to the saved integration. |
+
+A [connected agent](/connected-agents) with the `hookie:manage` scope reaches the same routes with its OAuth access token:
+
+```bash
+curl -X POST "https://app.hookie.ai/admin/api/projects/$PROJECT/telemetry" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"vendor":"datadog","settings":{"site":"datadoghq.eu"},"secrets":{"api_key":"'"$DD_API_KEY"'"}}'
+```
+
+Endpoints must be public `https` URLs: localhost, private and link-local addresses (the cloud metadata address included) and URLs with credentials in them are refused.

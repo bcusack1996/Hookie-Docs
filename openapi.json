@@ -60,6 +60,10 @@
     {
       "name": "Workspace",
       "description": "Members, connected agents, SSO and billing."
+    },
+    {
+      "name": "Broadcast Logs",
+      "description": "Forward a project's logs and traces over OTLP/HTTP (JSON) to Datadog, Grafana Cloud, an OpenTelemetry Collector, PostHog or Sentry."
     }
   ],
   "components": {
@@ -17813,6 +17817,887 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/admin/api/projects/{pid}/telemetry": {
+      "get": {
+        "operationId": "getBroadcastLogs",
+        "summary": "The project's Broadcast Logs integration (or null) and the vendor catalog",
+        "description": "Any member can read it. Secret values are never returned: `secrets_set` names the secret fields that are set.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The integration and the vendors the wizard offers, with each vendor's fields and OTLP docs link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "vendor": {
+                              "type": "string",
+                              "enum": [
+                                "datadog",
+                                "grafana_cloud",
+                                "otel_collector",
+                                "posthog",
+                                "sentry"
+                              ]
+                            },
+                            "vendor_name": {
+                              "type": "string"
+                            },
+                            "signals": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "logs",
+                                  "traces"
+                                ]
+                              }
+                            },
+                            "settings": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                            },
+                            "secrets_set": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                            },
+                            "secrets_unreadable": {
+                              "type": "boolean",
+                              "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                            },
+                            "endpoints": {
+                              "type": "object",
+                              "properties": {
+                                "logs": {
+                                  "type": "string"
+                                },
+                                "traces": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "created_by": {
+                              "type": "string"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "object",
+                              "properties": {
+                                "last_success_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_error": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_error_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "exported_count": {
+                                  "type": "integer",
+                                  "description": "Log records and spans the tool accepted."
+                                },
+                                "failed_count": {
+                                  "type": "integer",
+                                  "description": "Export requests that failed (each is retried with backoff)."
+                                },
+                                "dropped_count": {
+                                  "type": "integer",
+                                  "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                                },
+                                "last_test_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_test_ok": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "vendors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "datadog",
+                              "grafana_cloud",
+                              "otel_collector",
+                              "posthog",
+                              "sentry"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "signals": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "logs",
+                                "traces"
+                              ]
+                            },
+                            "description": "The OTLP signals the vendor ingests. PostHog: logs only."
+                          },
+                          "docs_url": {
+                            "type": "string",
+                            "description": "The vendor's own OTLP ingestion documentation."
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "text",
+                                    "url",
+                                    "select",
+                                    "secret",
+                                    "headers"
+                                  ]
+                                },
+                                "secret": {
+                                  "type": "boolean",
+                                  "description": "Stored AES-256-GCM encrypted; never returned."
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "placeholder": {
+                                  "type": "string"
+                                },
+                                "help": {
+                                  "type": "string"
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "default": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found in this workspace."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBroadcastLogs",
+        "summary": "Start forwarding the project's logs and traces over OTLP/HTTP (JSON) to one tool",
+        "description": "A project has ONE integration. When one exists the request is refused with 409 unless `replace` is exactly `true`; a replace deletes the old integration (settings, credentials and counts) and is audited as replace_telemetry_integration. Endpoint URLs must be https, public hosts (no localhost, private, link-local or metadata addresses) and carry no credentials. Audited as create_telemetry_integration.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "vendor"
+                    ],
+                    "properties": {
+                      "vendor": {
+                        "type": "string",
+                        "enum": [
+                          "datadog",
+                          "grafana_cloud",
+                          "otel_collector",
+                          "posthog",
+                          "sentry"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "replace": {
+                        "type": "boolean",
+                        "description": "Must be true to replace an existing integration."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created (or replaced).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "enum": [
+                            "datadog",
+                            "grafana_cloud",
+                            "otel_collector",
+                            "posthog",
+                            "sentry"
+                          ]
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          }
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                        },
+                        "secrets_unreadable": {
+                          "type": "boolean",
+                          "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                        },
+                        "endpoints": {
+                          "type": "object",
+                          "properties": {
+                            "logs": {
+                              "type": "string"
+                            },
+                            "traces": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "properties": {
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "exported_count": {
+                              "type": "integer",
+                              "description": "Log records and spans the tool accepted."
+                            },
+                            "failed_count": {
+                              "type": "integer",
+                              "description": "Export requests that failed (each is retried with backoff)."
+                            },
+                            "dropped_count": {
+                              "type": "integer",
+                              "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                            },
+                            "last_test_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_test_ok": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A required field is missing or invalid, or an endpoint is not an allowed outbound URL."
+          },
+          "403": {
+            "description": "Owner or admin only."
+          },
+          "409": {
+            "description": "The project already has an integration and `replace: true` was not sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "integration_exists"
+                      ]
+                    },
+                    "existing": {
+                      "type": "object",
+                      "properties": {
+                        "vendor": {
+                          "type": "string"
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateBroadcastLogs",
+        "summary": "Change the integration's settings or secrets, or enable / disable it",
+        "description": "The vendor cannot change here (that is a replace). Secrets left blank keep their stored value. Disabling stops forwarding at once, including anything already queued. Audited as update_telemetry_integration with the names (never the values) of changed secrets.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "enum": [
+                            "datadog",
+                            "grafana_cloud",
+                            "otel_collector",
+                            "posthog",
+                            "sentry"
+                          ]
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          }
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                        },
+                        "secrets_unreadable": {
+                          "type": "boolean",
+                          "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                        },
+                        "endpoints": {
+                          "type": "object",
+                          "properties": {
+                            "logs": {
+                              "type": "string"
+                            },
+                            "traces": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "properties": {
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "exported_count": {
+                              "type": "integer",
+                              "description": "Log records and spans the tool accepted."
+                            },
+                            "failed_count": {
+                              "type": "integer",
+                              "description": "Export requests that failed (each is retried with backoff)."
+                            },
+                            "dropped_count": {
+                              "type": "integer",
+                              "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                            },
+                            "last_test_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_test_ok": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid field, nothing to change, or an attempt to change the vendor."
+          },
+          "403": {
+            "description": "Owner or admin only."
+          },
+          "404": {
+            "description": "The project has no integration."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBroadcastLogs",
+        "summary": "Remove the integration",
+        "description": "Deletes its settings, credentials and counts. Audited as delete_telemetry_integration.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner or admin only."
+          },
+          "404": {
+            "description": "The project has no integration."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/telemetry/test": {
+      "post": {
+        "operationId": "testBroadcastLogs",
+        "summary": "Send one test log record (and span) to a draft or the saved configuration",
+        "description": "With `vendor` (plus `settings` / `secrets`) in the body, tests that draft without saving it; a draft of the saved vendor may leave secrets blank to use the stored ones. With an empty body, tests the saved integration and records `last_test_at` / `last_test_ok`. Redirects are never followed.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "vendor": {
+                        "type": "string",
+                        "enum": [
+                          "datadog",
+                          "grafana_cloud",
+                          "otel_collector",
+                          "posthog",
+                          "sentry"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What each signal's endpoint answered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "description": "Every signal accepted the test event."
+                    },
+                    "vendor": {
+                      "type": "string",
+                      "enum": [
+                        "datadog",
+                        "grafana_cloud",
+                        "otel_collector",
+                        "posthog",
+                        "sentry"
+                      ]
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "signal": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "ms": {
+                            "type": "integer"
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid draft."
+          },
+          "403": {
+            "description": "Owner or admin only."
+          },
+          "404": {
+            "description": "No saved integration to test."
+          }
+        }
       }
     }
   }
