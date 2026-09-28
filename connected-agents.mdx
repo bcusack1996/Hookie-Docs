@@ -9,7 +9,7 @@ Hookie runs a hosted [MCP](https://modelcontextprotocol.io) server. Point an AI 
 Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only, and you decide in the console what more it may do. You can cut it off again in one click.
 
 <Note>
-  The assistant built into the console reads the same tool catalog, so you do not have to connect an external client to get an agent that can see your workspace. Connect one when you want your own coding agent, in your editor and next to your code, to build the pipeline for you.
+  Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect an agent** in the top bar (next to the theme switch and your profile) shows your MCP URL, the Claude connector, and the Claude Code command in one place.
 </Note>
 
 <Note>
@@ -44,6 +44,8 @@ claude mcp add --transport http hookie https://app.hookie.ai/mcp
 ```
 
 </CodeGroup>
+
+For Claude on the web or desktop, add Hookie as a custom connector: open [Settings → Connectors](https://claude.ai/settings/connectors), choose **Add custom connector**, and paste the URL above. Claude then signs in to Hookie as you, the same way.
 
 No credential goes in that file, because there isn't one to put there. The first request your agent makes is refused with a pointer to Hookie's authorization server (WorkOS AuthKit, the same place you sign in). The agent registers itself there, opens a sign-in in your browser, and from then on holds a token it refreshes on its own. That is the standard OAuth 2.1 authorization-code flow with PKCE, the same one you would get from any well-behaved MCP client.
 
