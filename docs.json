@@ -15,18 +15,7 @@
         "icon": "rocket",
         "pages": [
           "index",
-          "quickstart",
-          {
-            "group": "Use Cases",
-            "icon": "lightbulb",
-            "pages": [
-              "use-cases/index",
-              "use-cases/lead-intake-ai-qualification",
-              "use-cases/support-ticket-triage",
-              "use-cases/billing-account-lifecycle",
-              "use-cases/product-led-onboarding"
-            ]
-          }
+          "quickstart"
         ]
       },
       {
@@ -154,7 +143,7 @@
       }
     ]
   },
-  "description": "Capture, route and deliver webhooks on Cloudflare \u2014 ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
+  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
   "api": {
     "openapi": "openapi.json",
     "playground": {
@@ -175,6 +164,14 @@
     {
       "source": "/cli/local-development",
       "destination": "/cli/operations"
+    },
+    {
+      "source": "/use-cases",
+      "destination": "https://hookie.ai/use-cases"
+    },
+    {
+      "source": "/use-cases/:slug*",
+      "destination": "https://hookie.ai/use-cases/:slug*"
     }
   ]
 }
