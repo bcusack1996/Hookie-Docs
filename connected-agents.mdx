@@ -82,7 +82,9 @@ Available with `hookie:read`:
 | `list_projects` | The workspace's projects. |
 | `get_project_overview` | A project's details plus its dataset summary. |
 | `list_datasets` | Datasets in a project, with record counts. |
-| `query_records` | Recent records from a dataset, newest first. |
+| `query_records` | One page of a dataset's records (optionally through a saved view), with the whole count, for `limit`/`offset` paging. |
+| `list_record_views` | Saved table views, per dataset: which fields matter, what they are called, how they sort. |
+| `get_record` | One record in full, including fields a view left out. |
 | `list_webhooks · list_rules · list_destinations` | A project's routing configuration. Endpoints come with a ready-to-send `public_path`. |
 | `list_sources · list_triggers` | Polled source connectors, and AI triggers. |
 | `list_ingest_keys` | Ingest keys as metadata only — name, prefix, last used, revoked. Never the plaintext. |
@@ -100,6 +102,7 @@ Available with `hookie:write`:
 | `create_project` | A new project. Needs owner/admin, exactly as the console does. |
 | `create_webhook · update_webhook · delete_webhook` | Endpoints. Update toggles enabled. |
 | `create_rule · update_rule · delete_rule` | Mapping rules. Update toggles enabled. |
+| `create_record_view · delete_record_view` | Saved table views on a dataset, the same ones people see on the console's Datasets tab. |
 | `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. An empty filter is refused; leave it out for every dataset. |
 | `create_workflow · update_workflow` | A multi-step workflow: entry dataset, entry conditions, and the ordered steps. A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
 | `delete_workflow` | Despite the name, this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. |
