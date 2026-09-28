@@ -60,6 +60,14 @@
     {
       "name": "Workspace",
       "description": "Members, connected agents, SSO and billing."
+    },
+    {
+      "name": "Data API",
+      "description": "Read-only access to the datasets and columns a project exposes, with per-project keys."
+    },
+    {
+      "name": "Broadcast Logs",
+      "description": "Forward a project's logs and traces over OTLP/HTTP (JSON) to Datadog, Grafana Cloud, an OpenTelemetry Collector, PostHog or Sentry."
     }
   ],
   "components": {
@@ -91,6 +99,11 @@
         "in": "query",
         "name": "token",
         "description": "The same portal token in the query string, for embedding the portal in an iframe where a header cannot be set."
+      },
+      "dataApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A project Data API key (hdk_\u2026), created in the project's Settings \u2192 Data API."
       }
     },
     "schemas": {
@@ -6741,30 +6754,33 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/records": {
+    "/admin/api/projects/{pid}/datasets/{dataset}/records": {
       "get": {
-        "operationId": "listWebhookRecords",
-        "summary": "Records received by one webhook, optionally through a saved view",
+        "operationId": "listDatasetRecords",
+        "summary": "One page of a dataset's records, optionally through a saved view",
         "tags": [
           "Records"
         ],
         "responses": {
           "200": {
-            "description": "Rows for the webhook. Without a view, every row is the record meta columns plus its whole flattened payload and columns is the discovered key set. With a view, each row carries _id plus exactly the view columns (missing keys become null), sorted in SQL by the view sort key. available_columns is always the full discovered set.",
+            "description": "One page of the dataset's records, newest first unless the view sorts otherwise. Without a view, every row is the record meta columns plus its whole flattened payload and columns is the discovered key set. With a view, each row carries _id plus exactly the view columns (missing keys become null), sorted in SQL by the view sort key. available_columns is always the full discovered set; total is the dataset's whole record count.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "webhook_id",
+                    "dataset",
                     "view",
                     "columns",
                     "available_columns",
                     "rows",
-                    "count"
+                    "count",
+                    "total",
+                    "limit",
+                    "offset"
                   ],
                   "properties": {
-                    "webhook_id": {
+                    "dataset": {
                       "type": "string"
                     },
                     "view": {
@@ -6777,7 +6793,7 @@
                         "id": {
                           "type": "string"
                         },
-                        "webhook_id": {
+                        "dataset": {
                           "type": "string"
                         },
                         "name": {
@@ -6860,6 +6876,15 @@
                     },
                     "count": {
                       "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -6919,10 +6944,10 @@
             }
           },
           {
-            "name": "id",
+            "name": "dataset",
             "in": "path",
             "required": true,
-            "description": "Webhook id.",
+            "description": "Dataset name.",
             "schema": {
               "type": "string"
             }
@@ -6940,12 +6965,23 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Row cap. Non-numeric or non-positive values fall back to 200; anything above 1000 is clamped to 1000.",
+            "description": "Rows per page (default 25, max 1000).",
             "schema": {
               "type": "integer",
               "minimum": 1,
               "maximum": 1000,
-              "default": 200
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Rows to skip (default 0).",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
             }
           }
         ],
@@ -6957,6 +6993,67 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/admin/api/projects/{pid}/webhooks/{id}/records": {
+      "get": {
+        "operationId": "webhookRecordsMoved",
+        "summary": "Retired: records are read by dataset",
+        "deprecated": true,
+        "tags": [
+          "Records"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "410": {
+            "description": "Records are read by dataset now. The body names the endpoint's dataset and the path to read it from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "dataset",
+                    "records_path"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "dataset": {
+                      "type": "string"
+                    },
+                    "records_path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such webhook in this project."
+          }
+        }
       }
     },
     "/admin/api/projects/{pid}/record-views": {
@@ -6983,7 +7080,7 @@
                         "type": "object",
                         "required": [
                           "id",
-                          "webhook_id",
+                          "dataset",
                           "name",
                           "columns",
                           "sort_key",
@@ -6996,7 +7093,7 @@
                           "id": {
                             "type": "string"
                           },
-                          "webhook_id": {
+                          "dataset": {
                             "type": "string"
                           },
                           "name": {
@@ -7108,10 +7205,10 @@
             }
           },
           {
-            "name": "webhook_id",
+            "name": "dataset",
             "in": "query",
             "required": false,
-            "description": "Restrict to views of one webhook.",
+            "description": "Restrict to views of one dataset.",
             "schema": {
               "type": "string"
             }
@@ -7134,7 +7231,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Created. Note the echoed view uses the internal camelCase spec field names sortKey, sortDir and isDefault - NOT the snake_case names returned by the list endpoint.",
+            "description": "Created. The echoed view uses the same snake_case keys as the list (id, dataset, name, columns, sort_key, sort_dir, is_default).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7147,18 +7244,18 @@
                       "type": "object",
                       "required": [
                         "id",
-                        "webhook_id",
+                        "dataset",
                         "name",
                         "columns",
-                        "sortKey",
-                        "sortDir",
-                        "isDefault"
+                        "sort_key",
+                        "sort_dir",
+                        "is_default"
                       ],
                       "properties": {
                         "id": {
                           "type": "string"
                         },
-                        "webhook_id": {
+                        "dataset": {
                           "type": "string"
                         },
                         "name": {
@@ -7182,20 +7279,20 @@
                             }
                           }
                         },
-                        "sortKey": {
+                        "sort_key": {
                           "type": [
                             "string",
                             "null"
                           ]
                         },
-                        "sortDir": {
+                        "sort_dir": {
                           "type": "string",
                           "enum": [
                             "asc",
                             "desc"
                           ]
                         },
-                        "isDefault": {
+                        "is_default": {
                           "type": "boolean"
                         }
                       }
@@ -7206,7 +7303,7 @@
             }
           },
           "400": {
-            "description": "webhook_id is required, or a view-spec failure - name missing/over 80 chars, columns empty or over 40, a bad or duplicate column key, or an invalid sort_key.",
+            "description": "dataset is missing or not a valid dataset name (or webhook_id was sent instead), or a view-spec failure - name missing/over 80 chars, columns empty or over 40, a bad or duplicate column key, or an invalid sort_key.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7227,16 +7324,6 @@
           },
           "403": {
             "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Webhook not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7275,14 +7362,14 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "webhook_id",
+                  "dataset",
                   "name",
                   "columns"
                 ],
                 "properties": {
-                  "webhook_id": {
+                  "dataset": {
                     "type": "string",
-                    "description": "Must name a webhook in this project."
+                    "description": "The dataset this view reads (a valid dataset name). Sending webhook_id instead is a 400 that says so."
                   },
                   "name": {
                     "type": "string",
@@ -7366,7 +7453,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Updated. As with create, the echoed view uses the camelCase names sortKey, sortDir and isDefault.",
+            "description": "Updated. The echoed view uses the same snake_case keys as the list.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7379,18 +7466,18 @@
                       "type": "object",
                       "required": [
                         "id",
-                        "webhook_id",
+                        "dataset",
                         "name",
                         "columns",
-                        "sortKey",
-                        "sortDir",
-                        "isDefault"
+                        "sort_key",
+                        "sort_dir",
+                        "is_default"
                       ],
                       "properties": {
                         "id": {
                           "type": "string"
                         },
-                        "webhook_id": {
+                        "dataset": {
                           "type": "string"
                         },
                         "name": {
@@ -7414,20 +7501,20 @@
                             }
                           }
                         },
-                        "sortKey": {
+                        "sort_key": {
                           "type": [
                             "string",
                             "null"
                           ]
                         },
-                        "sortDir": {
+                        "sort_dir": {
                           "type": "string",
                           "enum": [
                             "asc",
                             "desc"
                           ]
                         },
-                        "isDefault": {
+                        "is_default": {
                           "type": "boolean"
                         }
                       }
@@ -12565,6 +12652,21 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The project already has 10 cron triggers, the most a project may hold. Delete one before adding another.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -13198,6 +13300,21 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The project already has 5 WebSocket triggers, the most a project may hold. Delete one before adding another.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -13820,7 +13937,7 @@
             }
           },
           "400": {
-            "description": "Validation failure, one message. Examples: `body must be an object`; `name is required (<=120 chars)`; `entry_dataset: <dataset name error>`; `conditions must be an array`; `condition.path is required`; `condition.op must be one of equals|not_equals|contains|exists|gt|lt`; `steps must be an array`; `at least one step is required`; `too many steps (max 32 including branch sub-steps)`; `step N: unknown type \"x\"`; `step N (call_ai): instructions/prompt is required`; `step N (delay): seconds must be > 0`; `step N (wait_for_event): not allowed inside a branch (branches run atomically)`; `step N (branch): max nesting depth is 3`; `step N (branch): then must contain at least one step`.",
+            "description": "Validation failure, one message. Examples: `body must be an object`; `name is required (<=120 chars)`; `entry_dataset: <dataset name error>`; `conditions must be an array`; `condition.path is required`; `condition.op must be one of equals|not_equals|contains|exists|gt|lt`; `steps must be an array`; `at least one step is required`; `too many steps (max 32 including branch sub-steps)`; `step N: unknown type \"x\"`; `step N (call_ai): instructions/prompt is required`; `step N (delay): seconds must be > 0`; `step N (wait_for_event): not allowed inside a branch (branches run atomically)`; `step N (branch): max nesting depth is 3`; `step N (branch): then must contain at least one step`; `step N (delay): seconds must be at most 31536000 (365 days)`; `step N (http): url must be https`; `step N (http): a {{placeholder}} may only appear after the host, \u2026`; `step N (http): url host \"\u2026\" is a private or reserved address`; `step N (http): a GET request cannot carry a body`; `step N (set): values must set at least one key`; `step N (transform): mapping.x must be a context path such as \"entry.email\"`; `steps are too large (max 262144 bytes serialized)`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13948,7 +14065,7 @@
                   "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Ordered steps. Total count INCLUDING nested branch sub-steps must be <= 32.",
+                    "description": "Ordered steps. Total count INCLUDING nested branch sub-steps must be <= 32, and the steps serialized at most 262144 bytes. New instances run on Cloudflare Workflows: each step is a durable step with retries, so emit_event is keyed on (instance, step) and never emits twice.",
                     "items": {
                       "oneOf": [
                         {
@@ -14070,7 +14187,8 @@
                             "timeout_seconds": {
                               "type": "integer",
                               "minimum": 1,
-                              "description": "Must be > 0; floored. Timeouts are swept every ~5 minutes, so resolution is coarse."
+                              "description": "Must be > 0; floored; at most 31536000 (365 days). Omitted: on the Cloudflare Workflows engine the wait times out after 365 days (step.waitForEvent needs a finite timeout); on the legacy engine it never does. A timed-out wait ends the instance in state timed_out.",
+                              "maximum": 31536000
                             }
                           },
                           "description": "NOT allowed inside a branch."
@@ -14092,7 +14210,8 @@
                             "seconds": {
                               "type": "integer",
                               "minimum": 1,
-                              "description": "Must be > 0; floored. Resolution is bounded to ~5 minutes by the sweep."
+                              "description": "Must be > 0; floored; at most 31536000 (365 days, Cloudflare's step.sleep maximum). On the Cloudflare Workflows engine the sleep is accurate to the second; a legacy instance still resumes on the ~5-minute sweep.",
+                              "maximum": 31536000
                             }
                           },
                           "description": "NOT allowed inside a branch."
@@ -14140,7 +14259,7 @@
                             "conditions": {
                               "type": "array",
                               "minItems": 1,
-                              "description": "At least one condition is required. Evaluated against the instance CONTEXT (entry payload merged with prior step outputs), so an earlier call_ai/agent_call output_key can be branched on.",
+                              "description": "At least one condition is required. Evaluated against the instance CONTEXT (entry payload under `entry`, plus each earlier step's output: call_ai/agent_call/http/transform output_key, every key a set step writes, `waited_event`).",
                               "items": {
                                 "type": "object",
                                 "required": [
@@ -14169,7 +14288,7 @@
                             "then": {
                               "type": "array",
                               "minItems": 1,
-                              "description": "Sub-steps run when the conditions match. Only SYNCHRONOUS types allowed: emit_event, call_ai, agent_call, branch."
+                              "description": "Sub-steps run when the conditions match. Only types that complete in one step are allowed: emit_event, call_ai, agent_call, http, set, transform, branch."
                             },
                             "else": {
                               "type": "array",
@@ -14177,6 +14296,116 @@
                             }
                           },
                           "description": "Max nesting depth 3."
+                        },
+                        {
+                          "title": "http",
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "method",
+                            "url"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "http"
+                              ]
+                            },
+                            "method": {
+                              "type": "string",
+                              "enum": [
+                                "GET",
+                                "POST",
+                                "PUT",
+                                "PATCH",
+                                "DELETE"
+                              ],
+                              "description": "Case-insensitive on write; stored upper-case."
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2048,
+                              "description": "https to a PUBLIC host: no localhost, internal-only or single-label names, no private, loopback, link-local, CGNAT or multicast IP literals, no credentials in the URL. {{placeholders}} may appear only after the host; embedded values are URL-encoded. The resolved URL is checked again before every request. Redirects are never followed: a 3xx is returned as the result. Templating: a string that is exactly \"{{path}}\" takes the instance-context value at that dotted path with its type kept; {{path}} inside a longer string is replaced by the value as text (objects as JSON, null/missing as empty)."
+                            },
+                            "headers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 4096
+                              },
+                              "maxProperties": 32,
+                              "description": "Header values are PLAIN CONFIGURATION, stored with the definition and returned by GET: do not put secrets in them. Values are templated. Host, Content-Length, Connection, Transfer-Encoding, CF-Connecting-IP and X-Forwarded-For are refused. User-Agent and Idempotency-Key (<instance id>:<step path>, stable across retries) are sent unless set here."
+                            },
+                            "body": {
+                              "description": "JSON, at most 65536 bytes serialized; not allowed on GET. String leaves are templated. A string body is sent as text/plain, anything else as application/json, unless Content-Type is set."
+                            },
+                            "output_key": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                              "default": "http_result",
+                              "description": "Context key the result {status, body} is written to. body is the response parsed as JSON when it is JSON, else text, capped at 65536 bytes. A non-2xx status is a result, not a failure; only a network error or the timeout fails the step (retried twice)."
+                            },
+                            "timeout_seconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30,
+                              "default": 10
+                            }
+                          }
+                        },
+                        {
+                          "title": "set",
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "values"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "set"
+                              ]
+                            },
+                            "values": {
+                              "type": "object",
+                              "minProperties": 1,
+                              "maxProperties": 64,
+                              "description": "Each key (letters, digits, underscores; not `entry`) is written into the instance context. Templating: a string that is exactly \"{{path}}\" takes the instance-context value at that dotted path with its type kept; {{path}} inside a longer string is replaced by the value as text (objects as JSON, null/missing as empty). Anything else is a literal. At most 262144 bytes serialized."
+                            }
+                          }
+                        },
+                        {
+                          "title": "transform",
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "mapping"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "transform"
+                              ]
+                            },
+                            "mapping": {
+                              "type": "object",
+                              "minProperties": 1,
+                              "maxProperties": 64,
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "description": "Output key \u2192 dotted instance-context path (e.g. \"entry.customer.email\"). Builds one object; a missing path gives undefined."
+                            },
+                            "output_key": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                              "default": "transformed"
+                            }
+                          }
                         }
                       ]
                     }
@@ -14483,7 +14712,7 @@
                   "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Same six step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch).",
+                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized).",
                     "items": {
                       "type": "object"
                     }
@@ -14657,6 +14886,13 @@
                           },
                           "updated_at": {
                             "type": "string"
+                          },
+                          "engine": {
+                            "type": "string",
+                            "enum": [
+                              "legacy",
+                              "cf"
+                            ]
                           }
                         }
                       }
@@ -15139,6 +15375,272 @@
           }
         ],
         "description": "For a Cloudflare Workflows instance (engine `cf`) the API asks Cloudflare for the instance's status (`cf_status`), and a row that missed the end of its run is brought into line with it. `steps` is derived from the step log of the current attempt, one entry per step path, for overlaying run status on the workflow graph."
+      }
+    },
+    "/admin/api/projects/{project_id}/workflow-instances/{instance_id}/cancel": {
+      "post": {
+        "operationId": "cancelWorkflowInstance",
+        "summary": "Cancel a workflow instance",
+        "description": "Cloudflare engine: terminates the Cloudflare Workflows instance, then marks the row cancelled and clears its wait. Legacy engine: marks it cancelled and removes its waiters, so the sweep never resumes it. Audited as cancel_workflow_instance.",
+        "tags": [
+          "Workflows"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled. `state` is `cancelled`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Instance not found` (including an instance of another project or workspace), or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`Instance is already <state>` \u2014 completed, failed, cancelled or timed_out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Cloudflare refused the operation; nothing was changed. Try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`Cloudflare Workflows is not configured` (a Cloudflare instance on a Worker without the WORKFLOW binding).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/workflow-instances/{instance_id}/retry": {
+      "post": {
+        "operationId": "retryWorkflowInstance",
+        "summary": "Retry a workflow instance",
+        "description": "Cloudflare engine (failed, timed_out or cancelled): restart() runs the instance again from the first step under a new run_attempt, with the context reset to the entry record; records an earlier attempt emitted are not emitted again. Legacy engine (failed or timed_out): continues from the step that failed (a timed-out wait parks again). Audited as retry_workflow_instance.",
+        "tags": [
+          "Workflows"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retried. `state` is `pending` for a Cloudflare instance (it runs asynchronously); for a legacy instance, the state after it ran as far as it could.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Instance not found` (including an instance of another project or workspace), or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`A <state> instance cannot be retried (only failed, timed_out, cancelled)` \u2014 or, for a legacy instance, only failed and timed_out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Cloudflare refused the operation; nothing was changed. Try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`Cloudflare Workflows is not configured` (a Cloudflare instance on a Worker without the WORKFLOW binding).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/api/projects/{project_id}/ai-agents": {
@@ -15819,6 +16321,188 @@
         ]
       }
     },
+    "/admin/api/projects/{project_id}/portal": {
+      "get": {
+        "operationId": "getProjectPortal",
+        "summary": "The project's one customer portal",
+        "tags": [
+          "Portals"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The project's customer portal, or null when none has been set up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "portal"
+                  ],
+                  "properties": {
+                    "portal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "event_types": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "branding": {
+                          "type": "object"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putProjectPortal",
+        "summary": "Create or update the project's customer portal",
+        "description": "Creates the portal on the first call and updates it after that. A project has exactly one portal; this is what the console's Settings \u2192 Customer portal pane saves.",
+        "tags": [
+          "Portals"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "Required when creating."
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "event_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The project's datasets the portal exposes. Each must be a valid dataset name."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The project's customer portal, or null when none has been set up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "portal"
+                  ],
+                  "properties": {
+                    "portal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "event_types": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "branding": {
+                          "type": "object"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing name, a bad enabled value, or an invalid dataset name."
+          },
+          "403": {
+            "description": "Your role cannot change the portal."
+          },
+          "409": {
+            "description": "A concurrent first save already created the project's portal."
+          }
+        }
+      }
+    },
     "/admin/api/projects/{project_id}/portals": {
       "get": {
         "operationId": "listPortals",
@@ -16018,11 +16702,16 @@
             }
           },
           "409": {
-            "description": "`a portal with that slug already exists` \u2014 UNIQUE(tenant_id, slug).",
+            "description": "The project already has a customer portal (one per project), or the slug is taken in this workspace.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -17830,7 +18519,7 @@
             }
           },
           "400": {
-            "description": "`ip_allowlist must be an array of CIDR strings`, `At most 64 CIDR entries are allowed`, or `Invalid CIDR/IP entry: <value>`.",
+            "description": "`Send ip_allowlist: an array of IPs or CIDRs, or [] to allow every address` (the field is required, even to clear), `ip_allowlist must be an array of CIDR strings`, `At most 64 CIDR entries are allowed`, or `Invalid CIDR/IP entry: <value>`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17850,7 +18539,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`.",
+            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17889,6 +18578,174 @@
                     },
                     "description": "Full replacement of the workspace allowlist. null, omitted, or an empty array CLEARS it (the column is set to NULL), which means every source IP is accepted again."
                   }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "putIpAllowlist",
+        "summary": "Replace the workspace-level ingest IP allowlist",
+        "tags": [
+          "IP allowlist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored. The echoed list is the trimmed, validated set now in effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "ip_allowlist"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "ip_allowlist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Send ip_allowlist: an array of IPs or CIDRs, or [] to allow every address` (the field is required, even to clear), `ip_allowlist must be an array of CIDR strings`, `At most 64 CIDR entries are allowed`, or `Invalid CIDR/IP entry: <value>`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ip_allowlist": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "description": "A bare IPv4/IPv6 address or a CIDR block. Entries are trimmed."
+                    },
+                    "description": "Full replacement of the workspace allowlist. null, omitted, or an empty array CLEARS it (the column is set to NULL), which means every source IP is accepted again."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "getIpAllowlist",
+        "summary": "Read the workspace-level ingest IP allowlist",
+        "tags": [
+          "IP allowlist"
+        ],
+        "description": "Owners and admins only. A GET never changes the list (before SEC-4 it cleared it).",
+        "responses": {
+          "200": {
+            "description": "The allowlist now in effect; empty means every address is accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ip_allowlist"
+                  ],
+                  "properties": {
+                    "ip_allowlist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (owners and admins only).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -18454,60 +19311,45 @@
         ]
       }
     },
-    "/admin/api/projects/{project_id}/workflow-instances/{instance_id}/cancel": {
-      "post": {
-        "operationId": "cancelWorkflowInstance",
-        "summary": "Cancel a workflow instance",
-        "description": "Cloudflare engine: terminates the Cloudflare Workflows instance, then marks the row cancelled and clears its wait. Legacy engine: marks it cancelled and removes its waiters, so the sweep never resumes it. Audited as cancel_workflow_instance.",
+    "/v1/data": {
+      "get": {
+        "operationId": "listDataApiDatasets",
+        "summary": "The datasets this key may read, and their columns",
         "tags": [
-          "Workflows"
-        ],
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "instance_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
+          "Data API"
         ],
         "security": [
           {
-            "session": []
-          },
-          {
-            "bearerAuth": []
+            "dataApiKey": []
           }
         ],
         "responses": {
           "200": {
-            "description": "Cancelled. `state` is `cancelled`.",
+            "description": "The project's exposed datasets.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "ok",
-                    "state"
+                    "datasets"
                   ],
                   "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "state": {
-                      "type": "string"
+                    "datasets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -18515,97 +19357,923 @@
             }
           },
           "401": {
-            "description": "Not signed in.",
+            "description": "Missing, invalid or revoked Data API key."
+          },
+          "429": {
+            "description": "Too many requests for this key."
+          }
+        }
+      }
+    },
+    "/v1/data/{dataset}": {
+      "get": {
+        "operationId": "readDataApiDataset",
+        "summary": "One page of an exposed dataset, exposed columns only",
+        "tags": [
+          "Data API"
+        ],
+        "security": [
+          {
+            "dataApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "description": "Only records received at or after this ISO 8601 time.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Only records received before this ISO 8601 time.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "csv for a UTF-8 CSV (with BOM, formula-safe) instead of JSON; the total is in X-Total-Count.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "required": [
+                    "dataset",
+                    "columns",
+                    "rows",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
+                  "properties": {
+                    "dataset": {
+                      "type": "string"
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "description": "Only the exposed columns, keyed by column (a dotted column such as customer.tier is one key)."
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "since or until is not a timestamp."
+          },
+          "401": {
+            "description": "Missing, invalid or revoked Data API key."
+          },
+          "404": {
+            "description": "No such dataset \u2014 or one this project does not expose; the two are deliberately indistinguishable."
+          },
+          "429": {
+            "description": "Too many requests for this key."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/data-api": {
+      "get": {
+        "operationId": "getDataApi",
+        "summary": "What the project exposes to the Data API, and its keys (metadata only)",
+        "tags": [
+          "Data API"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exposures and keys.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exposures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "key_prefix": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "last_used_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "revoked_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`.",
+            "description": "Owner or admin only."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/data-api/exposures": {
+      "put": {
+        "operationId": "putDataApiExposures",
+        "summary": "Replace what the project exposes",
+        "tags": [
+          "Data API"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "exposures"
+                ],
+                "properties": {
+                  "exposures": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "dataset",
+                        "columns"
+                      ],
+                      "properties": {
+                        "dataset": {
+                          "type": "string"
+                        },
+                        "columns": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Top-level fields, dotted paths into nested objects, or _id / _received_at / _source."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The exposures now in force."
+          },
+          "400": {
+            "description": "An invalid dataset name or column key, a duplicate dataset, or no columns."
+          },
+          "403": {
+            "description": "Owner or admin only."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/data-api/keys": {
+      "post": {
+        "operationId": "createDataApiKey",
+        "summary": "Create a read-only Data API key (the plaintext is returned once)",
+        "tags": [
+          "Data API"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The key. Store it now; it is stored only as a hash.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "key_prefix": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner or admin only."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/data-api/keys/{key_id}": {
+      "delete": {
+        "operationId": "revokeDataApiKey",
+        "summary": "Revoke a Data API key; it stops working immediately",
+        "tags": [
+          "Data API"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked."
+          },
+          "404": {
+            "description": "No such active key in this project."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/telemetry": {
+      "get": {
+        "operationId": "getBroadcastLogs",
+        "summary": "The project's Broadcast Logs integration (or null) and the vendor catalog",
+        "description": "Any member can read it. Secret values are never returned: `secrets_set` names the secret fields that are set.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The integration and the vendors the wizard offers, with each vendor's fields and OTLP docs link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "vendor": {
+                              "type": "string",
+                              "enum": [
+                                "datadog",
+                                "grafana_cloud",
+                                "otel_collector",
+                                "posthog",
+                                "sentry"
+                              ]
+                            },
+                            "vendor_name": {
+                              "type": "string"
+                            },
+                            "signals": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "logs",
+                                  "traces"
+                                ]
+                              }
+                            },
+                            "settings": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                            },
+                            "secrets_set": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                            },
+                            "secrets_unreadable": {
+                              "type": "boolean",
+                              "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                            },
+                            "endpoints": {
+                              "type": "object",
+                              "properties": {
+                                "logs": {
+                                  "type": "string"
+                                },
+                                "traces": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "created_by": {
+                              "type": "string"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "object",
+                              "properties": {
+                                "last_success_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_error": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_error_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "exported_count": {
+                                  "type": "integer",
+                                  "description": "Log records and spans the tool accepted."
+                                },
+                                "failed_count": {
+                                  "type": "integer",
+                                  "description": "Export requests that failed (each is retried with backoff)."
+                                },
+                                "dropped_count": {
+                                  "type": "integer",
+                                  "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                                },
+                                "last_test_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "last_test_ok": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "vendors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "datadog",
+                              "grafana_cloud",
+                              "otel_collector",
+                              "posthog",
+                              "sentry"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "signals": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "logs",
+                                "traces"
+                              ]
+                            },
+                            "description": "The OTLP signals the vendor ingests. PostHog: logs only."
+                          },
+                          "docs_url": {
+                            "type": "string",
+                            "description": "The vendor's own OTLP ingestion documentation."
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "text",
+                                    "url",
+                                    "select",
+                                    "secret",
+                                    "headers"
+                                  ]
+                                },
+                                "secret": {
+                                  "type": "boolean",
+                                  "description": "Stored AES-256-GCM encrypted; never returned."
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "placeholder": {
+                                  "type": "string"
+                                },
+                                "help": {
+                                  "type": "string"
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "default": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           },
           "404": {
-            "description": "`Instance not found` (including an instance of another project or workspace), or `Project not found`.",
+            "description": "Project not found in this workspace."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBroadcastLogs",
+        "summary": "Start forwarding the project's logs and traces over OTLP/HTTP (JSON) to one tool",
+        "description": "A project has ONE integration. When one exists the request is refused with 409 unless `replace` is exactly `true`; a replace deletes the old integration (settings, credentials and counts) and is audited as replace_telemetry_integration. Endpoint URLs must be https, public hosts (no localhost, private, link-local or metadata addresses) and carry no credentials. Audited as create_telemetry_integration.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "vendor"
+                    ],
+                    "properties": {
+                      "vendor": {
+                        "type": "string",
+                        "enum": [
+                          "datadog",
+                          "grafana_cloud",
+                          "otel_collector",
+                          "posthog",
+                          "sentry"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "replace": {
+                        "type": "boolean",
+                        "description": "Must be true to replace an existing integration."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created (or replaced).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "enum": [
+                            "datadog",
+                            "grafana_cloud",
+                            "otel_collector",
+                            "posthog",
+                            "sentry"
+                          ]
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          }
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                        },
+                        "secrets_unreadable": {
+                          "type": "boolean",
+                          "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                        },
+                        "endpoints": {
+                          "type": "object",
+                          "properties": {
+                            "logs": {
+                              "type": "string"
+                            },
+                            "traces": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "properties": {
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "exported_count": {
+                              "type": "integer",
+                              "description": "Log records and spans the tool accepted."
+                            },
+                            "failed_count": {
+                              "type": "integer",
+                              "description": "Export requests that failed (each is retried with backoff)."
+                            },
+                            "dropped_count": {
+                              "type": "integer",
+                              "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                            },
+                            "last_test_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_test_ok": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
+          },
+          "400": {
+            "description": "A required field is missing or invalid, or an endpoint is not an allowed outbound URL."
+          },
+          "403": {
+            "description": "Owner or admin only."
           },
           "409": {
-            "description": "`Instance is already <state>` \u2014 completed, failed, cancelled or timed_out.",
+            "description": "The project already has an integration and `replace: true` was not sent.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Cloudflare refused the operation; nothing was changed. Try again.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "`Cloudflare Workflows is not configured` (a Cloudflare instance on a Worker without the WORKFLOW binding).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "`Internal error`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "integration_exists"
+                      ]
+                    },
+                    "existing": {
+                      "type": "object",
+                      "properties": {
+                        "vendor": {
+                          "type": "string"
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           }
         }
-      }
-    },
-    "/admin/api/projects/{project_id}/workflow-instances/{instance_id}/retry": {
-      "post": {
-        "operationId": "retryWorkflowInstance",
-        "summary": "Retry a workflow instance",
-        "description": "Cloudflare engine (failed, timed_out or cancelled): restart() runs the instance again from the first step under a new run_attempt, with the context reset to the entry record; records an earlier attempt emitted are not emitted again. Legacy engine (failed or timed_out): continues from the step that failed (a timed-out wait parks again). Audited as retry_workflow_instance.",
+      },
+      "patch": {
+        "operationId": "updateBroadcastLogs",
+        "summary": "Change the integration's settings or secrets, or enable / disable it",
+        "description": "The vendor cannot change here (that is a replace). Secrets left blank keep their stored value. Disabling stops forwarding at once, including anything already queued. Audited as update_telemetry_integration with the names (never the values) of changed secrets.",
         "tags": [
-          "Workflows"
+          "Broadcast Logs"
         ],
         "parameters": [
           {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "instance_id",
+            "name": "pid",
             "in": "path",
             "required": true,
             "schema": {
@@ -18613,109 +20281,364 @@
             }
           }
         ],
-        "security": [
-          {
-            "session": []
-          },
-          {
-            "bearerAuth": []
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "Retried. `state` is `pending` for a Cloudflare instance (it runs asynchronously); for a legacy instance, the state after it ran as far as it could.",
+            "description": "Updated.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "ok",
-                    "state"
-                  ],
                   "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "state": {
-                      "type": "string"
+                    "integration": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "enum": [
+                            "datadog",
+                            "grafana_cloud",
+                            "otel_collector",
+                            "posthog",
+                            "sentry"
+                          ]
+                        },
+                        "vendor_name": {
+                          "type": "string"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          }
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "The vendor's non-secret settings (site, region, endpoint, instance id)."
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The NAMES of the secret fields that are set. Secret values are never returned."
+                        },
+                        "secrets_unreadable": {
+                          "type": "boolean",
+                          "description": "True when the stored credentials cannot be decrypted; nothing is sent until they are saved again."
+                        },
+                        "endpoints": {
+                          "type": "object",
+                          "properties": {
+                            "logs": {
+                              "type": "string"
+                            },
+                            "traces": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "Where each signal is POSTed (URLs only; credentials travel in headers)."
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "properties": {
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_error_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "exported_count": {
+                              "type": "integer",
+                              "description": "Log records and spans the tool accepted."
+                            },
+                            "failed_count": {
+                              "type": "integer",
+                              "description": "Export requests that failed (each is retried with backoff)."
+                            },
+                            "dropped_count": {
+                              "type": "integer",
+                              "description": "Log records and spans given up on after the last retry, or refused (e.g. 401/403)."
+                            },
+                            "last_test_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_test_ok": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
               }
             }
           },
-          "401": {
-            "description": "Not signed in.",
+          "400": {
+            "description": "Invalid field, nothing to change, or an attempt to change the vendor."
+          },
+          "403": {
+            "description": "Owner or admin only."
+          },
+          "404": {
+            "description": "The project has no integration."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBroadcastLogs",
+        "summary": "Remove the integration",
+        "description": "Deletes its settings, credentials and counts. Audited as delete_telemetry_integration.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "description": "Owner or admin only."
           },
           "404": {
-            "description": "`Instance not found` (including an instance of another project or workspace), or `Project not found`.",
+            "description": "The project has no integration."
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/telemetry/test": {
+      "post": {
+        "operationId": "testBroadcastLogs",
+        "summary": "Send one test log record (and span) to a draft or the saved configuration",
+        "description": "With `vendor` (plus `settings` / `secrets`) in the body, tests that draft without saving it; a draft of the saved vendor may leave secrets blank to use the stored ones. With an empty body, tests the saved integration and records `last_test_at` / `last_test_ok`. Redirects are never followed.",
+        "tags": [
+          "Broadcast Logs"
+        ],
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Non-secret fields of the chosen vendor (see `vendors[].fields`)."
+                      },
+                      "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Secret fields. On PATCH and on a test of the same vendor, a blank or missing secret keeps the stored value."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "vendor": {
+                        "type": "string",
+                        "enum": [
+                          "datadog",
+                          "grafana_cloud",
+                          "otel_collector",
+                          "posthog",
+                          "sentry"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What each signal's endpoint answered.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "description": "Every signal accepted the test event."
+                    },
+                    "vendor": {
+                      "type": "string",
+                      "enum": [
+                        "datadog",
+                        "grafana_cloud",
+                        "otel_collector",
+                        "posthog",
+                        "sentry"
+                      ]
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "signal": {
+                            "type": "string",
+                            "enum": [
+                              "logs",
+                              "traces"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "ms": {
+                            "type": "integer"
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           },
-          "409": {
-            "description": "`A <state> instance cannot be retried (only failed, timed_out, cancelled)` \u2014 or, for a legacy instance, only failed and timed_out.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "400": {
+            "description": "Invalid draft."
           },
-          "502": {
-            "description": "Cloudflare refused the operation; nothing was changed. Try again.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "403": {
+            "description": "Owner or admin only."
           },
-          "503": {
-            "description": "`Cloudflare Workflows is not configured` (a Cloudflare instance on a Worker without the WORKFLOW binding).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "`Internal error`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "404": {
+            "description": "No saved integration to test."
           }
         }
       }
