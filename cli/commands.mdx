@@ -46,7 +46,7 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie datasets list` | `—` | The datasets in a project, with per-dataset record counts. |
-| `hookie datasets query` | `--dataset*` | Recent records from a dataset, newest first. |
+| `hookie datasets query` | `--dataset* --view --limit --offset` | One page of a dataset's records (25 by default), newest first; `--view` shapes it through a saved view, and `total` says how many there are in all. |
 
 ### deliveries
 
@@ -101,7 +101,6 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 | Command | Flags | |
 | --- | --- | --- |
-| `hookie records query` | `--webhook-id* --view --limit` | Records received by one endpoint, as a table. |
 | `hookie records get` | `--record-id*` | One record in full, including fields no view selected. |
 
 ### rules
@@ -135,8 +134,8 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 | Command | Flags | |
 | --- | --- | --- |
-| `hookie views list` | `--webhook-id` | The saved table views for a project. |
-| `hookie views create` | `--webhook-id* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for an endpoint. A column or sort key can be a dotted path into a nested field, such as `customer.email`; a field literally named that wins. |
+| `hookie views list` | `--dataset` | The saved table views for a project, or for one dataset. |
+| `hookie views create` | `--dataset* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for a dataset. A column or sort key can be a dotted path into a nested field, such as `customer.email`; a field literally named that wins. |
 | `hookie views delete` ⚠️ | `--view-id*` | Delete a saved table view. |
 
 ### workflows
