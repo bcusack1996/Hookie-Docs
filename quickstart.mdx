@@ -65,7 +65,7 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
 
 - A field that repeats (checkboxes, a multi-select) becomes an **array** rather than losing all but one value.
 - Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` and does not become a nested object, so a mapping rule sees exactly what the form sent.
-- A **file** part is recorded as a descriptor and its bytes are discarded. Hookie stores records, not blobs, so you get proof something was attached without the contents:
+- A **file** part is recorded as a descriptor and its bytes are discarded, in the record **and** in the raw submission kept under Observability. Hookie stores records, not blobs, so you get proof something was attached without the contents:
   ```json
   {
     "email": "grace@example.com",

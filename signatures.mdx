@@ -24,6 +24,8 @@ Hookie-Hop: 1
 - `Hookie-Delivery-Id`: the specific delivery attempt, useful in logs.
 - `Hookie-Hop`: how many times this event has passed through Hookie. If your service forwards the event into Hookie again, pass this header on: Hookie refuses an event at 8 hops, which stops a delivery loop.
 
+Deliveries **never follow redirects**. A `3xx` answer is recorded as a failed attempt naming the `Location` it pointed to, and is not retried: a redirect means the destination URL is wrong, so update it rather than letting a signed event be forwarded somewhere you did not choose.
+
 ## What's signed
 
 The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex and compare it to `v1` in constant time.
