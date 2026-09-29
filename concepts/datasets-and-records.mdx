@@ -1,0 +1,53 @@
+---
+title: "Datasets and records"
+description: "Where routed events are kept: submissions hold what arrived, records hold what was routed, and a dataset is a named set of records."
+icon: "table"
+---
+
+Hookie keeps two things for every event it accepts:
+
+- A **submission** is the body exactly as it arrived, before anything reshaped it. Every accepted request makes one, even when nothing is routed.
+- A **record** is what routing produced from it: the whole payload, or the fields a rule or endpoint mapped out. A record belongs to one **dataset**.
+
+One submission can make several records. A keyed event that matches three [rules](/concepts/rules-and-mappings) makes three records, one in each rule's dataset. It can also make none: an event no rule matches is still a submission, which is how you tell "no rule matched" from "the event never arrived".
+
+## Datasets
+
+A **dataset** is a named set of records, like a table. You never create one. A dataset exists the moment the first record is routed into it, so naming it in an endpoint, a rule or a workflow step is enough.
+
+Dataset names are lowercase letters, digits and underscores. The console suggests one from the endpoint's name, with hyphens turned into underscores.
+
+A dataset is also the unit that the rest of Hookie selects on:
+
+- A [destination](/concepts/destinations-and-deliveries)'s dataset filter names the datasets it receives.
+- A [workflow](/workflows) starts from its entry dataset.
+- A [customer portal](/customer-portal) exposes chosen datasets as event types.
+- The [Data API](/data-api) serves chosen datasets to your own code.
+
+## Browse records
+
+A project's **Datasets** tab lists each dataset with its record count and when it last received one. Choose **View records** to open one. The records are a table with one row per record. Choose **Refresh** to fetch records that arrived after the page loaded, and **Open record** on a row to see the whole record.
+
+**Export CSV** and **Export XLSX** download the dataset's most recent 1,000 records with every field, whatever view is on screen.
+
+## Record views
+
+A **view** is a saved way to look at a dataset: which fields matter, in what order, and what the columns are called. Views change only how records are shown; they never change the records.
+
+With a dataset open, choose **New view**. Enter a **View name**, tick the fields to show as columns, reorder them, and rename any heading. Tick **Default view for this dataset** to open the dataset on this view. A dataset has at most one default view.
+
+Choose a view from the list above the table to switch to it. **Edit view** and **Delete view** act on the view on screen. Deleting a view removes only the view; the records are untouched.
+
+Connected agents use the same views through `list_record_views`, `create_record_view` and `query_records`, so a view you set up is the shape an agent reads too.
+
+## Find the raw body
+
+The project's **Observability** tab searches submissions, records, deliveries, AI runs and AI calls over a time range, the last 24 hours by default. Paste any ID into **Trace an id** to see its whole chain: the submission, the records made from it, and every delivery of those records.
+
+## How long records are kept
+
+Records and submissions are kept for your plan's retention window, then deleted: 7 days on Free, 30 days on Pro and 90 days on Team. See [Limits and plans](/concepts/limits-and-plans). To keep data longer, send it to a [destination](/concepts/destinations-and-deliveries) of your own.
+
+## The `source` of a record
+
+Each record carries where it came from. An event from an endpoint URL has the source `webhook:<endpoint id>`. The endpoint's slug is never used, because the slug is the endpoint's credential.

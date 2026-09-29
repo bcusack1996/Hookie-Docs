@@ -19,6 +19,21 @@
         ]
       },
       {
+        "group": "Concepts",
+        "icon": "shapes",
+        "pages": [
+          "concepts/projects",
+          "concepts/endpoints",
+          "concepts/datasets-and-records",
+          "concepts/rules-and-mappings",
+          "concepts/destinations-and-deliveries",
+          "concepts/limits-and-plans",
+          "concepts/billing",
+          "concepts/roles-and-agents",
+          "glossary"
+        ]
+      },
+      {
         "group": "CLI",
         "icon": "terminal",
         "pages": [
@@ -123,6 +138,10 @@
           {
             "label": "Connected agents",
             "href": "/connected-agents"
+          },
+          {
+            "label": "Glossary",
+            "href": "/glossary"
           }
         ]
       },

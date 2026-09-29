@@ -1,6 +1,6 @@
 ---
 title: "API reference"
-description: "Hookie public HTTP API — ingest and streaming endpoints."
+description: "Hookie's HTTP API: ingest, streaming, the customer portal and the admin API."
 icon: "code"
 ---
 
@@ -103,7 +103,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | `503 Service Unavailable` | The endpoint is disabled (`"reason": "endpoint_disabled"`). Nothing is stored; enable it to resume. |
 | `508 Loop Detected` | The `Hookie-Hop` header says this event has already been through Hookie 8 times. That almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. |
 
-## Outbound (to your endpoints)
+## Outbound (to your destinations)
 
 Deliveries are signed and carry `Hookie-Signature`, `Hookie-Event-Id`, `Hookie-Delivery-Id` and `Hookie-Hop`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A 5xx, a network error, or a `404`, `408`, `409`, `425` or `429` is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends). Any other 4xx means your service refused the request, so it is not asked again: the delivery is marked `dead` after that one attempt, with the error `HTTP 4xx (not retried: the receiver refused the request)`. A dead delivery can be replayed.
 

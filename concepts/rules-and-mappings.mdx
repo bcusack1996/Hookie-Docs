@@ -1,0 +1,79 @@
+---
+title: "Rules and mappings"
+description: "Route one keyed stream of events into several datasets, and reshape each event into the record you want."
+icon: "route"
+---
+
+A **rule** decides which dataset a keyed event lands in and what shape it takes. Rules are for senders that can't say where an event belongs, such as one stream that carries orders, refunds and signups.
+
+<Warning>
+  Rules run on exactly one kind of request: an ingest key with **no dataset in the path**, `POST /v1/ingest/{key}`. They are never consulted for an endpoint URL, for `/v1/webhooks/{key}/{slug}`, or for `/v1/ingest/{key}/{dataset}`. Those requests already name their dataset. Adding a rule and then posting to an endpoint URL is the one setup that looks like it should work and doesn't.
+</Warning>
+
+## How rules route an event
+
+When a keyed event arrives with no dataset:
+
+1. Every **enabled** rule in the project is tried against the payload.
+2. A rule matches when **all** of its conditions hold. A rule with no conditions matches every event.
+3. Every matching rule writes its own record into its own dataset. Rules are not first-match, so one event can land in several datasets at once.
+4. If no rule matches, no record is made. The response has `"routed": []`, and the raw submission is still stored, so you can find it under **Observability**.
+
+```bash
+curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
+  -H "Content-Type: application/json" \
+  -d '{"type":"refund","order":1042,"total":59.9}'
+```
+
+## Add a rule
+
+On a project's **Rules** tab, choose **Add rule** and fill in:
+
+| Field | What it does |
+| --- | --- |
+| **Name** | A label for the rule. |
+| **Dataset** | Where matching events are stored. Defaults to `default`. |
+| **Conditions (JSON)** | What an event must contain. `[]` matches every event. |
+| **Mappings (JSON)** | Which fields to keep, and what to call them. `[]` stores the payload unchanged. |
+
+Choose **Create**. The **Rules** tab lists rules in the order they are evaluated, with how many conditions each has and whether it is enabled. To change a rule's conditions, mappings or enabled state, use the [admin API](/api-reference#admin-api) or the `update_rule` tool of a [connected agent](/connected-agents). In the console you can add and delete rules.
+
+## Conditions
+
+A condition compares one field of the payload with an exact value:
+
+```json
+[
+  { "path": "type", "equals": "refund" },
+  { "path": "customer.tier", "equals": "gold" }
+]
+```
+
+- `path` is a field path, with dots for nested fields.
+- `equals` is the value the field must have. `{ "path": "type", "op": "equals", "value": "refund" }` is the same condition in long form.
+- Every condition in the list must hold. A rule takes up to 50.
+
+Rules compare exact values only. The other operators (`not_equals`, `contains`, `exists`, `gt`, `lt`) work in [workflow](/workflows) conditions and in WebSocket and AI trigger conditions, and a rule refuses them when you save it.
+
+## Mappings
+
+A mapping copies one field of the payload into the record, under a key you choose:
+
+```json
+[
+  { "path": "order", "key": "order_id" },
+  { "path": "customer.email", "key": "email" }
+]
+```
+
+With these mappings, the payload `{"type":"refund","order":1042,"customer":{"email":"ada@example.com"}}` becomes this record:
+
+```json
+{ "order_id": 1042, "email": "ada@example.com" }
+```
+
+Fields you don't map are left out of the record, but the full payload is still kept in the submission. With no mappings, the record is the whole payload. A rule takes up to 50 mappings, and each key can be used once.
+
+## Endpoint criteria
+
+An [endpoint](/concepts/endpoints) can have conditions and mappings of its own, called **criteria** and **mappings**. They work like a rule's, but they apply to that endpoint's events only, and the dataset is always the endpoint's own. An event that fails an endpoint's criteria is kept as a submission and makes no record.

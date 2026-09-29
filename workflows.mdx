@@ -183,7 +183,7 @@ The placeholder has to be something the run has at that point: the entry record 
 
 ## AI agents
 
-An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bounded token cap, and an optional _memory dataset_ that every output is also written to for recall. Define agents next to your workflows in the console, then reference one from any workflow with an `agent_call` step, including inside a branch. Update the agent once; every workflow that uses it picks up the change.
+An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bounded token cap, and an optional _memory dataset_ that every output is also written to for recall. Define agents next to your workflows in the console, then reference one from any workflow with an `agent_call` step, including inside a branch. Change the agent once, with `PUT /admin/api/projects/{project_id}/ai-agents/{agent_id}`, and every workflow that uses it picks up the change. The console's **Workflows** tab creates and deletes agents but doesn't edit them yet.
 
 ## Templating
 

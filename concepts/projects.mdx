@@ -1,0 +1,51 @@
+---
+title: "Projects"
+description: "The unit everything in Hookie is scoped to: endpoints, keys, datasets, rules, destinations, workflows and deliveries."
+icon: "folder"
+---
+
+A **project** is the unit everything else in Hookie belongs to. Endpoints, ingest keys, datasets, rules, destinations, sources, triggers, workflows and deliveries all live in exactly one project. A project belongs to a **workspace**, which is your account.
+
+Every workspace starts with a project called **Default**. If you are just trying Hookie out, use it and ignore projects entirely.
+
+## When to add a project
+
+Use projects to keep things apart that should not see each other: production and staging, or two products with their own senders and receivers. Rules only route within their project, a destination only receives its own project's records, and an ingest key only sends into, and streams from, its own project.
+
+## Create a project
+
+On **Projects**, choose **Create a project**. Enter a **Name** and pick a **Type**:
+
+| Type | What you get |
+| --- | --- |
+| **Webhook** | Collect events from endpoints you publish. Hookie adds one endpoint for you, named after the project, that stores into the dataset `default`. |
+| **AI trigger** | Run a model against events as they arrive. Nothing is added for you. |
+
+The type is a starting template, not a restriction. Any project can add any endpoint, key, source, trigger or workflow later.
+
+Only workspace owners and admins can create projects. Developers and viewers don't see the button.
+
+## Inside a project
+
+Open a project to see its tabs:
+
+| Tab | What it holds |
+| --- | --- |
+| **Overview** | Volume for the last 24 hours to 30 days, the pipeline at a glance, and the first endpoint's URL with a `curl` example. |
+| **Endpoints** | Public URLs that receive events. See [Endpoints and ingest keys](/concepts/endpoints). |
+| **Ingest keys** | Credentials for your own servers. |
+| **Datasets** | The records stored in each dataset. See [Datasets and records](/concepts/datasets-and-records). |
+| **Rules** | Routing for keyed events. See [Rules and mappings](/concepts/rules-and-mappings). |
+| **Connections** | Destinations (outbound) and sources (inbound database polling). |
+| **Workflows** | Multi-step [workflows](/workflows), their start triggers, and AI agents. |
+| **Deliveries** | Every outbound attempt. See [Destinations, deliveries and retries](/concepts/destinations-and-deliveries). |
+| **Observability** | Search across records, submissions, deliveries, AI runs and AI calls, trace any ID to its whole chain, and set up [Broadcast Logs](/broadcast-logs). |
+| **Settings** | The project's name, slug and type, its [customer portal](/customer-portal) and [Data API](/data-api), and deleting the project. |
+
+## The project slug
+
+A project's slug is the second segment of every endpoint URL: `app.hookie.ai/{workspace}/{project}/{endpoint-slug}`. The Default project's slug is `default`. The **Overview** and **Settings** tabs show it.
+
+## Delete a project
+
+On the **Settings** tab, **Delete this project** removes the project and everything in it. It cannot be undone, and only the workspace owner can do it. The Default project cannot be deleted, so there is always somewhere for events to land.

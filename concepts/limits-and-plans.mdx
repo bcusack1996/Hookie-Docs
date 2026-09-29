@@ -1,0 +1,64 @@
+---
+title: "Limits and plans"
+description: "What each plan includes, the limits that apply to every plan, and what happens when you reach one."
+icon: "gauge"
+---
+
+Every workspace is on one plan: **Free**, **Pro** or **Team**. The plan sets the monthly allowances and the caps below. Limits apply to the whole workspace unless a row says otherwise.
+
+## Plan limits
+
+| | Free | Pro | Team |
+| --- | --- | --- | --- |
+| Events a month | 1,000 | 100,000 | 500,000 |
+| Grace above the event and delivery allowances | none | 10% | 10% |
+| Deliveries a month | 1,000 | 90,000 | 600,000 |
+| Destinations | 1 | 10 | 25 |
+| Live stream connections at once | 1 | 5 | 20 |
+| Database sources | none | 3 | 10 |
+| Shortest source poll interval | 1 hour | 60 seconds | 30 seconds |
+| AI trigger runs a month | 100 | 2,000 | 10,000 |
+| AI tokens a month | 100,000 | 750,000 | 1,500,000 |
+| Workflow runs active at once | 25 | 500 | 2,000 |
+| Data retention | 7 days | 30 days | 90 days |
+| SAML single sign-on | — | — | ✓ |
+
+An **event** is one accepted request to an endpoint URL or ingest key. A **delivery** is one record sent to one destination; its retries are not counted again. **AI tokens** are input plus output tokens across every AI call: AI triggers, and a workflow's `call_ai` and `agent_call` steps.
+
+Allowances reset on the 1st of each month, UTC. **Home** shows this month's events, deliveries and AI tokens against your plan.
+
+## Limits on every plan
+
+| Limit | Value |
+| --- | --- |
+| Endpoints per project | 10 |
+| Requests per endpoint URL or ingest key | 100 per 10 seconds |
+| Request body | 1,000,000 bytes |
+| Conditions in one rule or condition list | 50 |
+| Mappings in one rule | 50 |
+| Deliveries replayed per bulk replay call | 500 |
+| Customer portal API calls per portal token | 60 a minute |
+| Times one event may pass through Hookie | 8 |
+
+## What happens at a limit
+
+| Limit reached | What happens |
+| --- | --- |
+| Monthly events | Ingest answers `429` with `Retry-After: 3600`, and nothing is stored. Free stops at exactly 1,000; Pro and Team stop at the allowance plus 10%. **Home** warns you from 80%. |
+| Burst rate | Ingest answers `429` with `Retry-After: 10`. |
+| Monthly deliveries | Events are still stored. Their deliveries are held, not dropped, until you send them. See [Held deliveries](/concepts/destinations-and-deliveries#held-deliveries). |
+| AI tokens or AI trigger runs | The next AI call is refused, and the trigger run or workflow step that made it fails. |
+| Workflow runs active at once | The event does not start the workflow. Runs already in progress are unaffected. |
+| Destinations, sources or endpoints | Creating another answers `402` and names the limit. Delete one to make room. Destinations and sources grow with your plan; endpoints are 10 per project on every plan, so use another project. |
+| Live stream connections | Opening another stream answers `429`. |
+| Body size | `413`, and nothing is stored. |
+
+## Retention
+
+Records, submissions, finished deliveries with their responses, held deliveries, finished workflow runs, AI runs and the AI call log are deleted once they are older than your plan's retention window. Deliveries and workflow runs that haven't finished are kept until they do. The audit log is kept for the longer of your plan's retention and one year.
+
+Configuration never expires: projects, endpoints, keys, rules, destinations, triggers and workflows stay until you delete them.
+
+## Change plan
+
+See [Billing](/concepts/billing).

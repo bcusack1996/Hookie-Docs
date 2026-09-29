@@ -1,0 +1,55 @@
+---
+title: "Roles and connected agents"
+description: "What each workspace role may do, and how a connected coding agent's access is limited by your role and the scopes you grant."
+icon: "user-shield"
+---
+
+Everyone in a workspace has a **role**. A [connected agent](/connected-agents) has no role of its own: it acts as the person who connected it, limited further by the scopes that person granted.
+
+## Roles
+
+| Role | Read | Create and change project resources | Administer the workspace | Billing |
+| --- | --- | --- | --- | --- |
+| **Owner** | ✓ | ✓ | ✓ | ✓ |
+| **Admin** | ✓ | ✓ | ✓ | |
+| **Developer** | ✓ | ✓ | | |
+| **Viewer** | ✓ | | | |
+
+- **Read** covers every project and resource in the workspace: records, deliveries, configuration and the audit log.
+- **Create and change project resources** covers endpoints, ingest keys, rules, destinations, sources, triggers, workflows and record views.
+- **Administer the workspace** covers single sign-on, the workspace IP allowlist and audit log export. Creating a project also needs owner or admin, as does revealing or rotating a destination's signing secret.
+- **Billing** is the owner's alone: subscribing, changing the card and cancelling.
+
+A few actions are the **owner's** only: billing, and deleting a project.
+
+Workspaces created before developer and viewer roles existed may have people with the **member** role. A member is read-only, the same as a viewer.
+
+Your own role is shown under **Settings → Plan & billing**, in **Your access**. The console hides actions your role can't take, and the API refuses them with `403`.
+
+<Note>
+  Every workspace starts with one person, its owner. The console doesn't yet have a screen for inviting other people.
+</Note>
+
+## Connected agents
+
+A **connected agent** is a coding agent, such as Claude Code, Cursor or another MCP client, that signed in to Hookie as you over OAuth. It calls the same API the console does. Choose **Connect agent** in the console's top bar for the MCP URL and setup commands, and see [Connected agents](/connected-agents) for the whole guide.
+
+You decide what each agent may do under **Settings → Connected agents**, which lists the agents *you* connected. Anyone can manage their own agents, whatever their role. A new agent can only read until you grant it more:
+
+| Scope | In the console | The agent can act as at most |
+| --- | --- | --- |
+| `hookie:read` | **Read your workspace** | Viewer |
+| `hookie:write` | **Create and change resources** | Developer |
+| `hookie:manage` | **Administer your workspace** | Admin |
+
+The agent's access is the **weaker** of your role and its scope. A viewer who grants `hookie:manage` gets an agent that can still only read. Billing is never reachable by an agent, at any scope and whatever your role.
+
+Every action an agent takes is written to the audit log with you as the actor and the agent recorded alongside, in the **Via** column. **Revoke** on the agent's row cuts it off on its next request.
+
+## Not to be confused with
+
+Hookie uses "agent" and "token" in a few other places. They are unrelated to roles:
+
+- An **AI agent** is a reusable model and prompt that a [workflow](/workflows) calls with an `agent_call` step. It runs inside Hookie and has no access to your workspace's settings.
+- A **customer portal token** gives one of *your* customers access to their own destinations and deliveries in a [customer portal](/customer-portal). It never reaches the console or the admin API.
+- An **ingest key** is a credential for sending events. See [Endpoints and ingest keys](/concepts/endpoints).

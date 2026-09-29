@@ -12,7 +12,7 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Zero to a routed event in three steps. Create an endpoint, send it JSON, see the record.
+    Add an endpoint, send it a test event, see the record, and deliver it to a destination.
   </Card>
 
   <Card title="Workflows & AI agents" icon="robot" href="/workflows">
@@ -32,9 +32,9 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
 
 <Steps>
   <Step title="It arrives">
-    Post to an endpoint's URL, where the high-entropy slug in `app.hookie.ai/{workspace}/{project}/{webhook}` is the credential, or to `/v1/ingest/{key}` with an ingest key. JSON, form posts, and multipart all work, so an HTML `<form>` can point straight at an endpoint with no JavaScript and no backend of your own.
+    Post to an endpoint's URL, where the high-entropy endpoint slug in `app.hookie.ai/{workspace}/{project}/{endpoint-slug}` is the credential, or to `/v1/ingest/{key}` with an ingest key. JSON, form posts, and multipart all work, so an HTML `<form>` can point straight at an endpoint with no JavaScript and no backend of your own.
 
-    Before anything is stored, the request passes the endpoint's IP allowlist, its rate limit, an `Idempotency-Key` check, and your plan quota.
+    Before anything is stored, the request passes every IP allowlist that is set (the endpoint's or key's, the project's and the workspace's), the burst rate limit, an `Idempotency-Key` check, and your plan's monthly event quota.
   </Step>
   <Step title="It's captured, then routed">
     The raw body is stored as a **submission** exactly as it arrived, before anything reshapes it, so "no rule matched" is always distinguishable from "the event never arrived."
@@ -42,7 +42,7 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
     Addressed requests store the payload whole into the dataset the URL names. A keyed request with no dataset in the path is the one shape that consults **rules**: each enabled rule tests its conditions against the payload and, where they hold, maps fields out into a **record**. Rules are not first-match: one event can land in several datasets at once.
   </Step>
   <Step title="It fans out">
-    A new record triggers every matching **destination** (an outbound webhook, signed HMAC-SHA256, retried with backoff), pushes onto the **live stream** for anyone tailing it, and starts any **workflow** whose trigger it satisfies.
+    A new record triggers every matching **destination**: a URL of yours that gets the record as a signed HMAC-SHA256 delivery, retried for about a day, pushes onto the **live stream** for anyone tailing it, and starts any **workflow** whose trigger it satisfies.
   </Step>
   <Step title="It gets acted on">
     A workflow runs steps in order: call a model, branch on the result, write to a dataset, emit a further event. Workflows also start on a schedule or from a WebSocket condition, not only from an inbound event.
@@ -64,7 +64,7 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
     Let your own customers manage their webhook destinations and inspect their deliveries, without a support ticket.
   </Card>
 
-  <Card title="Observability & search" icon="magnifying-glass" href="/quickstart#3-see-it-in-the-console">
+  <Card title="Observability & search" icon="magnifying-glass" href="/concepts/datasets-and-records#find-the-raw-body">
     Search submissions, records, and deliveries, and follow any ID along the whole chain it belongs to.
   </Card>
 </CardGroup>

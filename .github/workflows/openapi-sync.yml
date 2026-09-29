@@ -1,0 +1,81 @@
+# Fails when this repo's openapi.json differs from the spec hookie-ai ships on
+# `main` (hookie-ai#203, DOC-4). The two copies used to be synced by hand, and
+# the published reference fell behind.
+#
+# hookie-ai is private, so reading it needs a token. Add a repository secret
+# named HOOKIE_AI_READ_TOKEN: a fine-grained token with read-only "Contents"
+# access to bcusack1996/hookie-ai. Without it (and on pull requests from forks,
+# which get no secrets) the check is skipped with a warning rather than failed.
+#
+# To fix a failure, copy hookie-ai's docs/openapi.json over openapi.json here.
+# A docs PR that is held until a hookie-ai release is expected to fail this
+# check until that release reaches hookie-ai's main.
+name: OpenAPI sync
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily, so drift after a hookie-ai release shows up without a docs change.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare openapi.json with hookie-ai main
+        env:
+          HOOKIE_AI_READ_TOKEN: ${{ secrets.HOOKIE_AI_READ_TOKEN }}
+          SOURCE_URL: https://raw.githubusercontent.com/bcusack1996/hookie-ai/main/docs/openapi.json
+        run: |
+          set -euo pipefail
+
+          auth=()
+          if [ -n "${HOOKIE_AI_READ_TOKEN:-}" ]; then
+            auth=(-H "Authorization: Bearer ${HOOKIE_AI_READ_TOKEN}")
+          fi
+
+          status=$(curl -sS -L -o upstream.json -w '%{http_code}' "${auth[@]}" "$SOURCE_URL" || echo "000")
+
+          if [ "$status" != "200" ]; then
+            if [ -z "${HOOKIE_AI_READ_TOKEN:-}" ]; then
+              echo "::warning title=OpenAPI sync skipped::Could not read hookie-ai's openapi.json (HTTP $status) and no HOOKIE_AI_READ_TOKEN secret is set. Add one with read access to bcusack1996/hookie-ai to enable this check."
+              exit 0
+            fi
+            echo "::error title=OpenAPI sync::Could not read $SOURCE_URL (HTTP $status). Check that HOOKIE_AI_READ_TOKEN is valid and can read bcusack1996/hookie-ai."
+            exit 1
+          fi
+
+          # Compare as JSON, so formatting and key order don't count as drift.
+          jq -S . openapi.json > local.sorted.json
+          jq -S . upstream.json > upstream.sorted.json
+
+          if cmp -s local.sorted.json upstream.sorted.json; then
+            echo "openapi.json matches hookie-ai main."
+            exit 0
+          fi
+
+          echo "::error title=OpenAPI out of sync::openapi.json differs from hookie-ai's docs/openapi.json on main. Copy that file over openapi.json."
+
+          echo "Operations only in hookie-ai main:"
+          comm -13 \
+            <(jq -r '.paths | to_entries[] | .key as $p | .value | keys[] | select(test("^(get|put|post|patch|delete|head|options)$")) | "\(ascii_upcase) \($p)"' openapi.json | sort) \
+            <(jq -r '.paths | to_entries[] | .key as $p | .value | keys[] | select(test("^(get|put|post|patch|delete|head|options)$")) | "\(ascii_upcase) \($p)"' upstream.json | sort) \
+            || true
+          echo "Operations only here:"
+          comm -23 \
+            <(jq -r '.paths | to_entries[] | .key as $p | .value | keys[] | select(test("^(get|put|post|patch|delete|head|options)$")) | "\(ascii_upcase) \($p)"' openapi.json | sort) \
+            <(jq -r '.paths | to_entries[] | .key as $p | .value | keys[] | select(test("^(get|put|post|patch|delete|head|options)$")) | "\(ascii_upcase) \($p)"' upstream.json | sort) \
+            || true
+
+          echo "First 200 lines of the diff (here → hookie-ai main):"
+          diff -u local.sorted.json upstream.sorted.json | head -200 || true
+          exit 1

@@ -1,46 +1,104 @@
 ---
 title: "Quickstart"
-description: "Get from zero to a routed event in three steps."
+description: "Add an endpoint, send it a test event, see the record, and deliver it to a destination of your own."
 icon:
   name: "shipping-fast"
   style: "regular"
   library: "fontawesome"
 ---
 
-## 1. Create a project & endpoint
+This walks through the whole path an event takes in Hookie, in the console: an [endpoint](/concepts/endpoints) receives it, a [dataset](/concepts/datasets-and-records) keeps it, and a [destination](/concepts/destinations-and-deliveries) gets a signed copy. It takes about five minutes.
 
-[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**, then open the project's **Endpoints** tab and **Add Endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
+## 1. Sign in
+
+[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password. Your first sign-in creates a free workspace with one project in it, called **Default**. You use that project throughout this guide.
+
+## 2. Add an endpoint
+
+<Steps>
+  <Step title="Open the Default project">
+    Choose **Projects** in the side navigation, then open **Default**.
+  </Step>
+  <Step title="Add the endpoint">
+    Open the **Endpoints** tab and choose **Add endpoint**. Enter a **Name**, such as `Order events`. **Dataset** is optional: it defaults to the endpoint's name (`order_events`). Choose **Create**.
+  </Step>
+  <Step title="Copy its URL">
+    The endpoint's card shows its **Public URL** with a copy button. The project's **Overview** tab shows the same URL under **Send events to this project**, with a ready-to-paste `curl` command.
+  </Step>
+</Steps>
+
+The URL looks like this:
 
 ```http
-https://app.hookie.ai/{workspace}/{project}/{webhook}
+https://app.hookie.ai/{workspace}/{project}/{endpoint-slug}
 ```
 
-The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example.
+Hookie generates the endpoint slug, and it is high-entropy. **The URL is the endpoint's secret**: anyone who has it can send events, so there is no key to put in a header.
 
-## 2. Send an event
+<Note>
+  Creating a new project with **Create a project** and the **Webhook** type adds one endpoint for you, named after the project. Use that endpoint rather than adding a second one. The Default project starts with no endpoints.
+</Note>
 
-POST any JSON to your endpoint URL. The whole payload is stored into the endpoint's dataset:
+## 3. Send a test event
+
+Open the endpoint's menu (**⋮** on its card) and choose **Send a test event…**. Edit the **Event payload (JSON)** if you like, then choose **Send test event**.
+
+This is not a simulation. It posts to the endpoint's real URL, so the event is stored, routed and fanned out exactly like a live one. The dialog then follows the event for up to 30 seconds and says what happened to it. At this point you have no destination, so it tells you that nothing is delivered.
+
+You can send the same thing from a terminal:
 
 ```bash
-curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
+curl -X POST 'https://app.hookie.ai/your-workspace/default/aBcXyz…' \
   -H "Content-Type: application/json" \
   -d '{"order":1042,"email":"ada@example.com","total":59.9}'
 ```
 
-You'll get back the submission ID and where it routed:
+Hookie answers with the submission ID and the datasets the event was stored in:
 
 ```http
 201 Created
 {
   "submission_id": "9d3f…",
-  "routed": ["orders"],
+  "routed": ["order_events"],
   "records": 1
 }
 ```
 
-## Or point an HTML form straight at it
+## 4. See the record
 
-An endpoint accepts what a browser actually posts, so a plain form needs no JavaScript and no backend of your own. Set `action` to your endpoint URL and you are done:
+Choose **View records** in the endpoint's menu. That opens the **Datasets** tab on the endpoint's dataset, with each event as a row. Choose **Refresh** to fetch events that arrived after the page loaded.
+
+To see the body exactly as it arrived, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain: the submission, its record, and every delivery made from it.
+
+## 5. Add a destination
+
+A destination is a URL of yours that Hookie sends each new record to, signed.
+
+<Steps>
+  <Step title="Open Connections">
+    Open the project's **Connections** tab. Destinations are listed under **Destinations · outbound**.
+  </Step>
+  <Step title="Add the destination">
+    Choose **Add destination**. Enter a **Name** and the **URL** of your receiver, which must be `https`. Leave **Dataset filter (optional)** empty to receive every dataset, or name datasets separated by commas. Choose **Create**.
+  </Step>
+  <Step title="Save the signing secret">
+    The destination's signing secret is shown when you create it. Store it where your receiver can read it, so the receiver can [verify each delivery's signature](/signatures). Owners and admins can reveal it again later from the destination's card.
+  </Step>
+</Steps>
+
+No receiver yet? Any HTTPS request inspector works for a first test. The Free plan includes one destination.
+
+## 6. Watch the delivery
+
+Send another test event from the endpoint's menu. This time the dialog reports the delivery: delivered, or failed with your receiver's answer and whether it will be retried.
+
+Open the **Deliveries** tab to see every outbound attempt, newest first, with its status, destination, dataset, response and attempt count. Filter by status, destination and time. **Details** on a row shows the whole delivery, including your receiver's response. A delivery that did not arrive can be replayed, one at a time or all at once with **Replay matching**.
+
+A failed delivery is retried for about a day. See [Destinations, deliveries and retries](/concepts/destinations-and-deliveries) for the schedule.
+
+## Point an HTML form straight at an endpoint
+
+An endpoint accepts what a browser actually posts, so a plain form needs no JavaScript and no backend of your own. Set `action` to your endpoint URL:
 
 ```html
 <form action="https://app.hookie.ai/your-workspace/contact/aBcXyz…" method="post">
@@ -64,8 +122,8 @@ The fields arrive as an ordinary record, stored whole into the endpoint's datase
 Both form encodings work: `application/x-www-form-urlencoded` and `multipart/form-data`. A few details worth knowing:
 
 - A field that repeats (checkboxes, a multi-select) becomes an **array** rather than losing all but one value.
-- Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` and does not become a nested object, so a mapping rule sees exactly what the form sent.
-- A **file** part is recorded as a descriptor and its bytes are discarded, in the record **and** in the raw submission kept under Observability. Hookie stores records, not blobs, so you get proof something was attached without the contents:
+- Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` and does not become a nested object.
+- A **file** part is recorded as a descriptor and its bytes are discarded, in the record **and** in the raw submission. Hookie stores records, not blobs, so you get proof something was attached without the contents:
   ```json
   {
     "email": "grace@example.com",
@@ -78,24 +136,20 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
   Because the browser navigates to the endpoint on submit, the visitor lands on Hookie's JSON response. For a polished flow, submit with `fetch` and a `FormData` body (that is also a form encoding, so it needs no preflight), then show your own thank-you state.
 </Tip>
 
-## 3. See it in the console
-
-Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
-
 ## Safe retries
 
-Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate, and it never counts twice against your quota:
+Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate. It never counts twice against your quota:
 
 ```bash
-curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
+curl -X POST 'https://app.hookie.ai/your-workspace/default/aBcXyz…' \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: order-1042" \
   -d '{"order":1042,"total":59.9}'
 ```
 
-## Prefer a key?
+## Sending from your own server
 
-Machine-to-machine senders can also use an **ingest key** (`ik_live_…`, created on the admin API with `POST /admin/api/projects/:id/ingest-keys`, stored hashed and returned once):
+For your own code, use an **ingest key** (`ik_live_…`) rather than an endpoint URL. Create one on the project's **Ingest keys** tab with **Create key**; it is shown once. A key is also the only way to route with [rules](/concepts/rules-and-mappings) and to read the [live stream](/streaming).
 
 ```bash
 curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
@@ -103,26 +157,15 @@ curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
   -d '{"order":1042,"total":59.9}'
 ```
 
+See [Endpoints and ingest keys](/concepts/endpoints) for when to use which.
+
 ## Route with rules
 
-<Warning>
-  Everything above routes by _address_: the URL names the dataset (the endpoint's own; a trailing `/{dataset}` may repeat it, and naming any other dataset is refused with `403`), and the payload is stored whole. There is nothing to decide, so **rules are not consulted on any of those requests.** Adding a rule and then posting to an endpoint URL is the one thing that looks like it should work and doesn't.
-</Warning>
-
-Rules are for the case where the sender _can't_ say where an event belongs, such as one stream carrying several kinds of event. They are evaluated by exactly one shape: an ingest key with **no dataset in the path**.
-
-```bash
-curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
-  -H "Content-Type: application/json" \
-  -d '{"type":"refund","order":1042,"total":59.9}'
-```
-
-Every enabled rule in the project is then tried against that payload. A rule's _conditions_ are exact matches on a path (for example, `type` equals `refund`), all of which must hold. Its _mappings_ pick fields out into a record of your own shape. Leave conditions empty to match everything, and mappings empty to store the payload whole.
-
-Rules are not first-match: every rule that matches writes its own record, so one event can land in several datasets at once. If none match, the response comes back with `"routed": []` and the raw submission is still captured. Find it under **Observability → Submissions**, which is how you tell "no rule matched" from "the event never arrived".
+Requests that name their dataset, which includes every endpoint URL, store the payload whole into that dataset, and **rules are not consulted**. Rules run only for an ingest key with no dataset in the path, `POST /v1/ingest/{key}`, where every matching rule writes its own record. See [Rules and mappings](/concepts/rules-and-mappings).
 
 ## Next
 
-- [Verify outbound signatures](/signatures) on your receiving endpoint.
-- [Tail the live stream](/streaming) over SSE or WebSocket.
-- [Browse the API reference.](/api-reference)
+- [Verify delivery signatures](/signatures) on your receiver.
+- [Route one stream into several datasets](/concepts/rules-and-mappings) with rules.
+- [Connect a coding agent](/connected-agents) and let it build the rest.
+- Check what your plan includes in [Limits and plans](/concepts/limits-and-plans).

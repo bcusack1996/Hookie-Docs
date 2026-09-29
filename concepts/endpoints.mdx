@@ -1,0 +1,103 @@
+---
+title: "Endpoints and ingest keys"
+description: "The two ways events get into Hookie: a public endpoint URL for providers and forms, and an ingest key for your own servers."
+icon: "right-to-bracket"
+---
+
+Events reach a project in one of two ways:
+
+- An **endpoint** is a public URL that stores what is posted to it in one dataset. Paste it into a provider's webhook settings or a form's `action`.
+- An **ingest key** (`ik_live_…`) is a credential your own code sends with. It can route with rules, require a signature, and read the live stream.
+
+| | Endpoint URL | Ingest key |
+| --- | --- | --- |
+| Looks like | `app.hookie.ai/{workspace}/{project}/{endpoint-slug}` | `app.hookie.ai/v1/ingest/{key}[/{dataset}]` |
+| The secret is | the endpoint slug in the URL | the key |
+| Stores into | the endpoint's own dataset | the dataset in the path, or wherever the project's [rules](/concepts/rules-and-mappings) send it |
+| Signature on each request | not available | optional, per key |
+| Reads the [live stream](/streaming) | no | yes |
+| Best for | Stripe, GitHub and other providers; HTML forms | your own services and scripts |
+
+## Endpoints
+
+### Add an endpoint
+
+On a project's **Endpoints** tab, choose **Add endpoint**. Enter a **Name** and, optionally, a **Dataset**. The dataset defaults to the endpoint's name. Choose **Create**.
+
+Hookie generates a high-entropy **endpoint slug** and shows the full **Public URL** on the endpoint's card. That URL is the endpoint's credential: anyone who has it can post events, so treat it like a password. The readable name you typed is never part of the URL.
+
+A project holds up to **10 endpoints**. Past that, creating one answers `402`; delete one or use another project.
+
+### What an endpoint does with an event
+
+Everything posted to an endpoint is stored whole into the endpoint's dataset. JSON, both form encodings, and text bodies are accepted; see [Ingest](/api-reference#ingest) for the details and the 1 MB limit.
+
+An endpoint can also carry its own **criteria** (conditions every event must meet) and **mappings** (fields to pick out into the record). An event that fails the criteria is kept as a submission but makes no record. Criteria and mappings are set when the endpoint is created through the [admin API](/api-reference#admin-api) or by a [connected agent](/connected-agents); the console creates endpoints with neither. Project [rules](/concepts/rules-and-mappings) are never evaluated for an endpoint.
+
+### Manage an endpoint
+
+Each endpoint's card has a menu (**⋮**) with these actions:
+
+| Action | What it does |
+| --- | --- |
+| **View records** | Opens the endpoint's dataset on the **Datasets** tab. |
+| **Send a test event…** | Posts a payload to the real URL and follows the event for up to 30 seconds. |
+| **Edit…** | Changes the **Name**, the **Dataset** that events land in from now on, and **Allowed source IPs (optional)**. Records already stored stay where they are. |
+| **Rotate URL…** | Gives the endpoint a new URL. See below. |
+| **Disable…** / **Enable** | Stops or resumes accepting events. |
+| **Delete** | Removes the endpoint. |
+
+Owners, admins and developers see these actions. Viewers see the list.
+
+### Rotate a leaked URL
+
+**Rotate URL…** gives the endpoint a new URL. It stays the same endpoint: its dataset, settings and records don't change. Choose how long the old URL keeps working, under **Keep the old URL working for**: 1 hour, 24 hours (the default), 7 days or 30 days. **End it now** stops it at once. After the overlap, the old URL answers `404`.
+
+Only one previous URL is kept at a time. Rotating again ends the earlier overlap immediately.
+
+### Disable an endpoint
+
+**Disable…** asks you to confirm first. While an endpoint is disabled, its URL answers `503` with `"reason": "endpoint_disabled"` and stores nothing. Providers retry a `503` but may give up on a URL that answers `404`, so events sent while it is disabled can still arrive if you enable it again within the provider's retry window.
+
+### Restrict senders by IP
+
+**Allowed source IPs** takes one IP address or CIDR range per line, IPv4 or IPv6. Requests from anywhere else get `403`. Leave it empty to accept any address.
+
+Allowlists stack. A request must pass every list that is set: the endpoint's (or the key's), the project's, and the workspace's, which you set under **Settings → Network access**.
+
+## Ingest keys
+
+Create keys on a project's **Ingest keys** tab with **Create key**. A key is shown **once**; Hookie stores only a hash of it and its prefix. Optionally, give a key:
+
+- a **Default dataset (optional)**, a label stored with the key. Events are not routed to it: a keyed request with no dataset in the path goes only where rules send it;
+- an **Expires** date, after which the key is refused as if revoked;
+- **Allowed source IPs**;
+- **Require a signature on every request**, which also creates a signing secret, shown once. Each request must then carry `X-Hookie-Signature`.
+
+Each key's row has a menu:
+
+- **Edit…** changes the key's name, expiry and allowed source IPs.
+- **Rotate…** issues a new key with the same settings, and a new signing secret if the key signs. Choose how long the old key keeps working, under **Keep the old key working for**, from 1 hour to 30 days, or **End it now**. The old key reads **rotating** until then.
+- **Revoke…** stops the key on its next request, at ingest and on the live stream. It can't be undone.
+
+The list shows each key's status: **active**, **rotating**, **expired** or **revoked**. Only an active or rotating key is accepted.
+
+### Where a keyed event goes
+
+| Request | Stored into |
+| --- | --- |
+| `POST /v1/ingest/{key}/{dataset}` | that dataset, whole |
+| `POST /v1/ingest/{key}` | every dataset whose [rule](/concepts/rules-and-mappings) matches; if none matches, no record is made and `routed` is empty |
+| `POST /v1/webhooks/{key}/{slug}` | the named endpoint's dataset, with the endpoint's criteria and mappings; the endpoint must be in the key's project |
+
+## Checks on every request
+
+Before anything is stored, each request passes these checks, in order:
+
+1. The credential: a known, enabled endpoint URL, or an active ingest key.
+2. Every IP allowlist that is set.
+3. The burst limit: 100 requests per 10 seconds per endpoint URL or ingest key, on every plan.
+4. The `Idempotency-Key`, if sent. A repeat returns the original submission and is not counted again.
+5. Your plan's monthly event quota. See [Limits and plans](/concepts/limits-and-plans).
+
+A refused request stores nothing. See [Response codes](/api-reference#response-codes).

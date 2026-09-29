@@ -9,7 +9,7 @@ Hookie runs a hosted [MCP](https://modelcontextprotocol.io) server. Point an AI 
 Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only, and you decide in the console what more it may do. You can cut it off again in one click.
 
 <Note>
-  Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect an agent** in the top bar (next to the theme switch and your profile) shows your MCP URL, the Claude connector, and the Claude Code command in one place.
+  Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect agent** in the top bar (next to the theme switch and your profile) shows your MCP URL, the Claude connector, and the Claude Code command in one place.
 </Note>
 
 <Note>
@@ -90,6 +90,7 @@ Available with `hookie:read`:
 | `list_ingest_keys` | Ingest keys as metadata only — name, prefix, last used, revoked. Never the plaintext. |
 | `list_deliveries` | Recent outbound deliveries: status, response code, and destination. |
 | `get_delivery` | One delivery in full. The only call that returns the stored response body. |
+| `list_held_deliveries` | Events whose deliveries are held because the monthly delivery allowance is used up, oldest first, with this month's usage. |
 | `search_deliveries · search_events · search_submissions` | Filtered, paged search with a time window. Use these rather than the `list_` tools for anything but a glance. |
 | `list_workflows · get_workflow` | Workflow definitions in a project. |
 | `list_workflow_runs · get_workflow_run` | Execution history, including which branch each instance took. |
@@ -106,6 +107,8 @@ Available with `hookie:write`:
 | `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled, the dataset filter and the delivery limits (`timeout_seconds`, `max_per_second`, `max_concurrency`; `null` restores the default). An empty filter is refused; leave it out for every dataset. |
 | `create_workflow · update_workflow` | A multi-step workflow: entry dataset, entry conditions, and the ordered steps. A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
 | `delete_workflow` | Despite the name, this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. |
+| `cancel_workflow_run · retry_workflow_run` | Stop a running or waiting workflow run, or retry one that failed, timed out or was cancelled. |
+| `release_held_deliveries` | Send held deliveries, oldest first, while the allowance covers them. Stops at the first event it can't fully cover. |
 | `replay_delivery` | Re-queue a past delivery to its destination. |
 | `replay_deliveries` | Replay every delivery that did not arrive, by destination, status and time range, in bounded passes: call again while `more` is true. `dry_run` counts without sending. Charged to the delivery allowance and stops when it runs out. |
 | `create_ingest_key` | A new ingest key. Returns the plaintext once, so treat it as a credential. |
@@ -157,3 +160,5 @@ POST <issuer>/oauth2/token                                      # code → acces
 </Warning>
 
 PKCE is required, because agents are public clients that cannot keep a secret and the authorization code travels through a terminal. Registration is open because agents are installed per developer rather than registered by us ahead of time; a freshly registered client can only read until a human grants it more in the console. Hookie is the resource server: it verifies the access token offline against WorkOS's signing keys, then applies the grant you set. The token authenticates the same `/admin/api/*` routes the console itself calls, so there is no second, weaker API to learn.
+
+The hosted server doesn't offer a tool that tails live events, because a tool call should return promptly rather than hold a connection open. To tail events, read the [live stream](/streaming) with an ingest key.

@@ -1,0 +1,47 @@
+---
+title: "Billing"
+description: "Upgrade, manage and cancel your Hookie subscription, and what happens to your workspace when the plan changes."
+icon: "credit-card"
+---
+
+Billing is per workspace. Only the workspace **owner** can subscribe, change the payment method or cancel. Admins, developers and viewers see the plan but can't change it, and a [connected agent](/concepts/roles-and-agents) can never reach billing at any scope.
+
+Payments are handled by Stripe. Hookie never sees your card details.
+
+## See your plan
+
+Open **Settings → Plan & billing**. It shows your current plan and, below it, your own role in the workspace. See [Limits and plans](/concepts/limits-and-plans) for what each plan includes, and [hookie.ai/pricing](https://hookie.ai/pricing) for current prices.
+
+| Plan | Price |
+| --- | --- |
+| Free | $0, no card needed |
+| Pro | $9.99 a month, flat, for the workspace |
+| Team | $19.99 a month per user; not yet available to buy |
+
+## Upgrade to Pro
+
+On **Plan & billing**, choose **Upgrade to Pro**. You finish checkout on Stripe's page and come back to the console. The new limits apply as soon as Stripe confirms the subscription.
+
+Team is shown as **coming soon**. It can't be bought from the console yet.
+
+## Free trial
+
+When a free trial is on offer, a new workspace starts on a paid plan for a set number of days. **Plan & billing** then shows **Trial** and the days left. Add a payment method before it ends to keep the plan; otherwise the workspace moves to Free when the trial ends.
+
+## Manage or cancel
+
+On a paid plan, **Manage billing** opens Stripe's billing portal in a new tab. Change your card, download invoices, or cancel there.
+
+If a payment fails, Stripe retries it and your plan stays in place meanwhile. The workspace moves to Free only when the subscription actually ends, whether you cancelled it or Stripe gave up on payment.
+
+## When your plan changes
+
+Moving to a smaller plan applies its limits from then on:
+
+- Nothing you have configured is deleted. You can't create more destinations or sources than the new plan allows until you remove some.
+- Monthly allowances switch to the new plan's numbers. If you are already past them, events are refused and deliveries are held until the next month. See [What happens at a limit](/concepts/limits-and-plans#what-happens-at-a-limit).
+- Retention follows the new plan, so data older than its window is deleted.
+
+## Suspended workspaces
+
+A workspace suspended for non-payment or abuse refuses new events and holds its deliveries, but you can still sign in and read everything. Billing stays available, so an owner can settle what is owed. Once the workspace is reinstated, paused deliveries are sent and sources and triggers resume within about five minutes. Events sent while it was suspended were refused, not stored, so their senders must retry them.

@@ -1,0 +1,114 @@
+---
+title: "Destinations, deliveries and retries"
+description: "How Hookie sends each new record to your own services: signed, retried for about a day, paced, held past your allowance, and replayable."
+icon: "paper-plane"
+---
+
+A **destination** is an HTTPS URL of yours that Hookie sends records to. A **delivery** is one record sent to one destination. When a record is stored, Hookie creates a delivery for every enabled destination in the project whose dataset filter admits the record's dataset.
+
+## Add a destination
+
+On a project's **Connections** tab, under **Destinations · outbound**, choose **Add destination**:
+
+| Field | What it does |
+| --- | --- |
+| **Name** | A label for the destination. |
+| **URL** | Your receiver. It must be `https`. |
+| **Dataset filter (optional)** | Dataset names, separated by commas. Leave it empty to receive every dataset. |
+
+Choose **Create**. The destination's signing secret is shown then. Owners and admins can reveal it again later from the destination's card, and each reveal is written to the audit log. See [Verify signatures](/signatures).
+
+**From preset** fills the form in for a known service. Presets that Hookie can't send to directly yet are listed but disabled, with the reason.
+
+Destinations count across the whole workspace, not per project: 1 on Free, 10 on Pro and 25 on Team. Past that, creating one answers `402`.
+
+<Warning>
+  A destination that points back at one of the same project's endpoint URLs or ingest keys, with a filter that admits the dataset it writes to, would loop forever. Hookie creates it but shows a warning, and stops the loop after 8 hops with `508`.
+</Warning>
+
+## What a delivery carries
+
+Each delivery is a `POST` of the record, signed with the destination's secret:
+
+```http
+Hookie-Signature: t=1718000000,v1=5f2b8c…e11a
+Hookie-Event-Id: 9d3f2a10-…
+Hookie-Delivery-Id: 4c7b…
+Hookie-Hop: 1
+```
+
+Delivery is **at-least-once** and **unordered**. Dedupe on `Hookie-Event-Id`. Deliveries never follow redirects. See [Verify signatures](/signatures) for the full header list and code.
+
+## Retries
+
+Your receiver's answer decides what happens next:
+
+| Answer | Result |
+| --- | --- |
+| `2xx` | `delivered`. |
+| `5xx`, a network error or a timeout, or `404`, `408`, `409`, `425` or `429` | Retried on the schedule below. |
+| Any other `4xx` | `dead` after one attempt, with the error `HTTP 4xx (not retried: the receiver refused the request)`. |
+| `3xx` | Failed, naming the `Location`, and not retried. Fix the destination URL. |
+
+A retried delivery is attempted up to **eight times over roughly a day**. The waits between attempts are about 5 seconds, 5 minutes, 30 minutes, 2 hours, 5 hours, 10 hours and 10 hours, with jitter. A `Retry-After` from your receiver is honored as the minimum wait. After the eighth failed attempt, the delivery is `dead`.
+
+An event that Hookie acknowledged with `201` is fanned out even if the first try at creating its deliveries fails. Hookie retries that every few minutes for about eight hours; if it still can't, the audit log records a `fanout_abandoned` entry.
+
+## Delivery statuses
+
+| Status | Meaning |
+| --- | --- |
+| `queued` | Waiting to be sent. A queued delivery may be waiting its turn under the destination's rate or concurrency limit. |
+| `delivered` | Your receiver answered `2xx`. |
+| `retrying` | Failed, with another attempt scheduled. The console shows this for a `failed` delivery with a retry pending. |
+| `failed` | Failed, with no retry pending. |
+| `dead` | No more attempts: all eight failed, or your receiver refused it. |
+| `paused` | Its destination is disabled. It is sent when the destination is enabled again. Not a failure. |
+| `cancelled` | Its destination was deleted. Not a failure. |
+
+## Watch deliveries
+
+A project's **Deliveries** tab lists every delivery, newest first, with its status, destination, dataset, response, attempts and time. Filter by status, destination and time range. **Details** on a row shows the whole delivery, including your receiver's response.
+
+## Replay
+
+A delivery that did not arrive can be sent again:
+
+- **One at a time:** the replay button on a `failed` or `dead` row. It is offered only for deliveries that did not arrive, since replaying a delivered one sends a duplicate.
+- **In bulk:** filter the **Deliveries** tab, then choose **Replay matching**. Hookie counts the matches first and asks you to confirm. It replays only `dead` deliveries and `failed` ones with no retry pending, only the latest delivery of each event to each destination, and only events still within retention.
+
+A replay is a new delivery and counts toward your monthly delivery allowance. The same bulk replay is available as `hookie replay --since 1h --failed` in the [CLI](/cli), the `replay_deliveries` tool for [connected agents](/connected-agents), and the [admin API](/api-reference#admin-api).
+
+## Delivery settings
+
+Choose **Delivery settings** in a destination's menu to set its limits. Leave a field empty for the default.
+
+| Setting | Range | Default |
+| --- | --- | --- |
+| **Request timeout (seconds)** | 1 to 30 | 10 |
+| **Maximum rate (deliveries per second)** | 0.1 to 1,000 | no limit |
+| **Concurrency (requests in flight)** | 1 to 100 | no limit |
+
+A delivery over the rate or concurrency limit is **deferred**: it waits on the queue for its turn. It is not failed and doesn't use up one of its eight attempts.
+
+## Disable or delete a destination
+
+**Disable** in a destination's menu stops sending. New deliveries wait as `paused` and are sent when you **Enable** it again. **Delete** removes the destination, and its waiting deliveries become `cancelled`. To stop deliveries for a while, disable rather than delete, and don't empty the dataset filter: an empty filter is refused.
+
+## The monthly delivery allowance
+
+Each plan includes a number of deliveries a month: **1,000 on Free, 90,000 on Pro and 600,000 on Team**. Pro and Team also have a 10% grace above that. A delivery is counted once, when it is created. Its retries are not counted again. A replay is counted.
+
+The **Deliveries this month** tile on **Home** shows how much you have used.
+
+### Held deliveries
+
+When the allowance and its grace are used up, events are still received, stored and routed. Their deliveries are **held**, not dropped. The **Deliveries** tab then shows how many events are waiting and how much of the allowance is used.
+
+When there is room again, because a new month started on the 1st (UTC) or you upgraded, choose **Send held deliveries**. Hookie sends held events oldest first and stops at the first event it can't fully cover, so events go out in the order they arrived.
+
+A held event that ages past your plan's retention is deleted with the rest of its data, since there is nothing left to send. Connected agents have `list_held_deliveries` and `release_held_deliveries`, and the admin API has `GET` and `POST …/deliveries/held/release`. See [The monthly delivery allowance](/api-reference#the-monthly-delivery-allowance).
+
+## How long deliveries are kept
+
+A finished delivery (delivered, dead, cancelled, or failed with no retry pending) is kept for your plan's retention window, with its stored response. A delivery that is still queued, paused or retrying is kept until it finishes.
