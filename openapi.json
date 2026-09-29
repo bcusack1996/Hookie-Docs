@@ -92,18 +92,18 @@
       "portalTokenHeader": {
         "type": "http",
         "scheme": "bearer",
-        "description": "A `hpt_\u2026` customer portal token, as `Authorization: Bearer`. Stored hashed; shown once at issue."
-      },
-      "portalTokenQuery": {
-        "type": "apiKey",
-        "in": "query",
-        "name": "token",
-        "description": "The same portal token in the query string, for embedding the portal in an iframe where a header cannot be set."
+        "description": "A `hpt_\u2026` customer portal token, as `Authorization: Bearer`. Stored hashed and looked up by its full SHA-256 hash; shown once at issue. The query string (`?token=`) is not accepted: a token there ends up in request logs and traces. A browser page trades the token for a `portalSession` cookie with POST /portal/api/session."
       },
       "dataApiKey": {
         "type": "http",
         "scheme": "bearer",
         "description": "A project Data API key (hdk_\u2026), created in the project's Settings \u2192 Data API."
+      },
+      "portalSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-hookie_portal",
+        "description": "The customer portal's session cookie, set by POST /portal/api/session: sealed (AES-GCM), HttpOnly, Secure, SameSite=None, Partitioned, and valid for 8 hours or until the token expires, whichever is sooner. It names the token rather than copying what it grants, so revoking the token or switching the portal off ends the session at once. Requests other than GET made with it must carry `X-Requested-With: fetch` (CSRF)."
       }
     },
     "schemas": {
@@ -199,7 +199,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed. error is 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -219,7 +219,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown endpoint'. Uniform miss for any of: unknown workspace slug, unknown project slug, unknown or disabled webhook slug.",
+            "description": "error: 'Unknown endpoint'. Uniform miss for any of: unknown workspace slug, unknown project slug, unknown webhook slug. A webhook that exists but is disabled answers 503 instead.",
             "content": {
               "application/json": {
                 "schema": {
@@ -238,8 +238,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Two distinct cases, both with a retry_after body field and NO Retry-After response header. Edge burst limit: {error: 'Rate limit exceeded', retry_after: 10}. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/settings/billing', retry_after: 3600}. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -264,6 +274,14 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "500": {
@@ -272,6 +290,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "endpoint_disabled"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -311,7 +354,7 @@
             "name": "webhook",
             "in": "path",
             "required": true,
-            "description": "Webhook slug. This high-entropy slug IS the credential \u2014 no key, token or cookie is sent. Only an enabled webhook (enabled = 1) matches.",
+            "description": "Webhook slug. This high-entropy slug IS the credential \u2014 no key, token or cookie is sent. A disabled webhook answers 503 rather than 404.",
             "schema": {
               "type": "string"
             }
@@ -328,7 +371,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Content-Type selects the parser: 'application/x-www-form-urlencoded' and 'multipart/form-data' are flattened into a shallow object (a field that repeats becomes an array; a file part becomes {filename, type, size} and its BYTES ARE DISCARDED; field names are kept verbatim and flat, so an input named user.email stays the key 'user.email'). ANY other Content-Type \u2014 including a missing or wrong one \u2014 is parsed as JSON. An empty body is accepted and becomes {}. A payload that is not a JSON object (array or scalar) is wrapped as {\"value\": <payload>} before it is stored as a record. Bodies over 1,000,000 bytes are rejected with 413.",
+          "description": "Content-Type selects the parser: 'application/x-www-form-urlencoded' and 'multipart/form-data' are flattened into a shallow object (a field that repeats becomes an array; a file part becomes {filename, type, size} and its BYTES ARE DISCARDED; field names are kept verbatim and flat, so an input named user.email stays the key 'user.email'). ANY other body is parsed as JSON first, whatever its Content-Type (a missing or wrong one included). A body that is not JSON is kept as text when its Content-Type is textual: text/* (plain, csv, xml, ...), application/xml or any +xml type, NDJSON / JSON Lines (application/x-ndjson, application/ndjson, application/jsonl, application/x-jsonlines), application/csv and YAML. It is stored as one event, {\"body\": \"<the text, verbatim>\", \"content_type\": \"<media type, lowercased, parameters stripped>\"}, decoded as UTF-8; NDJSON is not split into several events. A body that does parse as JSON is stored as JSON whatever its Content-Type, exactly as before, so a provider that posts JSON as text/plain still gets an object. A non-JSON body that declares JSON (or no Content-Type) is 400, and one of any other type (application/octet-stream, image/*, ...) is 415. An empty body is accepted and becomes {}. A payload that is not a JSON object (array or scalar) is wrapped as {\"value\": <payload>} before it is stored as a record. Bodies over 1,000,000 bytes are rejected with 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -389,6 +432,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -461,7 +528,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -489,7 +556,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown endpoint' \u2014 unknown workspace/project slug or unknown/disabled webhook slug.",
+            "description": "error: 'Unknown endpoint' \u2014 unknown workspace/project slug or unknown webhook slug (a disabled one answers 503).",
             "content": {
               "application/json": {
                 "schema": {
@@ -508,8 +575,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit {error: 'Rate limit exceeded', retry_after: 10} or monthly quota {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/settings/billing', retry_after: 3600}. No Retry-After header.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -532,6 +609,14 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "500": {
@@ -540,6 +625,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "endpoint_disabled"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -579,7 +689,7 @@
             "name": "webhook",
             "in": "path",
             "required": true,
-            "description": "Webhook slug \u2014 the credential. Only an enabled webhook matches.",
+            "description": "Webhook slug \u2014 the credential. A disabled one answers 503.",
             "schema": {
               "type": "string"
             }
@@ -605,7 +715,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Same parsing as the 3-segment form: urlencoded and multipart are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other Content-Type is parsed as JSON; an empty body becomes {}; a non-object payload is wrapped as {\"value\": <payload>}. Over 1,000,000 bytes yields 413.",
+          "description": "Same parsing as the 3-segment form: urlencoded and multipart are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other body is parsed as JSON first, and textual non-JSON bodies are stored as {body, content_type} (see ingestPathForm); an empty body becomes {}; a non-object payload is wrapped as {\"value\": <payload>}. Over 1,000,000 bytes yields 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -665,6 +775,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -739,7 +873,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -788,8 +922,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge burst limit: {error: 'Rate limit exceeded', retry_after: 10}. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/settings/billing', retry_after: 3600}. retry_after is a body field only \u2014 no Retry-After response header is set. Both limiters fail open when their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -812,6 +956,14 @@
                       }
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -870,7 +1022,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Content-Type selects the parser: 'application/x-www-form-urlencoded' and 'multipart/form-data' are flattened into a shallow object (repeated fields become arrays; file parts become {filename, type, size} and their bytes are discarded). EVERY other Content-Type \u2014 including missing or wrong ones, which is deliberate so webhook providers that send JSON with an unhelpful Content-Type still work \u2014 is parsed as JSON. An empty body is accepted and becomes {}. Over 1,000,000 bytes yields 413.",
+          "description": "Content-Type selects the parser: 'application/x-www-form-urlencoded' and 'multipart/form-data' are flattened into a shallow object (repeated fields become arrays; file parts become {filename, type, size} and their bytes are discarded). EVERY other body is parsed as JSON first, whatever its Content-Type (missing or wrong ones included, which is deliberate so webhook providers that send JSON with an unhelpful Content-Type still work). A body that is not JSON is kept as text when its Content-Type is textual: text/* (plain, csv, xml, ...), application/xml or any +xml type, NDJSON / JSON Lines (application/x-ndjson, application/ndjson, application/jsonl, application/x-jsonlines), application/csv and YAML. It is stored as one event, {\"body\": \"<the text, verbatim>\", \"content_type\": \"<media type, lowercased, parameters stripped>\"}, decoded as UTF-8; NDJSON is not split into several events. A body that does parse as JSON is stored as JSON whatever its Content-Type, exactly as before, so a provider that posts JSON as text/plain still gets an object. A non-JSON body that declares JSON (or no Content-Type) is 400, and one of any other type (application/octet-stream, image/*, ...) is 415. An empty body is accepted and becomes {}. Over 1,000,000 bytes yields 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -930,6 +1082,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -1004,7 +1180,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1053,8 +1229,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit (retry_after: 10) or monthly quota (upgrade_url + retry_after: 3600).",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1075,6 +1261,14 @@
                       }
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -1132,7 +1326,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Identical to POST /v1/ingest/{ingest_key}: form encodings are flattened, anything else is parsed as JSON, an empty body becomes {}, and bodies over 1,000,000 bytes are rejected with 413.",
+          "description": "Identical to POST /v1/ingest/{ingest_key}: form encodings are flattened, anything else is parsed as JSON first and textual non-JSON bodies are stored as {body, content_type}, an empty body becomes {}, and bodies over 1,000,000 bytes are rejected with 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -1192,6 +1386,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -1268,7 +1486,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1317,8 +1535,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit {error: 'Rate limit exceeded', retry_after: 10} or monthly quota {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/settings/billing', retry_after: 3600}. No Retry-After header.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1339,6 +1567,14 @@
                       }
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -1405,7 +1641,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Form encodings are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other Content-Type is parsed as JSON; an empty body becomes {}. On this route a payload that is not a JSON object (array or scalar) is wrapped as {\"value\": <payload>} before it is stored. Over 1,000,000 bytes yields 413.",
+          "description": "Form encodings are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other body is parsed as JSON first, and textual non-JSON bodies are stored as {body, content_type} (see ingestEvent); an empty body becomes {}. On this route a payload that is not a JSON object (array or scalar) is wrapped as {\"value\": <payload>} before it is stored. Over 1,000,000 bytes yields 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -1465,6 +1701,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -1539,7 +1799,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1588,8 +1848,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit (retry_after: 10) or monthly quota (upgrade_url + retry_after: 3600).",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1610,6 +1880,14 @@
                       }
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -1676,7 +1954,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Identical to the POST form: form encodings flattened, everything else parsed as JSON, empty body becomes {}, non-object payloads wrapped as {\"value\": <payload>}, 1,000,000-byte cap.",
+          "description": "Identical to the POST form: form encodings flattened, everything else parsed as JSON first with textual non-JSON bodies stored as {body, content_type}, empty body becomes {}, non-object payloads wrapped as {\"value\": <payload>}, 1,000,000-byte cap.",
           "content": {
             "application/json": {
               "schema": {
@@ -1736,6 +2014,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -1814,7 +2116,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1844,7 +2146,7 @@
             }
           },
           "404": {
-            "description": "Two messages. 'Unknown ingest key' \u2014 unknown/revoked key, hash mismatch or missing tenant row. 'Unknown webhook endpoint' \u2014 no enabled webhook with that slug in the key's tenant. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
+            "description": "Two messages. 'Unknown ingest key' \u2014 unknown/revoked key, hash mismatch or missing tenant row. 'Unknown webhook endpoint' \u2014 no webhook with that slug in the key's PROJECT. The lookup is confined to the key's project, so a slug that belongs to another project of the same workspace is 404 too. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1863,8 +2165,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit {error: 'Rate limit exceeded', retry_after: 10} or monthly quota {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/settings/billing', retry_after: 3600}. retry_after is a body field; no Retry-After header is sent.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1887,6 +2199,14 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "500": {
@@ -1895,6 +2215,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "endpoint_disabled"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -1925,7 +2270,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "Webhook slug within the key's tenant. A bare slug selects the most recently created enabled webhook with that base slug; a versioned slug of the form '<base>-v<version>' (version = 1+ digits, optionally .digits, e.g. 'orders-v2' or 'orders-v2.1') pins that exact enabled version. Only enabled webhooks match.",
+            "description": "Webhook slug within the key's project; a slug of another project, even in the same workspace, is 404. A bare slug selects the most recently created enabled webhook with that base slug; a versioned slug of the form '<base>-v<version>' (version = 1+ digits, optionally .digits, e.g. 'orders-v2' or 'orders-v2.1') pins that exact enabled version. When the slug names only a disabled webhook the answer is 503.",
             "schema": {
               "type": "string"
             }
@@ -1951,7 +2296,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Form encodings are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other Content-Type is parsed as JSON; an empty body becomes {}. The parsed payload is evaluated against the webhook's rule conditions and reshaped by its mappings (empty conditions match everything, empty mappings are identity). Over 1,000,000 bytes yields 413.",
+          "description": "Form encodings are flattened (repeats become arrays, file parts become {filename, type, size} with the bytes discarded); every other body is parsed as JSON first, and textual non-JSON bodies are stored as {body, content_type} (see ingestEvent), which the rule's conditions and mappings address as `body` and `content_type`; an empty body becomes {}. The parsed payload is evaluated against the webhook's rule conditions and reshaped by its mappings (empty conditions match everything, empty mappings are identity). Over 1,000,000 bytes yields 413.",
           "content": {
             "application/json": {
               "schema": {
@@ -2011,6 +2356,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -2085,7 +2454,7 @@
             }
           },
           "400": {
-            "description": "error: 'Body must be valid JSON' or 'Body is not valid multipart/form-data'.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2115,7 +2484,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown ingest key' or 'Unknown webhook endpoint'.",
+            "description": "error: 'Unknown ingest key' or 'Unknown webhook endpoint' (no webhook with that slug in the key's project).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2134,8 +2503,18 @@
               }
             }
           },
+          "415": {
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Edge rate limit (retry_after: 10) or monthly quota (upgrade_url + retry_after: 3600).",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2158,6 +2537,14 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10 for the edge burst limit, 3600 for the monthly quota. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "500": {
@@ -2166,6 +2553,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "endpoint_disabled"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2196,7 +2608,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "Webhook slug in the key's tenant; '<base>-v<version>' pins a version, a bare slug takes the newest enabled one.",
+            "description": "Webhook slug in the key's project; '<base>-v<version>' pins a version, a bare slug takes the newest enabled one.",
             "schema": {
               "type": "string"
             }
@@ -2222,7 +2634,7 @@
         ],
         "requestBody": {
           "required": false,
-          "description": "Identical to the POST form: form encodings flattened, everything else parsed as JSON, empty body becomes {}, 1,000,000-byte cap.",
+          "description": "Identical to the POST form: form encodings flattened, everything else parsed as JSON first with textual non-JSON bodies stored as {body, content_type}, empty body becomes {}, 1,000,000-byte cap.",
           "content": {
             "application/json": {
               "schema": {
@@ -2282,6 +2694,30 @@
                     }
                   ]
                 }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Plain text, e.g. an alert. Stored as {body, content_type} unless it parses as JSON."
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML, e.g. a SOAP outbound message (text/xml and +xml types too). Stored as {body, content_type}."
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "description": "CSV. Stored whole as {body, content_type}; rows are not split."
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "NDJSON / JSON Lines. Stored whole as {body, content_type}; lines are not split into events. A single line that is itself valid JSON is stored as JSON."
               }
             }
           }
@@ -2490,7 +2926,7 @@
     "/portal/api/me": {
       "get": {
         "operationId": "getPortalMe",
-        "summary": "Get the portal context for the bearer token",
+        "summary": "Get the portal context for the caller's token or session",
         "tags": [
           "Customer Portal"
         ],
@@ -2534,7 +2970,7 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "Dataset names this portal exposes; [] if the stored value is unparseable. An empty array means no dataset restriction is applied to new destinations."
+                      "description": "Dataset names this portal exposes; [] if the stored value is unparseable. An empty array means the portal exposes nothing: no destination can be added, and none of its customers' destinations receives anything."
                     }
                   }
                 },
@@ -2563,25 +2999,32 @@
                 }
               }
             }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header. The header is checked first; the query parameter is used only when no Bearer header is present.",
-            "schema": {
-              "type": "string"
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
-        ],
+        },
         "security": [
           {
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       }
@@ -2630,25 +3073,32 @@
                 }
               }
             }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
-        ],
+        },
         "security": [
           {
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       }
@@ -2700,7 +3150,7 @@
                               "string",
                               "null"
                             ],
-                            "description": "Raw stored column: a JSON-encoded array of dataset names (e.g. \"[\\\"orders\\\"]\") or null (no filter = every dataset). The server returns it verbatim; it is NOT parsed into an array."
+                            "description": "Raw stored column: a JSON-encoded array of dataset names (e.g. \"[\\\"orders\\\"]\"), returned verbatim, NOT parsed into an array. It can only narrow what arrives: every delivery is also checked against the portal's CURRENT event_types, so a dataset the portal stops exposing stops arriving, and a portal that is switched off delivers nothing."
                           },
                           "enabled": {
                             "type": "integer",
@@ -2743,25 +3193,32 @@
                 }
               }
             }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
-        ],
+        },
         "security": [
           {
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       },
@@ -2801,7 +3258,7 @@
             }
           },
           "400": {
-            "description": "Validation failure. `error` is one of: \"name is required\" (body absent, not a JSON object, or name missing/blank \u2014 an unparseable body also lands here), \"url must be https\", or \"dataset(s) not exposed by this portal: <comma-separated names>\".",
+            "description": "Validation failure: the body is not a JSON object, the name or url fails the same validation the console applies to a destination (name 1\u201380 characters, an https URL that parses), or \"dataset(s) not exposed by this portal: <comma-separated names>\".",
             "content": {
               "application/json": {
                 "schema": {
@@ -2819,19 +3276,56 @@
                 }
               }
             }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The portal exposes no event types, so a destination would receive nothing. Body: {\"error\":\"This portal does not share any event types yet, so a destination would receive nothing. Contact the service you are connecting to.\"}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The workspace is at its plan's destination limit. The message is written for the vendor's customer, who cannot upgrade the plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
-        ],
+        },
         "requestBody": {
           "required": true,
           "description": "Only `name`, `url` and `dataset_filter` are customer-settable. Every other column is server-controlled and cannot be influenced by the request: `secret` (generated, whsec_ + 48 hex, AES-GCM encrypted at rest), `enabled` (always 1 on create), `created_by` (always \"portal:<customer_id>\"), `tenant_id`, `project_id`, `portal_id`, `customer_id` (all taken from the token), `event_filter` (never set) and `created_at`. Unknown properties in the body are ignored, not rejected.",
@@ -2848,20 +3342,20 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Must be a non-empty string after trimming; stored trimmed."
+                    "description": "Must be a non-empty string after trimming, at most 80 characters; stored trimmed."
                   },
                   "url": {
                     "type": "string",
                     "format": "uri",
                     "pattern": "^[Hh][Tt][Tt][Pp][Ss]://",
-                    "description": "Must start with https:// (case-insensitive). No further URL validation is performed and the value is stored verbatim (not trimmed)."
+                    "description": "Must be an https URL that parses. Validated exactly as the console validates a destination URL."
                   },
                   "dataset_filter": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "Optional subset of the portal's exposed event types. Non-string entries are dropped before validation. Every remaining entry must appear in the portal's event_types or the request is rejected. If omitted or empty: defaults to the portal's full event_types list, or null (all datasets) when the portal exposes none."
+                    "description": "Optional subset of the portal's exposed event types. Non-string entries are dropped before validation. Every remaining entry must appear in the portal's event_types or the request is rejected. If omitted or empty: the portal's full event_types list. Either way, delivery is bounded by what the portal exposes at the time of each event."
                   }
                 }
               },
@@ -2880,7 +3374,7 @@
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       }
@@ -2936,6 +3430,44 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Nothing to update: send enabled and/or url`, or the url is not a valid https URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2947,20 +3479,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "requestBody": {
           "required": false,
-          "description": "Only `enabled` and `url` can be changed. `name` and `dataset_filter` are NOT updatable through the portal (silently ignored), as are all server-controlled columns (secret, created_by, tenant_id, project_id, portal_id, customer_id). An absent or unparseable body is treated as {} \u2014 which re-enables the destination, since `enabled` defaults to 1.",
+          "description": "Only `enabled` and `url` can be changed, and only the fields sent change: an update that only moves the URL leaves a disabled destination disabled. `name` and `dataset_filter` are ignored, as are all server-controlled columns. PATCH and PUT are the same handler.",
           "content": {
             "application/json": {
               "schema": {
@@ -2969,13 +3492,13 @@
                 "properties": {
                   "enabled": {
                     "type": "boolean",
-                    "description": "Only the literal JSON `false` disables the destination. Any other value \u2014 true, null, a string, or the field being absent \u2014 sets enabled = 1."
+                    "description": "true or false. Omitted leaves it as it is. Re-enabling sends what the destination held while it was disabled."
                   },
                   "url": {
                     "type": "string",
                     "format": "uri",
                     "pattern": "^[Hh][Tt][Tt][Pp][Ss]://",
-                    "description": "Applied only when it is a string starting with https:// (case-insensitive); any other value is silently ignored and the stored URL is kept. A non-https url here is NOT an error."
+                    "description": "Must be an https URL that parses; anything else is a 400 and the stored URL is kept."
                   }
                 }
               },
@@ -2990,7 +3513,7 @@
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       },
@@ -3044,6 +3567,44 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Nothing to update: send enabled and/or url`, or the url is not a valid https URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -3055,20 +3616,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "requestBody": {
           "required": false,
-          "description": "Identical handler to PUT \u2014 PATCH is not a partial-update variant, it is the same code path. Only `enabled` and `url` are honoured; `name` and `dataset_filter` are ignored. An absent or unparseable body is treated as {}, which sets enabled = 1.",
+          "description": "Only `enabled` and `url` can be changed, and only the fields sent change: an update that only moves the URL leaves a disabled destination disabled. `name` and `dataset_filter` are ignored, as are all server-controlled columns. PATCH and PUT are the same handler.",
           "content": {
             "application/json": {
               "schema": {
@@ -3077,13 +3629,13 @@
                 "properties": {
                   "enabled": {
                     "type": "boolean",
-                    "description": "Only the literal JSON `false` disables; anything else (including absence) sets enabled = 1."
+                    "description": "true or false. Omitted leaves it as it is. Re-enabling sends what the destination held while it was disabled."
                   },
                   "url": {
                     "type": "string",
                     "format": "uri",
                     "pattern": "^[Hh][Tt][Tt][Pp][Ss]://",
-                    "description": "Applied only when it is a string starting with https:// (case-insensitive); otherwise silently ignored."
+                    "description": "Must be an https URL that parses; anything else is a 400 and the stored URL is kept."
                   }
                 }
               },
@@ -3098,7 +3650,7 @@
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       }
@@ -3205,25 +3757,32 @@
                 }
               }
             }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "Portal access token (hpt_\u2026), as an alternative to the `Authorization: Bearer` header.",
-            "schema": {
-              "type": "string"
+          },
+          "429": {
+            "description": "Rate limited: each portal token may make 60 calls a minute across the portal API. Retry after the `Retry-After` header (60 seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
-        ],
+        },
         "security": [
           {
             "portalTokenHeader": []
           },
           {
-            "portalTokenQuery": []
+            "portalSession": []
           }
         ]
       }
@@ -3375,7 +3934,10 @@
                     "agent_runs_7d",
                     "projects",
                     "ai_tokens_this_month",
-                    "ai_tokens_quota"
+                    "ai_tokens_quota",
+                    "deliveries_this_month",
+                    "deliveries_quota",
+                    "deliveries_ceiling"
                   ],
                   "properties": {
                     "plan": {
@@ -3468,6 +4030,21 @@
                     "ai_tokens_quota": {
                       "type": "integer",
                       "description": "The plan's monthly AI token allowance. A call made once it is used is refused and the step fails."
+                    },
+                    "deliveries_this_month": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "Deliveries charged against this month's allowance (#159); null if the usage counter could not be read."
+                    },
+                    "deliveries_quota": {
+                      "type": "integer",
+                      "description": "Plan deliveries-per-month allowance."
+                    },
+                    "deliveries_ceiling": {
+                      "type": "integer",
+                      "description": "Allowance plus soft overage; past it deliveries are held."
                     }
                   }
                 }
@@ -5625,8 +6202,7 @@
                     "items": {
                       "type": "object",
                       "required": [
-                        "path",
-                        "equals"
+                        "path"
                       ],
                       "properties": {
                         "path": {
@@ -5637,8 +6213,22 @@
                         "equals": {
                           "type": "string",
                           "maxLength": 500
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "equals"
+                          ]
+                        },
+                        "value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
                         }
-                      }
+                      },
+                      "description": "{path, equals}, or {path, op: \"equals\", value} (#165: the workflow form works here too; a number or boolean value is compared as text). Rules match exact values only: any other op is refused with a 400 naming where it works."
                     }
                   },
                   "mappings": {
@@ -6640,7 +7230,7 @@
                 "properties": {
                   "enabled": {
                     "type": "boolean",
-                    "description": "The mirror mapping rule is toggled with it."
+                    "description": "The mirror mapping rule is toggled with it. While false, the endpoint's URL (and the key+slug route) answers 503 {reason: 'endpoint_disabled'} and stores nothing."
                   }
                 }
               }
@@ -9116,6 +9706,264 @@
         ]
       }
     },
+    "/admin/api/projects/{pid}/deliveries/held": {
+      "get": {
+        "operationId": "listHeldDeliveries",
+        "summary": "List events whose deliveries are held past the monthly delivery allowance",
+        "tags": [
+          "Deliveries"
+        ],
+        "description": "Past the plan's delivery ceiling the fan-out stores the event as usual and HOLDS its remaining destinations: one hold per event, oldest first. Nothing is dropped; release them with POST .../deliveries/held/release once there is room.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Held events in this project, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "holds",
+                    "total",
+                    "limit",
+                    "offset",
+                    "allowance"
+                  ],
+                  "properties": {
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "event_id",
+                          "dataset",
+                          "destinations",
+                          "period",
+                          "created_at",
+                          "updated_at"
+                        ],
+                        "properties": {
+                          "event_id": {
+                            "type": "string",
+                            "description": "The held event (a record id)."
+                          },
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "destinations": {
+                            "type": "integer",
+                            "description": "How many destinations were held at the last attempt."
+                          },
+                          "period": {
+                            "type": "string",
+                            "description": "Billing period the hold began in, YYYY-MM."
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "allowance": {
+                      "type": "object",
+                      "required": [
+                        "used",
+                        "quota",
+                        "ceiling"
+                      ],
+                      "properties": {
+                        "used": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "description": "Deliveries charged this month; null if the usage counter could not be read."
+                        },
+                        "quota": {
+                          "type": "integer",
+                          "description": "The plan's monthly delivery allowance."
+                        },
+                        "ceiling": {
+                          "type": "integer",
+                          "description": "The allowance plus the plan's soft overage: the point where deliveries are held."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{pid}/deliveries/held/release": {
+      "post": {
+        "operationId": "releaseHeldDeliveries",
+        "summary": "Send held deliveries now that there is room in the allowance",
+        "tags": [
+          "Deliveries"
+        ],
+        "description": "Re-runs the fan-out for held events, oldest first, creating the deliveries each event's destinations still lack and charging them to the allowance. Stops at the first event it cannot fully cover (that event keeps a hold for what is left). A hold whose event has been pruned by retention is dropped. Writes one release_held_deliveries audit row.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "default": 100,
+                    "description": "Most holds to process in this call."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the release did.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "released",
+                    "sent",
+                    "dropped",
+                    "remaining"
+                  ],
+                  "properties": {
+                    "released": {
+                      "type": "integer",
+                      "description": "Holds fully released."
+                    },
+                    "sent": {
+                      "type": "integer",
+                      "description": "Deliveries created and queued."
+                    },
+                    "dropped": {
+                      "type": "integer",
+                      "description": "Holds removed because their event is gone."
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "description": "Holds still in this project."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/api/projects/{pid}/deliveries/{id}": {
       "get": {
         "operationId": "getDelivery",
@@ -9375,6 +10223,16 @@
           },
           "404": {
             "description": "Delivery not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The month's delivery allowance is used up (reason: delivery_allowance_exhausted). A replay is a new delivery and is charged; retries are not.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11959,7 +12817,7 @@
                           },
                           "match": {
                             "type": "string",
-                            "description": "JSON string: {dataset, conditions?:[{path,equals}]}"
+                            "description": "JSON string: {dataset, conditions?:[{path, op, value}]} (a trigger saved before #165 may hold [{path, equals}])."
                           },
                           "action_type": {
                             "type": "string",
@@ -12066,7 +12924,7 @@
             }
           },
           "400": {
-            "description": "`name, match, and config are required`.",
+            "description": "`name, match, and config are required`, `match.dataset: <reason>`, or `match.conditions: <reason>`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12143,30 +13001,51 @@
                   },
                   "match": {
                     "type": "object",
-                    "description": "Stored verbatim as JSON; shape is not validated at write time. Interpreted at fire time as {dataset, conditions?}. An empty or absent `conditions` array matches every event in the dataset.",
+                    "description": "Validated on save (#165): `dataset` must be a dataset name, and `conditions` use the one condition dialect; stored normalised to {path, op, value}. An empty or absent `conditions` array matches every event in the dataset. A trigger saved before #165 keeps its {path, equals} conditions, which compare as text.",
                     "properties": {
                       "dataset": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,62}$"
                       },
                       "conditions": {
                         "type": "array",
                         "items": {
                           "type": "object",
                           "required": [
-                            "path",
-                            "equals"
+                            "path"
                           ],
+                          "additionalProperties": false,
+                          "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
                           "properties": {
                             "path": {
-                              "type": "string"
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Dot path. The empty path is rejected."
+                            },
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not_equals",
+                                "contains",
+                                "exists",
+                                "gt",
+                                "lt"
+                              ]
+                            },
+                            "value": {
+                              "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
                             },
                             "equals": {
-                              "type": "string"
+                              "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
                             }
                           }
                         }
                       }
-                    }
+                    },
+                    "required": [
+                      "dataset"
+                    ]
                   },
                   "config": {
                     "type": "object",
@@ -12468,11 +13347,11 @@
                           },
                           "schedule": {
                             "type": "string",
-                            "description": "5-field cron expression, evaluated as UTC."
+                            "description": "5-field cron expression, read in `timezone`."
                           },
                           "timezone": {
                             "type": "string",
-                            "description": "Always 'UTC' \u2014 reserved, not settable."
+                            "description": "IANA time zone the schedule is read in (#165); UTC for triggers created before it."
                           },
                           "payload": {
                             "type": "string",
@@ -12494,7 +13373,8 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "When the sweep next fires it (UTC instant). Recomputed on a schedule or zone change and on resume."
                           },
                           "last_error": {
                             "type": [
@@ -12588,7 +13468,9 @@
                   "type": "object",
                   "required": [
                     "id",
-                    "next_run_at"
+                    "timezone",
+                    "next_run_at",
+                    "next_runs"
                   ],
                   "properties": {
                     "id": {
@@ -12597,6 +13479,17 @@
                     "next_run_at": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "next_runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "description": "The next three fire times (UTC instants)."
                     }
                   }
                 }
@@ -12604,7 +13497,7 @@
             }
           },
           "400": {
-            "description": "`name is required (1-80 chars)`, `bad schedule: <reason>`, or `payload must be valid JSON (after {{}} substitution)`.",
+            "description": "`name is required (1-80 chars)`, `bad schedule: <reason>` (including a schedule that fires less than 5 minutes apart), `timezone must be an IANA time zone \u2026`, a dataset that cannot store a record, `payload must be valid JSON (after {{}} substitution)`, or `payload has no fields`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12698,7 +13591,7 @@
                   },
                   "schedule": {
                     "type": "string",
-                    "description": "5-field cron expression (minute hour day-of-month month day-of-week), UTC. Parsed at create time; a bad expression is rejected."
+                    "description": "5-field cron expression (minute hour day-of-month month day-of-week), read in `timezone`. Two firings may not be closer than 5 minutes (the scheduler's tick): `* * * * *`, `*/2 * * * *` and `0,58 * * * *` are refused."
                   },
                   "payload": {
                     "description": "JSON template fired on each run. A string is stored verbatim; any other value is JSON.stringify'd; omitted becomes '{}'. Must still parse as JSON after {{now}}/{{iso}}/{{ts}} substitution.",
@@ -12720,6 +13613,11 @@
                       "null"
                     ],
                     "description": "Optional identity dataset. When absent the fired payload is routed through the project's mapping rules instead."
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "default": "UTC",
+                    "description": "IANA time zone, e.g. America/New_York (#165, FLOW-14). The schedule keeps local time across daylight-saving changes: a local time that happens twice fires once (its first occurrence); one skipped by the spring change fires just after the gap. Normalised to its canonical name."
                   }
                 }
               }
@@ -12736,10 +13634,129 @@
         ]
       }
     },
+    "/admin/api/projects/{project_id}/cron-triggers/preview": {
+      "post": {
+        "operationId": "previewCronSchedule",
+        "summary": "Preview a cron schedule's next fire times",
+        "tags": [
+          "Cron triggers"
+        ],
+        "responses": {
+          "200": {
+            "description": "The schedule's next five fire times.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "timezone",
+                    "next_runs"
+                  ],
+                  "properties": {
+                    "timezone": {
+                      "type": "string",
+                      "description": "Canonical zone name."
+                    },
+                    "next_runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad schedule: <reason>` or `timezone must be an IANA time zone \u2026`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Missing X-Requested-With header`, or the caller cannot reach the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "schedule"
+                ],
+                "properties": {
+                  "schedule": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "default": "UTC"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "The next five fire times of a schedule in a time zone, before it is saved. Checks the schedule exactly as create does. Any project member."
+      }
+    },
     "/admin/api/projects/{project_id}/cron-triggers/{cron_trigger_id}": {
       "patch": {
         "operationId": "updateCronTrigger",
-        "summary": "Enable or disable a cron trigger",
+        "summary": "Update a cron trigger",
         "tags": [
           "Cron triggers"
         ],
@@ -12751,7 +13768,9 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "ok"
+                    "ok",
+                    "cron_trigger",
+                    "next_runs"
                   ],
                   "properties": {
                     "ok": {
@@ -12759,6 +13778,18 @@
                       "enum": [
                         true
                       ]
+                    },
+                    "cron_trigger": {
+                      "type": "object",
+                      "description": "The trigger as the list returns it, after the change."
+                    },
+                    "next_runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "description": "The next three fire times; empty while paused."
                     }
                   }
                 }
@@ -12766,7 +13797,7 @@
             }
           },
           "400": {
-            "description": "`Only 'enabled' is supported for PATCH in this phase`.",
+            "description": "`Nothing to change: send any of \u2026`, `enabled must be true or false`, or any error create returns for the field changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12840,15 +13871,45 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "enabled"
-                ],
+                "minProperties": 1,
                 "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
                   "enabled": {
                     "type": "boolean"
+                  },
+                  "schedule": {
+                    "type": "string",
+                    "description": "As on create, including the 5-minute floor."
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "IANA time zone."
+                  },
+                  "payload": {
+                    "description": "As on create.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "type": "array"
+                      }
+                    ]
+                  },
+                  "dataset": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
-                },
-                "description": "The only supported PATCH field. Schedule/payload/dataset cannot be edited \u2014 delete and recreate."
+                }
               }
             }
           }
@@ -12860,7 +13921,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Change any of name, enabled, schedule, timezone, payload and dataset (#165); each is checked as create checks it. A new schedule or time zone recomputes next_run_at, and so does resuming (enabled false to true), so a paused trigger does not fire at once on the next sweep for a time that passed while it was paused."
       },
       "delete": {
         "operationId": "deleteCronTrigger",
@@ -13116,7 +14178,8 @@
                                   ]
                                 },
                                 "value": {}
-                              }
+                              },
+                              "description": "Stored in the full {path, op, value} form."
                             }
                           },
                           "mappings": {
@@ -13252,7 +14315,7 @@
             }
           },
           "400": {
-            "description": "`name is required (1-80 chars)`, or `url must be a ws:// or wss:// URL`.",
+            "description": "`name is required (1-80 chars)`, `url must be a ws:// or wss:// URL`, a dataset that cannot store a record, or `conditions: <reason>` for a condition outside the one dialect.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13369,17 +14432,19 @@
                   "conditions": {
                     "type": "array",
                     "default": [],
-                    "description": "Frame filter. An empty array matches every frame. Not validated at write time.",
+                    "description": "Frame filter; an empty array matches every frame. Validated on save (#165) and stored in the full {path, op, value} form.",
                     "items": {
                       "type": "object",
                       "required": [
-                        "path",
-                        "op"
+                        "path"
                       ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
                       "properties": {
                         "path": {
                           "type": "string",
-                          "description": "Dot path into the parsed frame; empty string means the whole frame."
+                          "minLength": 1,
+                          "description": "Dot path. The empty path is rejected."
                         },
                         "op": {
                           "type": "string",
@@ -13393,7 +14458,10 @@
                           ]
                         },
                         "value": {
-                          "description": "contains needs both sides to be strings; gt/lt need both to be numbers; exists ignores it."
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
                         }
                       }
                     }
@@ -14036,14 +15104,15 @@
                     "items": {
                       "type": "object",
                       "required": [
-                        "path",
-                        "op"
+                        "path"
                       ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
                       "properties": {
                         "path": {
                           "type": "string",
                           "minLength": 1,
-                          "description": "Dot path; the empty path is rejected."
+                          "description": "Dot path. The empty path is rejected."
                         },
                         "op": {
                           "type": "string",
@@ -14057,7 +15126,10 @@
                           ]
                         },
                         "value": {
-                          "description": "equals/not_equals use strict ===/!==. contains requires both the resolved value and `value` to be strings. gt/lt require both to be numbers. exists ignores it (passes when the value is neither undefined nor null)."
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
                         }
                       }
                     }
@@ -14088,7 +15160,7 @@
                             },
                             "payload": {
                               "type": "object",
-                              "description": "Must be a plain object (not an array/null). Merged OVER the instance context's entry fields \u2014 payload wins."
+                              "description": "Must be a plain object (not an array/null). Merged OVER the entry record's fields - payload wins. String leaves are templated from the instance context (#165, FLOW-6): \"{{triage.summary}}\" alone takes the value with its type, {{path}} inside longer text is replaced as text. A placeholder that resolves to nothing leaves its field out; one whose root no earlier step writes (entry, an output_key, a set key, waited_event) is refused at save."
                             },
                             "deliver": {
                               "type": "boolean",
@@ -14129,7 +15201,7 @@
                             "output_key": {
                               "type": "string",
                               "default": "ai_result",
-                              "description": "Instance-context key the AI text is stored under."
+                              "description": "Instance-context key the reply is stored under. A reply that is JSON is stored parsed - bare, in a ```json fence, or after a preface such as 'Here is the JSON:' (#165, FLOW-9) - so a branch can read its fields; anything else stays text."
                             },
                             "output_dataset": {
                               "type": "string",
@@ -14162,12 +15234,15 @@
                               "items": {
                                 "type": "object",
                                 "required": [
-                                  "path",
-                                  "op"
+                                  "path"
                                 ],
+                                "additionalProperties": false,
+                                "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A value may be a {{placeholder}} naming the instance context (e.g. \"{{entry.order_id}}\"), resolved when the wait is armed, so the wait matches this instance's record only; a placeholder that resolves to nothing fails the run.",
                                 "properties": {
                                   "path": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Dot path. The empty path is rejected."
                                   },
                                   "op": {
                                     "type": "string",
@@ -14180,15 +15255,30 @@
                                       "lt"
                                     ]
                                   },
-                                  "value": {}
+                                  "value": {
+                                    "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                                  },
+                                  "equals": {
+                                    "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                                  }
                                 }
-                              }
+                              },
+                              "description": "Read against the ARRIVING record. A value may reference this run's context (see items)."
                             },
                             "timeout_seconds": {
                               "type": "integer",
                               "minimum": 1,
-                              "description": "Must be > 0; floored; at most 31536000 (365 days). Omitted: on the Cloudflare Workflows engine the wait times out after 365 days (step.waitForEvent needs a finite timeout); on the legacy engine it never does. A timed-out wait ends the instance in state timed_out.",
+                              "description": "Must be > 0; floored; at most 31536000 (365 days). Omitted: on the Cloudflare Workflows engine the wait times out after 365 days (step.waitForEvent needs a finite timeout); on the legacy engine it never does. What a timeout does is on_timeout.",
                               "maximum": 31536000
+                            },
+                            "on_timeout": {
+                              "type": "string",
+                              "enum": [
+                                "fail",
+                                "continue"
+                              ],
+                              "default": "fail",
+                              "description": "fail (default): a timed-out wait ends the instance timed_out. continue (#165): the run carries on with waited_event set to null, so a following branch on {\"path\":\"waited_event\",\"op\":\"exists\"} can take the no-reply path. Both engines."
                             }
                           },
                           "description": "NOT allowed inside a branch."
@@ -14263,12 +15353,15 @@
                               "items": {
                                 "type": "object",
                                 "required": [
-                                  "path",
-                                  "op"
+                                  "path"
                                 ],
+                                "additionalProperties": false,
+                                "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A value may be a {{placeholder}} naming the instance context (e.g. \"{{entry.order_id}}\"), resolved each time the branch is evaluated.",
                                 "properties": {
                                   "path": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Dot path. The empty path is rejected."
                                   },
                                   "op": {
                                     "type": "string",
@@ -14281,7 +15374,12 @@
                                       "lt"
                                     ]
                                   },
-                                  "value": {}
+                                  "value": {
+                                    "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                                  },
+                                  "equals": {
+                                    "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                                  }
                                 }
                               }
                             },
@@ -14584,7 +15682,7 @@
             }
           },
           "400": {
-            "description": "Same validation messages as createWorkflow.",
+            "description": "Same validation messages as createWorkflow. Also a condition outside the one dialect, or a {{placeholder}} that can never resolve.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14687,12 +15785,15 @@
                     "items": {
                       "type": "object",
                       "required": [
-                        "path",
-                        "op"
+                        "path"
                       ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
                       "properties": {
                         "path": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Dot path. The empty path is rejected."
                         },
                         "op": {
                           "type": "string",
@@ -14705,7 +15806,12 @@
                             "lt"
                           ]
                         },
-                        "value": {}
+                        "value": {
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                        }
                       }
                     }
                   },
@@ -16424,14 +17530,15 @@
                     "description": "Required when creating."
                   },
                   "enabled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "A switched-off portal refuses its tokens and sessions and delivers nothing to its customers' destinations."
                   },
                   "event_types": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "The project's datasets the portal exposes. Each must be a valid dataset name."
+                    "description": "The project's datasets the portal exposes. Each must be a valid dataset name. An empty list exposes nothing: customers cannot add a destination, and existing ones receive nothing. Changes apply to every delivery from then on, including destinations created earlier."
                   }
                 }
               }
@@ -16975,6 +18082,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "`enabled must be true or false`, or an invalid dataset name in `event_types`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -17001,7 +18118,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "description": "PATCH is accepted on this path and behaves identically. `slug` cannot be changed. Note the mixed semantics: `name` is COALESCE'd (omitted or blank keeps the current name) while `event_types` and `branding` are REPLACED \u2014 omitting them clears them to [] and {}.",
+                "description": "PATCH is accepted on this path and behaves identically. `slug` cannot be changed. Only the fields sent change; an omitted field keeps its current value.",
                 "properties": {
                   "name": {
                     "type": "string",
@@ -17012,16 +18129,15 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Full replacement. Omitted clears it to []."
+                    "description": "Replaces the exposed datasets when sent; omitted keeps them. An empty list exposes nothing: the portal's customers receive nothing."
                   },
                   "branding": {
                     "type": "object",
-                    "description": "Full replacement. Omitted clears it to {}."
+                    "description": "Replaces the branding when sent; omitted keeps it."
                   },
                   "enabled": {
                     "type": "boolean",
-                    "default": true,
-                    "description": "Only the literal false disables; every other value (including omission) re-enables."
+                    "description": "true or false; omitted keeps the current state. A switched-off portal refuses its tokens and delivers nothing to its customers' destinations."
                   }
                 }
               }
@@ -17291,7 +18407,7 @@
             }
           },
           "201": {
-            "description": "Issue mode \u2014 the plaintext token is returned ONCE and is never retrievable again.",
+            "description": "Issue mode \u2014 the plaintext token is returned ONCE and is never retrievable again. Hand the customer `/portal/{workspace}/{portal_slug}#token=<token>`: in the fragment, the token never reaches a server or its logs.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17419,7 +18535,7 @@
                       },
                       "expires_in_days": {
                         "type": "number",
-                        "description": "Must be finite and > 0 to take effect; anything else means the token never expires."
+                        "description": "Must be finite and > 0 to take effect; anything else means the token never expires. The console defaults it to 30. A portal session made from the token never outlives it."
                       }
                     }
                   },
@@ -20639,6 +21755,142 @@
           },
           "404": {
             "description": "No saved integration to test."
+          }
+        }
+      }
+    },
+    "/portal/api/session": {
+      "post": {
+        "operationId": "startPortalSession",
+        "summary": "Trade a portal token for a session cookie",
+        "description": "What the portal page does on first load: the link carries the token in its fragment (`#token=hpt_\u2026`, never sent to a server), the page presents it here as a bearer, receives the `__Host-hookie_portal` session cookie, and forgets the token. The session lasts 8 hours or until the token expires, whichever is sooner. A session cannot be used to start another one.",
+        "tags": [
+          "Customer Portal"
+        ],
+        "security": [
+          {
+            "portalTokenHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session started. The cookie is in `Set-Cookie`; the body says when it ends.",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "`__Host-hookie_portal=\u2026; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=\u2026`"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "expires_at"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "expires_at": "2026-09-29T20:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Called with the session cookie instead of a bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, revoked or expired token, or the portal is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (60 calls a minute per token).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "endPortalSession",
+        "summary": "Sign out of the portal",
+        "description": "Clears the session cookie. Needs `X-Requested-With: fetch`, and no valid session. The token itself stays valid until it is revoked or expires.",
+        "tags": [
+          "Customer Portal"
+        ],
+        "security": [
+          {
+            "portalSession": []
+          },
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "The cookie is cleared (`Max-Age=0`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Missing X-Requested-With header`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

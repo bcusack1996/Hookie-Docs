@@ -72,7 +72,7 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
     "attachment": { "filename": "report.pdf", "type": "application/pdf", "size": 18244 }
   }
   ```
-- Everything else is still parsed as JSON regardless of its `Content-Type`, which is what most webhook providers send.
+- Everything else is still parsed as JSON regardless of its `Content-Type`, which is what most webhook providers send. A body that is not JSON but is sent as text, such as `text/plain`, XML, CSV or NDJSON, is stored as `{ "body": "<the text>", "content_type": "text/plain" }`. See the [API reference](/api-reference#ingest).
 
 <Tip>
   Because the browser navigates to the endpoint on submit, the visitor lands on Hookie's JSON response. For a polished flow, submit with `fetch` and a `FormData` body (that is also a form encoding, so it needs no preflight), then show your own thank-you state.
