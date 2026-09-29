@@ -797,7 +797,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
             "content": {
               "application/json": {
                 "schema": {
@@ -807,7 +807,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must match BOTH the webhook's IP allowlist and the tenant's (an empty allowlist matches everything; a request with no client IP skips the check). The block is written to the audit log. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must match BOTH the webhook's IP allowlist and the tenant's (an empty allowlist matches everything; a request with no client IP skips the check). The block is written to the audit log. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -827,7 +827,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Checked against Content-Length first, then against the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Checked against Content-Length first, then against the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -837,7 +837,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -847,7 +847,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -909,7 +909,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -934,7 +934,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1172,7 +1172,7 @@
             }
           },
           "403": {
-            "description": "The origin is not allowed (logged as reason cors_origin_not_allowed). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The origin is not allowed (logged as reason cors_origin_not_allowed). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1277,7 +1277,7 @@
             }
           },
           "400": {
-            "description": "reason 'handshake_failed': no usable hub.challenge. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "reason 'handshake_failed': no usable hub.challenge. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1287,7 +1287,7 @@
             }
           },
           "403": {
-            "description": "reason 'handshake_failed': hub.verify_token does not match. Also 'Source IP not allowed' and workspace_suspended. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "reason 'handshake_failed': hub.verify_token does not match. Also 'Source IP not allowed' and workspace_suspended. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1317,7 +1317,7 @@
             }
           },
           "429": {
-            "description": "Burst rate limit (about 100 requests per 10 seconds per endpoint URL; best-effort). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Burst rate limit (about 100 requests per 10 seconds per endpoint URL; best-effort). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1327,7 +1327,7 @@
             }
           },
           "503": {
-            "description": "The endpoint is disabled. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint is disabled. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1422,7 +1422,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1432,7 +1432,7 @@
             }
           },
           "403": {
-            "description": "The fourth segment names a dataset other than the endpoint's own. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The fourth segment names a dataset other than the endpoint's own. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1452,7 +1452,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1462,7 +1462,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1472,7 +1472,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1532,7 +1532,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1557,7 +1557,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1815,7 +1815,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1825,7 +1825,7 @@
             }
           },
           "401": {
-            "description": "Only when the key has require_signature: 'Signature required' (header absent or no stored secret) or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Only when the key has require_signature: 'Signature required' (header absent or no stored secret) or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1835,7 +1835,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must satisfy BOTH the key's allowlist and the tenant's (an empty allowlist matches everything); the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must satisfy BOTH the key's allowlist and the tenant's (an empty allowlist matches everything); the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1855,7 +1855,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes' \u2014 from Content-Length, or from the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes' \u2014 from Content-Length, or from the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1865,7 +1865,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1875,7 +1875,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1937,7 +1937,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2156,7 +2156,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2166,7 +2166,7 @@
             }
           },
           "401": {
-            "description": "'Signature required' or 'Invalid signature' (signature-required keys only). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "'Signature required' or 'Invalid signature' (signature-required keys only). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2176,7 +2176,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2196,7 +2196,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2206,7 +2206,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2216,7 +2216,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2276,7 +2276,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2496,7 +2496,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2506,7 +2506,7 @@
             }
           },
           "401": {
-            "description": "Signature-required keys only: 'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Signature-required keys only: 'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2516,7 +2516,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 key allowlist AND tenant allowlist must both match. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed' \u2014 key allowlist AND tenant allowlist must both match. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2536,7 +2536,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2546,7 +2546,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2556,7 +2556,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2616,7 +2616,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2641,7 +2641,7 @@
             "name": "dataset",
             "in": "path",
             "required": true,
-            "description": "Dataset name. Its presence switches routing to identity: the whole payload is stored as one record in this dataset and the project's mapping rules are NOT consulted. The name is used as given (no validation, no lookup) and it overrides the key's dataset_default.",
+            "description": "Dataset name. Its presence switches routing to identity: the whole payload is stored as one record in this dataset and the project's mapping rules are NOT consulted. The name is used as given (no validation, no lookup). The key's dataset_default plays no part in routing, here or without a dataset segment.",
             "schema": {
               "type": "string"
             }
@@ -2843,7 +2843,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2853,7 +2853,7 @@
             }
           },
           "401": {
-            "description": "'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2863,7 +2863,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2883,7 +2883,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2893,7 +2893,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2903,7 +2903,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2963,7 +2963,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3112,7 +3112,7 @@
     "/v1/webhooks/{ingest_key}/{slug}": {
       "post": {
         "operationId": "ingestWebhookEvent",
-        "summary": "Ingest an event into a configured webhook endpoint using an ingest key",
+        "summary": "Ingest an event into a configured endpoint using an ingest key",
         "tags": [
           "Ingest"
         ],
@@ -3194,7 +3194,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3204,7 +3204,7 @@
             }
           },
           "401": {
-            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity.",
+            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3214,7 +3214,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 the client IP failed the key allowlist or the tenant allowlist; the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed' \u2014 the client IP failed the key allowlist or the tenant allowlist; the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3224,7 +3224,7 @@
             }
           },
           "404": {
-            "description": "Two messages. 'Unknown ingest key' \u2014 unknown, revoked or expired key, hash mismatch or missing tenant row. 'Unknown webhook endpoint' \u2014 no webhook with that slug in the key's PROJECT. The lookup is confined to the key's project, so a slug that belongs to another project of the same workspace is 404 too. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
+            "description": "Two messages. 'Unknown ingest key' \u2014 unknown, revoked or expired key, hash mismatch or missing tenant row. 'Unknown endpoint' \u2014 no endpoint with that slug in the key's PROJECT. The lookup is confined to the key's project, so a slug that belongs to another project of the same workspace is 404 too. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3234,7 +3234,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3244,7 +3244,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3254,7 +3254,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3304,7 +3304,7 @@
             }
           },
           "500": {
-            "description": "error: 'Key misconfigured' (signing secret could not be decrypted), 'Could not store submission', or 'Webhook rule is malformed' (the rule's conditions/mappings JSON failed to parse \u2014 note the submission has already been stored and the quota already charged at this point).",
+            "description": "error: 'Key misconfigured' (signing secret could not be decrypted), 'Could not store submission', or 'Endpoint rule is malformed' (the rule's conditions/mappings JSON failed to parse \u2014 note the submission has already been stored and the quota already charged at this point).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3314,7 +3314,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3339,7 +3339,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3349,7 +3349,7 @@
             }
           }
         },
-        "description": "Key-authenticated form of a webhook endpoint. PUT is accepted identically (ingestWebhookEventPut); any other method returns 405 {\"error\":\"Use POST\"}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped.",
+        "description": "Key-authenticated form of an endpoint's URL. PUT is accepted identically (ingestWebhookEventPut); any other method returns 405 {\"error\":\"Use POST\"}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped.",
         "parameters": [
           {
             "name": "ingest_key",
@@ -3486,7 +3486,7 @@
       },
       "put": {
         "operationId": "ingestWebhookEventPut",
-        "summary": "Ingest into a configured webhook endpoint (PUT alias of ingestWebhookEvent)",
+        "summary": "Ingest into a configured endpoint (PUT alias of ingestWebhookEvent)",
         "tags": [
           "Ingest"
         ],
@@ -3566,7 +3566,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3576,7 +3576,7 @@
             }
           },
           "401": {
-            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity.",
+            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3586,7 +3586,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3596,7 +3596,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown ingest key' or 'Unknown webhook endpoint' (no webhook with that slug in the key's project).",
+            "description": "error: 'Unknown ingest key' or 'Unknown endpoint' (no endpoint with that slug in the key's project).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3606,7 +3606,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3616,7 +3616,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3626,7 +3626,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3676,7 +3676,7 @@
             }
           },
           "500": {
-            "description": "error: 'Key misconfigured', 'Could not store submission', or 'Webhook rule is malformed'.",
+            "description": "error: 'Key misconfigured', 'Could not store submission', or 'Endpoint rule is malformed'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3686,7 +3686,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3711,7 +3711,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6238,7 +6238,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}": {
+    "/admin/api/projects/{project_id}": {
       "get": {
         "operationId": "getProject",
         "summary": "Get one project with resource counts",
@@ -6390,7 +6390,7 @@
         "description": "Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -6494,7 +6494,7 @@
         "description": "Owner/admin only. Slug and type are immutable.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -6617,7 +6617,7 @@
         "description": "Owner only. An agent can never reach owner (manage scope clips to admin).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -6639,7 +6639,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/stats": {
+    "/admin/api/projects/{project_id}/stats": {
       "get": {
         "operationId": "getProjectStats",
         "summary": "Traffic and delivery stats for one project",
@@ -6818,7 +6818,7 @@
         "description": "Nested form only - stats has NO top-level Default-project alias (GET /admin/api/stats returns 404 Unknown resource). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -6840,7 +6840,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/datasets": {
+    "/admin/api/projects/{project_id}/datasets": {
       "get": {
         "operationId": "listDatasets",
         "summary": "List datasets with record counts",
@@ -6937,7 +6937,7 @@
         "description": "Top-level alias: GET /admin/api/datasets (same handler, scoped to the workspace Default project). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -6959,9 +6959,9 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/datasets/{dataset}": {
+    "/admin/api/projects/{project_id}/datasets/{dataset}": {
       "get": {
-        "operationId": "listDatasetRecords",
+        "operationId": "exportDatasetRecords",
         "summary": "One page of a dataset's records, whole and flattened (export shape)",
         "tags": [
           "Datasets"
@@ -7089,7 +7089,7 @@
         "description": "Top-level alias: GET /admin/api/datasets/{dataset}. Keyset-paged, newest first, so an export can cover the WHOLE dataset in bounded requests: follow next_cursor until it is null. The cursor is a position (received_at, id), so records arriving during an export shift nothing, and a failed page can be retried with the same cursor. An unknown-but-valid dataset name returns 200 with empty rows, not 404. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -7142,7 +7142,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/records/{id}": {
+    "/admin/api/projects/{project_id}/records/{id}": {
       "get": {
         "operationId": "getRecord",
         "summary": "Get one record with its full payload",
@@ -7312,10 +7312,10 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: GET /admin/api/records/{id}. GET /admin/api/projects/{pid}/records (no id) is not a route - it returns 404 Record id required. Readable by any role.",
+        "description": "Top-level alias: GET /admin/api/records/{id}. GET /admin/api/projects/{project_id}/records (no id) is not a route - it returns 404 Record id required. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -7354,7 +7354,7 @@
         "description": "Permanently deletes one record and every copy Hookie keeps of it, in one batch: its raw submission, its pending fan-out, its deliveries (replays included) with their response bodies and every failed attempt kept for them, its held deliveries, the workflow runs it started (live Cloudflare runs are terminated first) with their step log, waiters and AI calls, and for AI trigger runs on it the AI calls and the model's output (the run row stays as the monthly AI-run quota ledger; a run still queued is failed). Deliveries already sent are not recalled. Audited as `delete_record` with the counts, never the payload. Developer role and up; also the MCP tool `delete_record`. Top-level alias: DELETE /admin/api/records/{id} (Default project).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -7453,7 +7453,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/submissions": {
+    "/admin/api/projects/{project_id}/submissions": {
       "get": {
         "operationId": "listSubmissions",
         "summary": "List raw submissions",
@@ -7575,7 +7575,7 @@
         "description": "Top-level alias: GET /admin/api/submissions. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -7597,7 +7597,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/submissions/{id}": {
+    "/admin/api/projects/{project_id}/submissions/{id}": {
       "patch": {
         "operationId": "updateSubmissionForwardStatus",
         "summary": "Set a submission forward status",
@@ -7681,7 +7681,7 @@
         "description": "Top-level alias: PATCH /admin/api/submissions/{id}. Write role required. There is no GET-one-submission route: the dispatcher sends ANY method on submissions/{id} to this handler, so a GET on it falls through to the 400 above.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -7736,7 +7736,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/rules": {
+    "/admin/api/projects/{project_id}/rules": {
       "get": {
         "operationId": "listRules",
         "summary": "List mapping rules",
@@ -7861,7 +7861,7 @@
         "description": "Top-level alias: GET /admin/api/rules. Readable by any role. Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8003,7 +8003,7 @@
         "description": "Top-level alias: POST /admin/api/rules. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8092,7 +8092,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/rules/{id}": {
+    "/admin/api/projects/{project_id}/rules/{id}": {
       "get": {
         "operationId": "getRule",
         "summary": "Get one rule",
@@ -8102,7 +8102,7 @@
         "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8350,7 +8350,7 @@
         "description": "Change any of enabled, name, dataset, conditions and mappings in place (ING-12, #201); it used to toggle enabled only. Send only what changes; the result is validated as a create is. Top-level alias: PATCH /admin/api/rules/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8502,7 +8502,7 @@
         "description": "Top-level alias: DELETE /admin/api/rules/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8533,10 +8533,10 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks": {
+    "/admin/api/projects/{project_id}/webhooks": {
       "get": {
         "operationId": "listWebhooks",
-        "summary": "List webhook endpoints",
+        "summary": "List endpoints",
         "tags": [
           "Webhooks"
         ],
@@ -8764,7 +8764,7 @@
         "description": "Top-level alias: GET /admin/api/webhooks. Readable by any role. Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -8793,7 +8793,7 @@
       },
       "post": {
         "operationId": "createWebhook",
-        "summary": "Create a webhook endpoint",
+        "summary": "Create an endpoint",
         "tags": [
           "Webhooks"
         ],
@@ -9001,7 +9001,7 @@
             }
           },
           "409": {
-            "description": "A webhook with that slug already exists.",
+            "description": "An endpoint with that slug already exists.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9027,7 +9027,7 @@
         "description": "Top-level alias: POST /admin/api/webhooks. Write role required. The cap is checked before validation, so a full project returns 402 even for an invalid body. `verification` optionally makes the endpoint check its provider's signature (#210); the create response echoes the scheme, never the secret.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -9072,7 +9072,7 @@
                   "criteria": {
                     "type": "array",
                     "maxItems": 10,
-                    "description": "Omitted or empty accepts any payload (the URL already scopes it). The validator rejects more than 10 entries before the documented 20-criteria ceiling can apply.",
+                    "description": "Omitted or empty accepts any payload (the URL already scopes it). At most 10, the same limit as a rule's conditions; more is 400 \"At most 10 criteria are allowed\".",
                     "items": {
                       "$ref": "#/components/schemas/Condition"
                     }
@@ -9184,7 +9184,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/versions": {
+    "/admin/api/projects/{project_id}/webhooks/{id}/versions": {
       "post": {
         "operationId": "createWebhookVersion",
         "summary": "Publish a new version of a webhook",
@@ -9243,7 +9243,7 @@
             }
           },
           "400": {
-            "description": "Spec validation failure, or slug must match the base webhook.",
+            "description": "Spec validation failure, or slug must match the base endpoint.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9273,7 +9273,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9299,7 +9299,7 @@
         "description": "Top-level alias: POST /admin/api/webhooks/{id}/versions. Write role required. The new version carries the source version's signature verification (scheme, settings and secret).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -9402,7 +9402,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}": {
+    "/admin/api/projects/{project_id}/webhooks/{id}": {
       "get": {
         "operationId": "getWebhook",
         "summary": "Get one webhook",
@@ -9412,7 +9412,7 @@
         "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -9575,7 +9575,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9601,14 +9601,14 @@
       },
       "patch": {
         "operationId": "updateWebhook",
-        "summary": "Change a webhook endpoint: enabled, name, dataset, IP allowlist, form redirect, CORS origins, URL verification, signature verification",
+        "summary": "Change an endpoint: enabled, name, dataset, IP allowlist, form redirect, CORS origins, URL verification, signature verification",
         "tags": [
           "Webhooks"
         ],
         "description": "Top-level alias: PATCH /admin/api/webhooks/{id}. Write role required. Send at least one field; only those sent change, and the endpoint keeps its id and its URL. A new dataset applies to events from now on; records already stored keep the dataset they were filed under. The mirror mapping rule the legacy /v1/webhooks/{ingest_key}/{slug} route reads moves with name, dataset and enabled in the same batch. The URL is changed with POST .../rotate; criteria and mappings are not editable here (publish a new version). Since #193 it also sets redirect_url, cors_origins, handshake and handshake_secret (see POST .../webhooks); the audit row records them, and for the secret only that one was set. `verification` sets, changes or removes provider signature verification (#210): omit its secret to keep the one held (same scheme only); a new secret replaces the old at once and ends any rotation overlap; {scheme: \"none\"} turns it off and deletes the secret. Audited as update_webhook with each change's from and to (for verification: the scheme and secret_changed, never the secret).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -9808,7 +9808,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9890,7 +9890,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9916,7 +9916,7 @@
         "description": "Top-level alias: DELETE /admin/api/webhooks/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -9947,7 +9947,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/datasets/{dataset}/records": {
+    "/admin/api/projects/{project_id}/datasets/{dataset}/records": {
       "get": {
         "operationId": "listDatasetRecords",
         "summary": "One page of a dataset's records, optionally through a saved view",
@@ -10119,7 +10119,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found, or View not found for the named view id on this webhook.",
+            "description": "`View not found`: the `view` id is not a saved view of this dataset.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10145,7 +10145,7 @@
         "description": "Top-level alias: GET /admin/api/webhooks/{id}/records. Readable by any role. Only GET is routed here; other methods on this path fall through the webhook router to 405.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -10208,7 +10208,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/records": {
+    "/admin/api/projects/{project_id}/webhooks/{id}/records": {
       "get": {
         "operationId": "webhookRecordsMoved",
         "summary": "Retired: records are read by dataset",
@@ -10218,7 +10218,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -10272,7 +10272,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/record-views": {
+    "/admin/api/projects/{project_id}/record-views": {
       "get": {
         "operationId": "listRecordViews",
         "summary": "List saved record views",
@@ -10425,7 +10425,7 @@
         "description": "Top-level alias: GET /admin/api/record-views. Readable by any role. Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -10587,7 +10587,7 @@
         "description": "Top-level alias: POST /admin/api/record-views. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -10691,7 +10691,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/record-views/{id}": {
+    "/admin/api/projects/{project_id}/record-views/{id}": {
       "get": {
         "operationId": "getView",
         "summary": "Get one view",
@@ -10701,7 +10701,7 @@
         "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -10987,7 +10987,7 @@
         "description": "Top-level alias: PATCH /admin/api/record-views/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11154,7 +11154,7 @@
         "description": "Top-level alias: DELETE /admin/api/record-views/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11185,7 +11185,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/ingest-keys": {
+    "/admin/api/projects/{project_id}/ingest-keys": {
       "get": {
         "operationId": "listIngestKeys",
         "summary": "List ingest keys",
@@ -11356,7 +11356,7 @@
         "description": "Top-level alias: GET /admin/api/ingest-keys. Readable by any role. Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11575,7 +11575,7 @@
         "description": "Top-level alias: POST /admin/api/ingest-keys. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11606,7 +11606,7 @@
                     "type": "string",
                     "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$",
                     "default": "default",
-                    "description": "Dataset used when an ingest request does not name one. A non-string value falls back to default."
+                    "description": "A label stored on the key, listed with it and carried over on rotation. Ingest does not route by it: on POST /v1/ingest/{ingest_key} with no dataset segment only the project's mapping rules run, and an event no rule matches is kept as a submission with no record (201, routed: [], records: 0). To write to a dataset directly, name it in the path: POST /v1/ingest/{ingest_key}/{dataset}. Must be a valid dataset name; a non-string value is stored as default. Fixed at creation."
                   },
                   "require_signature": {
                     "type": "boolean",
@@ -11655,7 +11655,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/ingest-keys/{id}": {
+    "/admin/api/projects/{project_id}/ingest-keys/{id}": {
       "get": {
         "operationId": "getIngestKey",
         "summary": "Get one ingest key",
@@ -11665,7 +11665,7 @@
         "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11906,7 +11906,7 @@
         "description": "Top-level alias: DELETE /admin/api/ingest-keys/{id}. Write role required. The key stops authenticating on the next request, at ingest and on /v1/stream. To replace a key without an outage, rotate it instead.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -11945,7 +11945,7 @@
         "description": "Top-level alias: PATCH /admin/api/ingest-keys/{id}. Write role required. Send at least one of name, expires_at and ip_allowlist. dataset_default and require_signature are fixed at creation. A revoked or expired key cannot be changed (409) - nothing revives a dead credential. On a rotated key, moving expires_at moves the end of the overlap. Audited as update_ingest_key with each change's from and to.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -12119,7 +12119,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/destinations": {
+    "/admin/api/projects/{project_id}/destinations": {
       "get": {
         "operationId": "listDestinations",
         "summary": "List outbound destinations",
@@ -12409,7 +12409,7 @@
         "description": "Top-level alias: GET /admin/api/destinations. Readable by any role. Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -12604,7 +12604,7 @@
         "description": "Top-level alias: POST /admin/api/destinations. Write role required. The workspace-wide cap counts destinations with a non-null project_id and is checked before validation.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -12849,7 +12849,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/destinations/{id}": {
+    "/admin/api/projects/{project_id}/destinations/{id}": {
       "get": {
         "operationId": "getDestination",
         "summary": "Get one destination",
@@ -12859,7 +12859,7 @@
         "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13126,7 +13126,7 @@
         "description": "Top-level alias: PATCH /admin/api/destinations/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13473,7 +13473,7 @@
         "description": "Top-level alias: DELETE /admin/api/destinations/{id}. Write role required.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13504,7 +13504,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/destinations/{id}/secret": {
+    "/admin/api/projects/{project_id}/destinations/{id}/secret": {
       "get": {
         "operationId": "getDestinationSecret",
         "summary": "Reveal a destination signing secret",
@@ -13577,7 +13577,7 @@
         "description": "Top-level alias: GET /admin/api/destinations/{id}/secret. Any sub-path other than secret or rotate-secret returns 404 Not found.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13608,7 +13608,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/destinations/{id}/rotate-secret": {
+    "/admin/api/projects/{project_id}/destinations/{id}/rotate-secret": {
       "post": {
         "operationId": "rotateDestinationSecret",
         "summary": "Rotate a destination signing secret",
@@ -13688,7 +13688,7 @@
         "description": "Top-level alias: POST /admin/api/destinations/{id}/rotate-secret.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13722,7 +13722,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/destinations/{id}/expire-previous-secret": {
+    "/admin/api/projects/{project_id}/destinations/{id}/expire-previous-secret": {
       "post": {
         "operationId": "expireDestinationPreviousSecret",
         "summary": "Stop signing with a destination's previous secret",
@@ -13732,7 +13732,7 @@
         "description": "Top-level alias: POST /admin/api/destinations/{id}/expire-previous-secret. Ends a rotation's 24-hour overlap early: from the next delivery only the current secret signs. Owner or admin only, never an OAuth-connected agent; audited as expire_destination_previous_secret. Succeeds (and does nothing) when no previous secret is live. No request body is read.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -13830,7 +13830,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/deliveries": {
+    "/admin/api/projects/{project_id}/deliveries": {
       "get": {
         "operationId": "listDeliveries",
         "summary": "List outbound deliveries",
@@ -14024,7 +14024,7 @@
         "description": "Top-level alias: GET /admin/api/deliveries. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -14106,7 +14106,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/deliveries/metrics": {
+    "/admin/api/projects/{project_id}/deliveries/metrics": {
       "get": {
         "operationId": "getDeliveryMetrics",
         "summary": "Delivery health per destination: success rate, latency percentiles, error classes, time series",
@@ -14116,7 +14116,7 @@
         "description": "Every attempt in the window, the failed ones and the successful ones, per destination in the project and in total. Answers which destination is failing, whether it refuses requests (4xx) or fails to serve them (5xx, timeouts), and how slow it is. The series is hourly for 24h and 7d, daily for 30d, with every bucket present.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -14536,7 +14536,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/deliveries/replay": {
+    "/admin/api/projects/{project_id}/deliveries/replay": {
       "post": {
         "operationId": "replayDeliveries",
         "summary": "Replay every delivery that did not arrive, by filter",
@@ -14546,7 +14546,7 @@
         "description": "Top-level alias: POST /admin/api/deliveries/replay. Write role required. The recovery after a receiver outage: replays every delivery in the project that matches the filter and did not arrive - 'dead', or 'failed' with no retry scheduled (one still being retried is left to its retry). Only the latest delivery of each event to each destination matches (an event's original and a failed replay of it are one event, sent once), and only while the event is stored; deliveries to a deleted destination, or to a customer-portal destination whose portal no longer exposes the dataset, never match. Oldest first. Bounded per call: queues up to limit and reports how many still match, so call again while more is true; a replayed delivery stops matching, so repeating (or racing) a call never sends one twice. Each replay is a new delivery (event_id <record>#replay:<n>) charged to the monthly delivery allowance, like a single replay: the call queues as many as the allowance grants and stops there. Audited once per call as replay_deliveries.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -14753,7 +14753,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/deliveries/held": {
+    "/admin/api/projects/{project_id}/deliveries/held": {
       "get": {
         "operationId": "listHeldDeliveries",
         "summary": "List events whose deliveries are held past the monthly delivery allowance",
@@ -14763,7 +14763,7 @@
         "description": "Past the plan's delivery ceiling the fan-out stores the event as usual and HOLDS its remaining destinations: one hold per event, oldest first. Nothing is dropped; release them with POST .../deliveries/held/release once there is room.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -14909,7 +14909,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/deliveries/held/release": {
+    "/admin/api/projects/{project_id}/deliveries/held/release": {
       "post": {
         "operationId": "releaseHeldDeliveries",
         "summary": "Send held deliveries now that there is room in the allowance",
@@ -14919,7 +14919,7 @@
         "description": "Re-runs the fan-out for held events, oldest first, creating the deliveries each event's destinations still lack and charging them to the allowance. Stops at the first event it cannot fully cover (that event keeps a hold for what is left). A hold whose event has been pruned by retention is dropped. Writes one release_held_deliveries audit row.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -15020,7 +15020,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/deliveries/{id}": {
+    "/admin/api/projects/{project_id}/deliveries/{id}": {
       "get": {
         "operationId": "getDelivery",
         "summary": "Get one delivery with its response body and every attempt",
@@ -15269,7 +15269,7 @@
         "description": "Top-level alias: GET /admin/api/deliveries/{id}. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -15300,7 +15300,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/deliveries/{id}/replay": {
+    "/admin/api/projects/{project_id}/deliveries/{id}/replay": {
       "post": {
         "operationId": "replayDelivery",
         "summary": "Replay a delivery",
@@ -15381,7 +15381,7 @@
         "description": "Top-level alias: POST /admin/api/deliveries/{id}/replay. Write role required. Any other method or sub-path on a delivery returns 405 Method not allowed.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -15415,7 +15415,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/events": {
+    "/admin/api/projects/{project_id}/search/events": {
       "post": {
         "operationId": "searchEvents",
         "summary": "Search records (events)",
@@ -15557,7 +15557,7 @@
         "description": "Top-level alias: POST /admin/api/search/events. No role above read is enforced. Any non-POST method returns 405.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -15622,7 +15622,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/deliveries": {
+    "/admin/api/projects/{project_id}/search/deliveries": {
       "post": {
         "operationId": "searchDeliveries",
         "summary": "Search deliveries",
@@ -15808,7 +15808,7 @@
         "description": "Top-level alias: POST /admin/api/search/deliveries.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -15909,7 +15909,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/ai-runs": {
+    "/admin/api/projects/{project_id}/search/ai-runs": {
       "post": {
         "operationId": "searchAiRuns",
         "summary": "Search AI agent runs",
@@ -16073,7 +16073,7 @@
         "description": "Top-level alias: POST /admin/api/search/ai-runs.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -16151,7 +16151,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/ai-calls": {
+    "/admin/api/projects/{project_id}/search/ai-calls": {
       "post": {
         "operationId": "searchAiCalls",
         "summary": "Search the AI call log",
@@ -16161,7 +16161,7 @@
         "description": "Every AI call an AI trigger, workflow call_ai step or agent_call step made in this project, including calls refused for being over the monthly AI token allowance. Newest first. Lists carry a preview of the output; GET one call for the full texts. Top-level alias: POST /admin/api/search/ai-calls.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -16437,7 +16437,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/ai-calls/{id}": {
+    "/admin/api/projects/{project_id}/search/ai-calls/{id}": {
       "get": {
         "operationId": "getAiCall",
         "summary": "Get one AI call in full",
@@ -16447,7 +16447,7 @@
         "description": "The instructions, input and output of one AI call, as logged. Top-level alias: GET /admin/api/search/ai-calls/{id}.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -16660,7 +16660,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/submissions": {
+    "/admin/api/projects/{project_id}/search/submissions": {
       "post": {
         "operationId": "searchSubmissions",
         "summary": "Search raw submissions",
@@ -16820,7 +16820,7 @@
         "description": "Top-level alias: POST /admin/api/search/submissions.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -16897,7 +16897,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/search/correlate/{id}": {
+    "/admin/api/projects/{project_id}/search/correlate/{id}": {
       "get": {
         "operationId": "correlateById",
         "summary": "Correlate any pipeline id across the pipeline",
@@ -17457,7 +17457,7 @@
         "description": "Top-level alias: GET /admin/api/search/correlate/{id}. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -17620,7 +17620,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Workspace-level (tenant-wide), NOT project-scoped - there is no /projects/{pid}/audit form. JSON reads are open to any role; the CSV export is owner/admin. The console's list and its Export CSV send the same actor, action, since and until filters, so an export holds exactly the rows the list shows (up to the 5000-row cap). Rows are kept for the longer of the plan's data retention and 365 days, then pruned; the database refuses to delete a row younger than 365 days, and never rewrites one.",
+        "description": "Workspace-level (tenant-wide), NOT project-scoped - there is no /projects/{project_id}/audit form. JSON reads are open to any role; the CSV export is owner/admin. The console's list and its Export CSV send the same actor, action, since and until filters, so an export holds exactly the rows the list shows (up to the 5000-row cap). Rows are kept for the longer of the plan's data retention and 365 days, then pruned; the database refuses to delete a row younger than 365 days, and never rewrites one.",
         "parameters": [
           {
             "name": "actor",
@@ -25239,6 +25239,167 @@
           }
         }
       },
+      "patch": {
+        "operationId": "patchProjectPortal",
+        "summary": "Create or update the project's customer portal (PATCH, same as PUT)",
+        "description": "PATCH is accepted on this path and behaves exactly as PUT does: it creates the portal on the first call and updates it after that.",
+        "tags": [
+          "Portals"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "Required when creating."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "A switched-off portal refuses its tokens and sessions and delivers nothing to its customers' destinations."
+                  },
+                  "event_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The project's datasets the portal exposes. Each must be a valid dataset name. An empty list exposes nothing: customers cannot add a destination, and existing ones receive nothing. Changes apply to every delivery from then on, including destinations created earlier."
+                  },
+                  "branding": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "What the portal page applies (#198, PORT-12). Only these two keys; anything else is a 400. Omit to keep what is stored; `{}` clears it.",
+                    "properties": {
+                      "logo_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "maxLength": 2048,
+                        "description": "An https image. The portal page's CSP allows images from this URL's origin and no other."
+                      },
+                      "primary_color": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "description": "Stored lower-case. Button labels switch between black and white by contrast."
+                      }
+                    }
+                  },
+                  "embed_origins": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                      "type": "string",
+                      "description": "An exact https origin, e.g. https://app.example.com: no path, no wildcard. A trailing slash is removed."
+                    },
+                    "description": "The sites allowed to frame the portal page (#198, PORT-13): its CSP `frame-ancestors`. Empty (the default) means no site may. Omit to keep what is stored."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The project's customer portal, or null when none has been set up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "portal"
+                  ],
+                  "properties": {
+                    "portal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "event_types": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "branding": {
+                          "type": "object",
+                          "properties": {
+                            "logo_url": {
+                              "type": "string"
+                            },
+                            "primary_color": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "embed_origins": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing name, a bad enabled value, or an invalid dataset name; or branding / embed_origins that fail validation."
+          },
+          "403": {
+            "description": "Your role cannot change the portal. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A concurrent first save already created the project's portal."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
       "delete": {
         "operationId": "removeProjectPortal",
         "summary": "Remove the project's customer portal for good",
@@ -25810,6 +25971,174 @@
       "put": {
         "operationId": "updatePortal",
         "summary": "Update a customer portal",
+        "tags": [
+          "Portals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Portal not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`enabled must be true or false`, or an invalid dataset name in `event_types`; or branding / embed_origins that fail validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "PATCH is accepted on this path and behaves identically. `slug` cannot be changed. Only the fields sent change; an omitted field keeps its current value.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Trimmed. Omitted or blank leaves the existing name unchanged."
+                  },
+                  "event_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Replaces the exposed datasets when sent; omitted keeps them. An empty list exposes nothing: the portal's customers receive nothing."
+                  },
+                  "branding": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "What the portal page applies (#198, PORT-12). Only these two keys; anything else is a 400. Omit to keep what is stored; `{}` clears it.",
+                    "properties": {
+                      "logo_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "maxLength": 2048,
+                        "description": "An https image. The portal page's CSP allows images from this URL's origin and no other."
+                      },
+                      "primary_color": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "description": "Stored lower-case. Button labels switch between black and white by contrast."
+                      }
+                    }
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "true or false; omitted keeps the current state. A switched-off portal refuses its tokens and delivers nothing to its customers' destinations."
+                  },
+                  "embed_origins": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                      "type": "string",
+                      "description": "An exact https origin, e.g. https://app.example.com: no path, no wildcard. A trailing slash is removed."
+                    },
+                    "description": "The sites allowed to frame the portal page (#198, PORT-13): its CSP `frame-ancestors`. Empty (the default) means no site may. Omit to keep what is stored."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchPortal",
+        "summary": "Update a customer portal (PATCH, same as PUT)",
+        "description": "PATCH is accepted on this path and behaves exactly as PUT does: only the fields sent change, and `slug` cannot be changed.",
         "tags": [
           "Portals"
         ],
@@ -29438,7 +29767,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/data-api": {
+    "/admin/api/projects/{project_id}/data-api": {
       "get": {
         "operationId": "getDataApi",
         "summary": "What the project exposes to the Data API, and its keys (metadata only)",
@@ -29447,7 +29776,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -29526,7 +29855,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/data-api/exposures": {
+    "/admin/api/projects/{project_id}/data-api/exposures": {
       "put": {
         "operationId": "putDataApiExposures",
         "summary": "Replace what the project exposes",
@@ -29535,7 +29864,85 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "exposures"
+                ],
+                "properties": {
+                  "exposures": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "dataset",
+                        "columns"
+                      ],
+                      "properties": {
+                        "dataset": {
+                          "type": "string"
+                        },
+                        "columns": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Top-level fields, dotted paths into nested objects, or _id / _received_at / _source."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The exposures now in force."
+          },
+          "400": {
+            "description": "An invalid dataset name or column key, a duplicate dataset, or no columns."
+          },
+          "403": {
+            "description": "Owner or admin only. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchDataApiExposures",
+        "summary": "Replace what the project exposes (PATCH, same as PUT)",
+        "description": "PATCH is accepted on this path and behaves exactly as PUT does: the list sent replaces the project's exposures.",
+        "tags": [
+          "Data API"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -29605,7 +30012,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/data-api/keys": {
+    "/admin/api/projects/{project_id}/data-api/keys": {
       "post": {
         "operationId": "createDataApiKey",
         "summary": "Create a read-only Data API key (the plaintext is returned once)",
@@ -29614,7 +30021,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -29688,7 +30095,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/data-api/keys/{key_id}": {
+    "/admin/api/projects/{project_id}/data-api/keys/{key_id}": {
       "delete": {
         "operationId": "revokeDataApiKey",
         "summary": "Revoke a Data API key; it stops working immediately",
@@ -29697,7 +30104,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -29736,7 +30143,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/telemetry": {
+    "/admin/api/projects/{project_id}/telemetry": {
       "get": {
         "operationId": "getBroadcastLogs",
         "summary": "The project's Broadcast Logs integration (or null) and the vendor catalog",
@@ -29746,7 +30153,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -30004,7 +30411,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -30263,7 +30670,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -30472,7 +30879,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -30515,7 +30922,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/telemetry/test": {
+    "/admin/api/projects/{project_id}/telemetry/test": {
       "post": {
         "operationId": "testBroadcastLogs",
         "summary": "Send one test log record (and span) to a draft or the saved configuration",
@@ -30525,7 +30932,7 @@
         ],
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -30802,17 +31209,17 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/rotate": {
+    "/admin/api/projects/{project_id}/webhooks/{id}/rotate": {
       "post": {
         "operationId": "rotateWebhookUrl",
-        "summary": "Give a webhook endpoint a new public URL, with an overlap",
+        "summary": "Give an endpoint a new public URL, with an overlap",
         "tags": [
           "Webhooks"
         ],
         "description": "Top-level alias: POST /admin/api/webhooks/{id}/rotate. Write role required. Mints a new high-entropy slug for the SAME endpoint: its id, dataset, settings and history are unchanged. The old URL keeps being accepted for overlap_hours (default 24), then answers 404. Rotating again inside an overlap ends the older URL at once - one previous URL is kept at a time. Audited as rotate_webhook_url (overlap and deadline only, never either slug).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -30933,7 +31340,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -30979,7 +31386,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/rotate-verification-secret": {
+    "/admin/api/projects/{project_id}/webhooks/{id}/rotate-verification-secret": {
       "post": {
         "operationId": "rotateWebhookVerificationSecret",
         "summary": "Replace an endpoint's provider signing secret, with an overlap",
@@ -30989,7 +31396,7 @@
         "description": "Top-level alias: POST /admin/api/webhooks/{id}/rotate-verification-secret. Write role required. For when the provider rolls its signing secret (#210). `secret` is the provider's NEW secret; the one it replaces keeps verifying until overlap_hours from now (default 24; 0 retires it at once), so events signed either way are accepted while the provider switches. Rotating again inside an overlap ends the older secret at once. Neither secret is returned or audited; audited as rotate_webhook_verification_secret with the scheme, overlap and deadline.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -31091,7 +31498,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -31131,7 +31538,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/ingest-keys/{id}/rotate": {
+    "/admin/api/projects/{project_id}/ingest-keys/{id}/rotate": {
       "post": {
         "operationId": "rotateIngestKey",
         "summary": "Rotate an ingest key with an overlap",
@@ -31141,7 +31548,7 @@
         "description": "Top-level alias: POST /admin/api/ingest-keys/{id}/rotate. Write role required. Issues a NEW key with the old one's name, dataset_default, require_signature and ip_allowlist, and gives the OLD key an expiry overlap_hours from now (an earlier expiry it already had is kept). Both authenticate until then, at ingest and on /v1/stream. A key that requires signatures gets a new signing secret. The new key and secret are returned once, exactly as on create. A key can be rotated once; rotate its replacement after that. Audited as rotate_ingest_key on the old key, naming the new one.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -32565,7 +32972,7 @@
         ]
       }
     },
-    "/admin/api/projects/{pid}/rules/test": {
+    "/admin/api/projects/{project_id}/rules/test": {
       "post": {
         "operationId": "testRule",
         "summary": "Test conditions and mappings against a sample payload",
@@ -32575,7 +32982,7 @@
         "description": "Whether these conditions match the payload and what the mappings would store, evaluated by the same engine ingest uses. Validated exactly as a save is; nothing is written. Readable by any role. The console's rule editor calls it (ING-12, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -32692,7 +33099,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/config": {
+    "/admin/api/projects/{project_id}/config": {
       "get": {
         "operationId": "exportProjectConfig",
         "summary": "Export a project's configuration",
@@ -32702,7 +33109,7 @@
         "description": "The project's configuration as JSON, or as YAML with ?format=yaml (the subset `hookie apply` reads). Readable by any role (DX-10, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -32785,7 +33192,7 @@
         "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -32875,7 +33282,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/clone": {
+    "/admin/api/projects/{project_id}/clone": {
       "post": {
         "operationId": "cloneProject",
         "summary": "Clone a project",
@@ -32885,7 +33292,7 @@
         "description": "A new project, of the same type, holding this project's configuration: an export imported into it (see importProjectConfig). No data is copied, no secret either \u2014 endpoints get new URLs, destinations new signing secrets, an endpoint that verifies a provider's signature keeps its scheme and settings but not its secret (so it refuses every request with 401 until one is set; listed under import.needs_verification_secret), and the new project gets no seeded endpoint. Owner or admin (DX-10, #201).",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -32996,7 +33403,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/webhooks/{id}/activity": {
+    "/admin/api/projects/{project_id}/webhooks/{id}/activity": {
       "get": {
         "operationId": "getWebhookActivity",
         "summary": "One endpoint's received and refused requests",
@@ -33006,7 +33413,7 @@
         "description": "OBS-3 (#193). Top-level alias: GET /admin/api/webhooks/{id}/activity. Any role. Newest first over the last 7 days: the endpoint's submissions (kind received) and its rows in the rejection log (kind rejected). The rejection log records every request refused after the endpoint (or ingest key) resolved - IP allowlist, signature, monthly quota, burst rate limit, disabled endpoint, 413, 415, unparseable or empty body, loop, failed URL verification, disallowed CORS origin, suspended workspace - with its reason, status, source IP, method and content type. A request to an unknown URL or key is not logged: there is no workspace to log it against. One row per credential, reason and UTC minute, with repeats counted; pruned on the plan's retention window and deleted with the project. Refusals never count against the event quota. `summary` covers the last 24 hours.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -33260,7 +33667,7 @@
             }
           },
           "404": {
-            "description": "Webhook not found in this project.",
+            "description": "Endpoint not found in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -33275,7 +33682,7 @@
         }
       }
     },
-    "/admin/api/projects/{pid}/datasets/{dataset}/purge": {
+    "/admin/api/projects/{project_id}/datasets/{dataset}/purge": {
       "get": {
         "operationId": "getDatasetPurge",
         "summary": "The dataset's latest purge",
@@ -33285,7 +33692,7 @@
         "description": "Progress of the most recent purge of this dataset, or `purge: null` if it was never purged. Readable by any role.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",
@@ -33394,7 +33801,7 @@
         "description": "Deletes every record in the dataset received up to the moment of the request, each with everything DELETE records/{id} takes with it (submission, deliveries, holds, workflow runs, AI output). Records that arrive afterwards are kept. Runs up to 1,000 records inside the request; a larger purge answers 202 and the scheduled sweep (every 5 minutes) finishes it \u2014 poll GET for progress. One running purge per dataset. Owner or admin. Audited as `purge_dataset` (request) and `dataset_purged` (completion, with the count). Not available as an MCP tool.",
         "parameters": [
           {
-            "name": "pid",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "description": "Project id (UUID) belonging to the caller workspace.",

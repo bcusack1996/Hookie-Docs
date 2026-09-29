@@ -272,7 +272,7 @@ hookie workflows update --workflow-id wf_123 \
 
 `hookie endpoints update` changes an endpoint's name, dataset, enabled state, IP allowlist, form redirect, allowed origins and URL verification, but never its slug, criteria or mappings. The slug is part of the credential in its public URL, and the criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. To change them, publish a new version with `hookie endpoints version`.
 
-`hookie rules update`, by contrast, changes any field of a rule, conditions and mappings included, and sends only the flags you pass. Try a rule before you save it in the console's rule editor, or with `POST /admin/api/projects/{pid}/rules/test`.
+`hookie rules update`, by contrast, changes any field of a rule, conditions and mappings included, and sends only the flags you pass. Try a rule before you save it in the console's rule editor, or with `POST /admin/api/projects/{project_id}/rules/test`.
 
 ## JSON flags
 

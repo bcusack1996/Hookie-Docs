@@ -60,7 +60,7 @@ A separate, token-authed surface for your _end customers_, scoped to one portal 
 
 ## Admin API
 
-The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app. [Sign in](https://app.hookie.ai/) to explore it. It accepts a browser session, or `Authorization: Bearer` with either an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes, or an [API key](/api-keys) (`hk_…`). While a workspace is suspended, reads keep working and every write except billing answers `403` with `"reason": "workspace_suspended"`, for a connected agent or an API key exactly as for the console.
+The console's admin API lives at `/admin/api/projects/{project_id}/…` and drives everything you see in the app. [Sign in](https://app.hookie.ai/) to explore it. It accepts a browser session, or `Authorization: Bearer` with either an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes, or an [API key](/api-keys) (`hk_…`). While a workspace is suspended, reads keep working and every write except billing answers `403` with `"reason": "workspace_suspended"`, for a connected agent or an API key exactly as for the console.
 
 Every credential may make about 100 requests every 10 seconds, after which the API answers `429` with `Retry-After: 10`. Like the ingest burst limit, this is a best-effort guard counted separately at each Cloudflare location, so a short burst can get through above it. A `POST` may carry an `Idempotency-Key`, so a retry is answered once for 24 hours rather than run twice, and every response carries the API version in `Hookie-Version`. [API keys](/api-keys#rate-limits) covers all three.
 
@@ -84,7 +84,7 @@ Project-scoped resources:
 | `config · clone` | [Export, import and clone](#export-import-and-clone-a-project) the project's configuration. |
 | `telemetry (+ /test)` | [Broadcast Logs](/broadcast-logs): the project's one OTLP integration (Datadog, Grafana Cloud, OpenTelemetry Collector, PostHog or Sentry) and its test event. |
 
-Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` segment:
+Workspace-level resources sit directly under `/admin/api/…` with no `{project_id}` segment:
 
 | Resources | Covers |
 | --- | --- |
@@ -100,7 +100,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 
 ## Reading a whole dataset
 
-`GET /admin/api/projects/{pid}/datasets/{name}` returns a dataset's records, newest first, each flattened into `columns` and `rows` with `_id`, `_received_at` and `_source`. It pages by cursor, so a walk of the whole dataset is exact however many records arrive meanwhile, and can resume where it stopped:
+`GET /admin/api/projects/{project_id}/datasets/{name}` returns a dataset's records, newest first, each flattened into `columns` and `rows` with `_id`, `_received_at` and `_source`. It pages by cursor, so a walk of the whole dataset is exact however many records arrive meanwhile, and can resume where it stopped:
 
 - `limit` is 1 to 1,000 (default 1,000).
 - Every page carries `next_cursor`: pass it back as `cursor` for the next page. It is `null` on the last page. A cursor is opaque; one this API did not issue is refused with `400`.
@@ -119,10 +119,10 @@ This is what the console's CSV and XLSX export walks. For filtered, searchable r
 A project's configuration can leave it as one document, and that document can build the same setup in another project. Use it to promote a pipeline from staging to production, or to start a new customer's project from a template. In the console, it is under the project's **Settings → Configuration**: **Export JSON**, **Export YAML**, **Import configuration (JSON)** and **Clone project**.
 
 ```http
-GET  /admin/api/projects/{pid}/config               # the document, as JSON
-GET  /admin/api/projects/{pid}/config?format=yaml   # the same, as YAML
-POST /admin/api/projects/{pid}/config               # create in this project what a document describes
-POST /admin/api/projects/{pid}/clone                # {name}: a new project with this one's configuration
+GET  /admin/api/projects/{project_id}/config               # the document, as JSON
+GET  /admin/api/projects/{project_id}/config?format=yaml   # the same, as YAML
+POST /admin/api/projects/{project_id}/config               # create in this project what a document describes
+POST /admin/api/projects/{project_id}/clone                # {name}: a new project with this one's configuration
 ```
 
 The document is the same `hookie.yml` shape the CLI reads, so `hookie export` writes it and `hookie apply` applies it (see [Configuration](/cli/configuration)). Connected agents have `export_project_config` and `import_project_config`.
@@ -159,11 +159,11 @@ A workflow's `http` step headers are exported as stored, like the rest of the de
 
 ## Request details
 
-Every submission keeps the request it arrived in: the method, the headers (at most 64, about 8 KB), the query string, the `Content-Type` and the source IP. Credentials are never kept: `Authorization`, `Cookie`, and any header or query parameter named like a key, token, secret, password or session is stored as `"[redacted]"`, and Cloudflare's own proxy headers are dropped. `GET /admin/api/projects/{pid}/records/{id}` and the correlation chain return it as `request`.
+Every submission keeps the request it arrived in: the method, the headers (at most 64, about 8 KB), the query string, the `Content-Type` and the source IP. Credentials are never kept: `Authorization`, `Cookie`, and any header or query parameter named like a key, token, secret, password or session is stored as `"[redacted]"`, and Cloudflare's own proxy headers are dropped. `GET /admin/api/projects/{project_id}/records/{id}` and the correlation chain return it as `request`.
 
 ## HTML forms, CORS and URL verification
 
-These are per-endpoint settings, set in the console's **Edit…** form or with `PATCH /admin/api/projects/{pid}/webhooks/{id}`. They apply to the endpoint's public URL only; ingest-key routes never answer CORS.
+These are per-endpoint settings, set in the console's **Edit…** form or with `PATCH /admin/api/projects/{project_id}/webhooks/{id}`. They apply to the endpoint's public URL only; ingest-key routes never answer CORS.
 
 - `redirect_url`: an `https://` page that a browser's native form post is sent to (`303`) once it is stored.
 - `cors_origins`: up to 20 origins (`https://example.com`, with no path), or `"*"`, whose `fetch()` may call the URL. The endpoint answers the `OPTIONS` preflight (`Access-Control-Allow-Methods: POST`, `Access-Control-Allow-Headers: Content-Type, Idempotency-Key`) for them. By default no origin is allowed.
@@ -171,7 +171,7 @@ These are per-endpoint settings, set in the console's **Edit…** form or with `
 
 ## Refused requests
 
-Every request that is refused once its endpoint or key is known is logged with its reason, status, time and source IP: IP allowlist, signature, quota, burst rate limit, disabled endpoint, body too large, unsupported or unparseable body, loop, failed URL verification, disallowed browser origin, and suspended workspace. Repeats of one reason are counted per minute. The log is kept for your plan's retention window, and refused requests never count against your quota. `GET /admin/api/projects/{pid}/webhooks/{id}/activity` (also the console's **Activity**, the `get_webhook_activity` MCP tool and `hookie endpoints activity`) lists an endpoint's received and refused requests for the last 7 days, newest first, with counts for the last 24 hours. A request to an unknown URL or key is not logged, because until it resolves there is no workspace to log it against.
+Every request that is refused once its endpoint or key is known is logged with its reason, status, time and source IP: IP allowlist, signature, quota, burst rate limit, disabled endpoint, body too large, unsupported or unparseable body, loop, failed URL verification, disallowed browser origin, and suspended workspace. Repeats of one reason are counted per minute. The log is kept for your plan's retention window, and refused requests never count against your quota. `GET /admin/api/projects/{project_id}/webhooks/{id}/activity` (also the console's **Activity**, the `get_webhook_activity` MCP tool and `hookie endpoints activity`) lists an endpoint's received and refused requests for the last 7 days, newest first, with counts for the last 24 hours. A request to an unknown URL or key is not logged, because until it resolves there is no workspace to log it against.
 
 ## Response codes
 
@@ -198,18 +198,18 @@ A delivery waiting on a **disabled** destination is `paused`, not failed. It kee
 
 ### Replaying in bulk
 
-`GET /admin/api/projects/{pid}/deliveries/{id}` returns one delivery with its latest response body (16 KiB) and `attempts`: every attempt it made, oldest first, each with its time, `ok`, `status_code` (null when nothing answered: a timeout or a refused connection), `response_ms`, `error` and the first 512 characters of the response body. So a timeout, then a `502`, then a `401` are three attempts, not one. `attempts_not_recorded` counts attempts made before attempt history was kept. Attempts are kept for your plan's retention window.
+`GET /admin/api/projects/{project_id}/deliveries/{id}` returns one delivery with its latest response body (16 KiB) and `attempts`: every attempt it made, oldest first, each with its time, `ok`, `status_code` (null when nothing answered: a timeout or a refused connection), `response_ms`, `error` and the first 512 characters of the response body. So a timeout, then a `502`, then a `401` are three attempts, not one. `attempts_not_recorded` counts attempts made before attempt history was kept. Attempts are kept for your plan's retention window.
 
-`GET /admin/api/projects/{pid}/deliveries/metrics?window=24h` (or `7d`, `30d`; add `destination_id` for one destination) is delivery health per destination and in total: deliveries by outcome and their `success_rate`, attempts and `attempt_success_rate`, `latency_ms` percentiles (`p50`, `p95`, `p99`, over every attempt, so a timeout counts as its full timeout), failed attempts by class in `errors` (`3xx`, `4xx`, `5xx`, `timeout`, `connection`, `other`), and a `series` of ok and failed attempts per hour (per day for `30d`). The Deliveries tab shows it as **Destination health**; the `get_delivery_metrics` MCP tool and `hookie deliveries metrics` read it.
+`GET /admin/api/projects/{project_id}/deliveries/metrics?window=24h` (or `7d`, `30d`; add `destination_id` for one destination) is delivery health per destination and in total: deliveries by outcome and their `success_rate`, attempts and `attempt_success_rate`, `latency_ms` percentiles (`p50`, `p95`, `p99`, over every attempt, so a timeout counts as its full timeout), failed attempts by class in `errors` (`3xx`, `4xx`, `5xx`, `timeout`, `connection`, `other`), and a `series` of ok and failed attempts per hour (per day for `30d`). The Deliveries tab shows it as **Destination health**; the `get_delivery_metrics` MCP tool and `hookie deliveries metrics` read it.
 
-`POST /admin/api/projects/{pid}/deliveries/replay` replays every delivery that did not arrive, by filter: `destination_id`, `status` (`dead`, `failed`, or both, the default), `since` and `until` (ISO 8601), and `limit` (1 to 500, default 100). Only `dead` deliveries and `failed` ones with no retry scheduled match, only the latest delivery of each event to each destination, and only while the event is stored. It works oldest first and answers `{queued, matched, remaining, more}`: call it again while `more` is `true`. Send `dry_run: true` to get `{matched}` without sending anything. Each replay is charged to the monthly delivery allowance; when it runs out the call stops (`stopped: "delivery_allowance_exhausted"`), or answers `429` if it could queue none. The Deliveries tab's **Replay matching** button, `hookie replay --since 1h --failed` and the `replay_deliveries` MCP tool all use this route.
+`POST /admin/api/projects/{project_id}/deliveries/replay` replays every delivery that did not arrive, by filter: `destination_id`, `status` (`dead`, `failed`, or both, the default), `since` and `until` (ISO 8601), and `limit` (1 to 500, default 100). Only `dead` deliveries and `failed` ones with no retry scheduled match, only the latest delivery of each event to each destination, and only while the event is stored. It works oldest first and answers `{queued, matched, remaining, more}`: call it again while `more` is `true`. Send `dry_run: true` to get `{matched}` without sending anything. Each replay is charged to the monthly delivery allowance; when it runs out the call stops (`stopped: "delivery_allowance_exhausted"`), or answers `429` if it could queue none. The Deliveries tab's **Replay matching** button, `hookie replay --since 1h --failed` and the `replay_deliveries` MCP tool all use this route.
 
 ### Delivery settings
 
-`PATCH /admin/api/projects/{pid}/destinations/{id}` also takes a destination's delivery limits: `timeout_seconds` (1 to 30, default 10), `max_per_second` (0.1 to 1000 deliveries a second) and `max_concurrency` (1 to 100 requests in flight). `null` restores the default. A delivery over the rate or the concurrency cap is **deferred**: it waits on the queue for its turn, is not failed, and does not use up one of its eight attempts. `POST …/destinations/{id}/rotate-secret` keeps the previous signing secret signing for 24 hours ([Verify signatures](/signatures#rotating-the-secret)); `POST …/destinations/{id}/expire-previous-secret` ends that window early.
+`PATCH /admin/api/projects/{project_id}/destinations/{id}` also takes a destination's delivery limits: `timeout_seconds` (1 to 30, default 10), `max_per_second` (0.1 to 1000 deliveries a second) and `max_concurrency` (1 to 100 requests in flight). `null` restores the default. A delivery over the rate or the concurrency cap is **deferred**: it waits on the queue for its turn, is not failed, and does not use up one of its eight attempts. `POST …/destinations/{id}/rotate-secret` keeps the previous signing secret signing for 24 hours ([Verify signatures](/signatures#rotating-the-secret)); `POST …/destinations/{id}/expire-previous-secret` ends that window early.
 
 ### The monthly delivery allowance
 
 A **delivery** is one event sent to one destination, and each plan includes a number of them a month: 1,000 on Free, 90,000 on Pro and 600,000 on Team, with a 10% grace on the paid plans. A delivery is counted when the fan-out creates it. Retries of it are not counted again, and neither is an event whose fan-out is re-driven. A **replay** is a new delivery and is counted; when nothing is left it is refused with `429` and `reason: "delivery_allowance_exhausted"`.
 
-Past the allowance, events are still received, stored and routed. Their deliveries are **held**, never dropped: `GET /admin/api/projects/{pid}/deliveries/held` lists held events oldest first, with the month's `allowance` (`used`, `quota`, `ceiling`). `POST /admin/api/projects/{pid}/deliveries/held/release` sends them once there is room (a new month, or a plan upgrade). It works oldest first, and it stops at the first event it cannot fully cover, so events go out in the order they arrived. The console shows the month's count on Home and a **Send held deliveries** button on a project's Deliveries tab; MCP agents have `list_held_deliveries` and `release_held_deliveries`. A held event that ages past your plan's retention is pruned along with it, since there is nothing left to send.
+Past the allowance, events are still received, stored and routed. Their deliveries are **held**, never dropped: `GET /admin/api/projects/{project_id}/deliveries/held` lists held events oldest first, with the month's `allowance` (`used`, `quota`, `ceiling`). `POST /admin/api/projects/{project_id}/deliveries/held/release` sends them once there is room (a new month, or a plan upgrade). It works oldest first, and it stops at the first event it cannot fully cover, so events go out in the order they arrived. The console shows the month's count on Home and a **Send held deliveries** button on a project's Deliveries tab; MCP agents have `list_held_deliveries` and `release_held_deliveries`. A held event that ages past your plan's retention is pruned along with it, since there is nothing left to send.

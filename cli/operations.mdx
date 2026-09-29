@@ -34,7 +34,7 @@ hookie replay --since 1h --failed        # every failure in the last hour
 hookie replay --since 2026-09-26T09:00:00Z --until 2026-09-26T11:00:00Z --failed
 ```
 
-The bulk form uses the server's bulk replay (`POST /admin/api/projects/{pid}/deliveries/replay`). It asks the server how many deliveries match first and asks you to confirm that number, since every replay sends a real request to a real destination; with no one to ask (a script, an agent) it refuses unless given `--yes`. It then replays in passes of up to 500 until nothing matches or `--limit` (default 100) is reached.
+The bulk form uses the server's bulk replay (`POST /admin/api/projects/{project_id}/deliveries/replay`). It asks the server how many deliveries match first and asks you to confirm that number, since every replay sends a real request to a real destination; with no one to ask (a script, an agent) it refuses unless given `--yes`. It then replays in passes of up to 500 until nothing matches or `--limit` (default 100) is reached.
 
 <Note>
   **Only what did not arrive, once per event.** `--failed` covers `dead` deliveries and `failed` ones with no retry scheduled; deliveries still being retried automatically are left to their retries. The server replays only the latest delivery of each event to each destination, so an event whose original and replay both failed is sent once, and running the command twice does not send anything twice. Events past your plan's retention are not included.

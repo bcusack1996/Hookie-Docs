@@ -77,7 +77,7 @@ An endpoint's URL is its credential in the same way. On the **Endpoints** tab, *
 
 | Action | Admin API | MCP tool | CLI |
 | --- | --- | --- | --- |
-| List keys | `GET /admin/api/projects/{pid}/ingest-keys` | `list_ingest_keys` | `hookie keys list` |
+| List keys | `GET /admin/api/projects/{project_id}/ingest-keys` | `list_ingest_keys` | `hookie keys list` |
 | Create | `POST …/ingest-keys` with `name`, `dataset_default`, `require_signature`, `expires_at`, `ip_allowlist` | `create_ingest_key` | `hookie keys create` |
 | Edit name, expiry, allowlist | `PATCH …/ingest-keys/{id}` | `update_ingest_key` | `hookie keys update` |
 | Rotate | `POST …/ingest-keys/{id}/rotate` with `overlap_hours` (0 to 720, default 24) | `rotate_ingest_key` | `hookie keys rotate` |

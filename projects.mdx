@@ -21,7 +21,7 @@ Plan limits are the exception: most are counted across the whole workspace. See 
 
 Every workspace is created with a project called **Default**, whose slug is `default`. It starts empty: add an endpoint to it, or create projects of your own and leave it alone. The Default project cannot be deleted, so a workspace always has somewhere for events to land.
 
-The admin API's top-level routes, such as `/admin/api/rules`, are shortcuts to the Default project. Everywhere else, name the project: `/admin/api/projects/{pid}/…`.
+The admin API's top-level routes, such as `/admin/api/rules`, are shortcuts to the Default project. Everywhere else, name the project: `/admin/api/projects/{project_id}/…`.
 
 ## Create a project
 
@@ -29,10 +29,10 @@ Open **Projects** and choose **Create a project**. Give it a **Name** (up to 80 
 
 | Choice | What you get |
 | --- | --- |
-| **Webhook — one endpoint, ready to receive events** | The project and one endpoint, named after the project, that stores into the dataset `default`. The project opens on its **Endpoints** tab with that endpoint's URL and **Send test event** in view. |
+| **Endpoints — one endpoint, ready to receive events** | The project and one endpoint, named after the project with "endpoint" added (`Orders endpoint` for a project named `Orders`), that stores into the dataset `default`. The project opens on its **Endpoints** tab with that endpoint's URL and **Send test event** in view. |
 | **AI trigger — an empty project, for running a model against events** | The project, with nothing in it yet. It opens on **Overview**. |
 
-The choice only decides what the project starts with: either kind can have endpoints, AI triggers and workflows added later. It is shown as the project's **Type** in its **Settings**.
+The choice only decides what the project starts with: either kind can have endpoints, AI triggers and workflows added later. It is shown as the project's **Type**, **Endpoints** or **AI trigger**, on **Home**, in the **Projects** list and in the project's **Settings**. The API and the MCP tools keep the stored values `webhook` and `ai_trigger`.
 
 Only owners and admins can create projects. Over the API, send `POST /admin/api/projects` with `{"name": "Orders", "type": "webhook"}`, or `"type": "ai_trigger"`. A connected agent with `hookie:manage` uses `create_project`. Hookie does not limit how many projects a workspace has.
 
@@ -55,7 +55,7 @@ A project's **Settings** tab holds:
 - the project's [customer portal](/customer-portal) and its [Data API](/data-api);
 - **Delete this project**.
 
-A project can also carry its own IP allowlist, set over the API with `ip_allowlist` on `PATCH /admin/api/projects/{pid}`. Ingest enforces it together with the endpoint's or ingest key's own list and the workspace's: a request must pass every list that is set.
+A project can also carry its own IP allowlist, set over the API with `ip_allowlist` on `PATCH /admin/api/projects/{project_id}`. Ingest enforces it together with the endpoint's or ingest key's own list and the workspace's: a request must pass every list that is set.
 
 ## Delete a project
 
