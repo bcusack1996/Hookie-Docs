@@ -28,12 +28,30 @@ destinations:
 ```
 
 ```bash
-hookie diff  -f hookie.yml     # what apply would change
+hookie diff  -f hookie.yml     # what apply would change (exit 7 if anything)
 hookie apply -f hookie.yml     # do it, after asking
 hookie apply -f hookie.yml --prune   # also delete what the file omits
+hookie export > hookie.yml     # start from what a project already has
 ```
 
 `project:` in the file wins over `--project`, so a config file is self-describing: you can run it without remembering which project it was for.
+
+## What the file can describe
+
+Each kind is matched to what the project has by the field in the **Identity** column. A kind the file does not mention is left alone.
+
+| Key | Identity | Changed in place | Reported with `!` |
+| --- | --- | --- | --- |
+| `ai_agents` | `name` | the whole agent: `active`, `model`, `system_prompt`, `tools`, `memory_dataset`, `max_tokens` | — |
+| `record_views` | `dataset` + `name` | `columns`, `sort_key`, `sort_dir`, `is_default` | — |
+| `rules` | `name` | `dataset`, `enabled`, `conditions`, `mappings` | — |
+| `endpoints` | `slug` | `name`, `dataset`, `enabled`, `ip_allowlist` | `criteria`, `mappings`: publish a new version of the endpoint |
+| `destinations` | `name` | `enabled`, `dataset_filter`, `timeout_seconds`, `max_per_second`, `max_concurrency` | `url`: create a new destination |
+| `workflows` | `name` | the whole definition: `slug`, `active`, `entry_dataset`, `entry_conditions`, `steps` | — |
+| `triggers` (AI) | `name` | `enabled` | `match`, `action_type`, `config`: delete and recreate |
+| `cron_triggers` | `name` | `enabled`, `schedule`, `timezone`, `payload`, `dataset` | — |
+
+`version`, `project` and `not_exported`, which `hookie export` writes, are accepted too. **Any other top-level key is an error** that names it, because `endpoint:` for `endpoints:` would otherwise be a file that "applies" and does nothing. Sources, WebSocket triggers, ingest keys and portals are not part of the file: they hold credentials.
 
 ## What apply will and will not do
 
@@ -41,24 +59,57 @@ The admin API is not a reconciler, and `apply` does not pretend otherwise.
 
 | | |
 | --- | --- |
-| `+` | **Create** — the resource is in the file and not in the workspace. |
-| `~` | **Update** — something the API can change in place: `enabled`, and a destination's `dataset_filter`. |
-| `!` | **Cannot be changed in place** — reported with the reason, and left alone. |
+| `+` | **Create** — the resource is in the file and not in the project. |
+| `~` | **Update** — something the API can change in place: the **Changed in place** column above. |
+| `!` | **Cannot be changed in place** — reported with the reason and the way to change it, and left alone. |
 | `-` | **Delete** — only with `--prune`, and only for resources the file could have mentioned. |
 
+**Every field the file states is compared**, as canonical JSON. Key order does not matter, `{path, equals: x}` and `{path, op: "equals", value: x}` are the same condition, and a list can be written as a YAML list, inline JSON or a comma string (`dataset_filter: orders,shipments`). A field the file leaves out is not compared, so a file may say less than the server.
+
 <Warning>
-  An endpoint PATCH accepts `enabled` and nothing else, so a changed `dataset` shows as `!` rather than silently not happening. Converging on what it can and never mentioning the rest would leave drift that no diff ever surfaces again — which is worse than saying so.
+  An endpoint's criteria and mappings define what it has already ingested, so they cannot change in place: a changed `criteria` shows as `!` rather than silently not happening. Converging on what it can and never mentioning the rest would leave drift that no diff ever surfaces again — which is worse than saying so.
 </Warning>
 
 <Note>
   **Nothing the file omits is deleted** unless you pass `--prune`. A config file describes part of a workspace far more often than all of it, and the failure mode of assuming otherwise is deleting a colleague's endpoint. A resource the file says nothing about is not even read; an explicit `endpoints: []` is how you say "there should be none".
 </Note>
 
-A run stops at the first failure rather than half-applying in scattered order, and `--json` gives the plan as data so a CI job can gate on it:
+`apply` runs in dependency order: AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, then cron triggers, with deletes last, in reverse. A run stops at the first failure rather than half-applying in scattered order.
+
+## Gate CI on drift
+
+`hookie diff` **exits 7 when the project does not match the file**: anything to create, update or delete, or a `!`. It exits 0 when they match. Any other non-zero code is a failed run, not drift. It is 7 rather than terraform's 2 because 2 already means a usage error here, and a CI job has to be able to tell drift from a broken command.
 
 ```bash
-hookie diff -f hookie.yml --json | jq -e '.changes | map(select(.op != "same")) | length == 0'
+status=0
+hookie diff -f hookie.yml || status=$?
+case $status in
+  0) echo "in sync" ;;
+  7) echo "drift: the project does not match hookie.yml" >&2; exit 1 ;;
+  *) echo "diff failed" >&2; exit "$status" ;;
+esac
 ```
+
+`--json` gives the plan as data: each change with its `op`, `kind`, the fields that `changed` and any that are `blocked`, and a `pending` count of the changes that are not `same`:
+
+```bash
+hookie diff -f hookie.yml --json | jq '.pending'
+```
+
+## Start from what a project already has
+
+```bash
+hookie export > hookie.yml                                  # YAML, to stdout
+hookie export --project staging --format json -o staging.json
+```
+
+`hookie export [--project X] [--format yaml|json] [-o file]` writes a project's configuration in exactly the format `apply` and `diff` read, so `hookie export > hookie.yml && hookie diff -f hookie.yml` reports no changes. It is how you put an existing project under version control without retyping it.
+
+Nothing secret is in it. Endpoint URLs (they are credentials), signing secrets and ingest keys stay on the server, and the file lists what it left out under `not_exported`. Applying an export to a different project creates fresh URLs and signing secrets there. An AI agent is exported with a `ref`, its id in the source project, and `apply` points every workflow `agent_call` that names that ref at the agent of the same name in the target project, creating it first if need be.
+
+<Note>
+  Endpoint slugs are unique across a workspace, not per project. Applying the same file to a second project in the same workspace still gets a `409` for its endpoints. To copy a project's setup within a workspace, use the console's **Clone project** or import, which name the copies `{slug}-copy`. See [Export, import and clone a project](/api-reference#export-import-and-clone-a-project).
+</Note>
 
 ## The YAML it reads
 
@@ -115,6 +166,7 @@ HOOKIE_ALLOW_REMOTE=1 HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
 | 4 | not found | |
 | 5 | validation | The server rejected the request. |
 | 6 | network | The request never got a verdict — unreachable, `429`, or `5xx`. |
+| 7 | drift | `hookie diff` only: the project does not match the file. Not an error; see [Gate CI on drift](#gate-ci-on-drift). |
 
 `6` groups the three cases where retrying the identical command is the reasonable next move, so a script needs one test rather than three.
 

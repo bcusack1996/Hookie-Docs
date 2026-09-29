@@ -40,6 +40,7 @@
           "customer-portal",
           "broadcast-logs",
           "connected-agents",
+          "api-keys",
           "data-api",
           "data-deletion",
           "api-reference"

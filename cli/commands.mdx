@@ -41,7 +41,8 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | `hookie send --endpoint <x> --data @f.json` | Send a test event to an endpoint's public URL. |
 | `hookie replay <id>` · `replay --since 1h --failed` | Redeliver one, or a window. |
 | `hookie open --project x --tab deliveries` | Open the console at a project. |
-| `hookie apply -f hookie.yml` · `hookie diff -f hookie.yml` | See [Configuration](/cli/configuration). |
+| `hookie apply -f hookie.yml` · `hookie diff -f hookie.yml` | Converge a project on a file, or show what that would change. See [Configuration](/cli/configuration). |
+| `hookie export [--format yaml\|json] [-o file]` | Write a project's configuration as a file that `apply` and `diff` read. See [Configuration](/cli/configuration#start-from-what-a-project-already-has). |
 
 ## Generated commands
 
@@ -53,7 +54,7 @@ Named model configurations a workflow's `agent_call` step runs by id. `update` c
 | --- | --- | --- |
 | `hookie ai-agents list` | `—` | This project's AI agents: named model configurations (model, system prompt, memory dataset, reply cap) that a workflow's agent_call step runs by id. |
 | `hookie ai-agents get` | `--agent-id*` | One AI agent in full, including its system prompt. |
-| `hookie ai-agents create` | `--name* --system-prompt --model --memory-dataset --max-tokens --active` | Create an AI agent: a named model configuration that workflows invoke with an agent_call step ({type:"agent_call", agent_id}). |
+| `hookie ai-agents create` | `--name* --system-prompt --model --memory-dataset --max-tokens --active` | Create an AI agent: a named model configuration that workflows invoke with an agent_call step (`{type:"agent_call", agent_id}`). |
 | `hookie ai-agents update` | `--agent-id* --name --system-prompt --model --memory-dataset --max-tokens --active` | Change an AI agent in place. |
 | `hookie ai-agents delete` | `--agent-id*` | Retire an AI agent: it is set inactive, so a workflow step that names it fails until it is reactivated with update_ai_agent active:true. |
 
@@ -144,6 +145,15 @@ The project's one customer portal. `update` creates it the first time.
 | `hookie portals update` | `--name --event-types --enabled` | Create this project's customer portal, or change it: its name, the datasets it exposes, and whether it is enabled. |
 | `hookie portals delete` | `--portal-id*` | Switch this project's customer portal off: every customer link stops working. |
 
+### project-config
+
+The same document `hookie export` writes, as JSON. `import` takes it with `--config @file.json`.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie project-config export` | `—` | A project's configuration as one document (the hookie.yml shape): endpoints, rules, destinations, AI agents, workflows, AI triggers, cron triggers and record views. Nothing secret is in it. |
+| `hookie project-config import` | `--config*` | Create in a project what an exported document describes. Each resource is created through its own route with new endpoint URLs and signing secrets; anything that already exists is skipped, never overwritten. |
+
 ### projects
 
 | Command | Flags | |
@@ -164,7 +174,7 @@ The project's one customer portal. `update` creates it the first time.
 | --- | --- | --- |
 | `hookie rules list` | `—` | A project's mapping rules. |
 | `hookie rules create` | `--name* --dataset* --conditions --mappings --enabled` | Create a mapping rule. Empty conditions match everything; empty mappings pass the payload through. |
-| `hookie rules update` | `--rule-id* --enabled*` | Enable or disable a mapping rule. |
+| `hookie rules update` | `--rule-id* --enabled --name --dataset --conditions --mappings` | Change a mapping rule in place: enable or disable it, rename it, point it at another dataset, or replace its conditions or mappings. Send only what changes. |
 | `hookie rules delete` ⚠️ | `--rule-id*` | Delete a mapping rule. |
 
 ### sources
@@ -229,7 +239,7 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--heade
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie ws-triggers list` | `—` | This project's WebSocket triggers: name, conditions, mappings, dataset, connection status and last error. |
-| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules. |
+| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --mappings --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules. `--mappings` reshape each frame the way a rule's do; with none, the frame is kept as it arrived. |
 | `hookie ws-triggers update` | `--ws-trigger-id* --enabled*` | Connect or disconnect a WebSocket trigger. |
 | `hookie ws-triggers test` | `--ws-trigger-id*` | Open a short-lived connection with a WebSocket trigger's settings and return the first frames, without storing anything. |
 | `hookie ws-triggers delete` ⚠️ | `--ws-trigger-id*` | Delete a WebSocket trigger. |
@@ -247,7 +257,9 @@ hookie workflows update --workflow-id wf_123 \
   --steps @wf-steps.json
 ```
 
-`hookie endpoints update` and `hookie rules update` only toggle `enabled`. An endpoint's slug is the credential in its public URL, and its criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. To change one, create the replacement and delete the old one.
+`hookie endpoints update` changes an endpoint's name, dataset, enabled state, IP allowlist, form redirect, allowed origins and URL verification, but never its slug, criteria or mappings. The slug is part of the credential in its public URL, and the criteria and mappings define what it has already ingested — changing those in place would quietly reinterpret history. To change them, publish a new version with `hookie endpoints version`.
+
+`hookie rules update`, by contrast, changes any field of a rule, conditions and mappings included, and sends only the flags you pass. Try a rule before you save it in the console's rule editor, or with `POST /admin/api/projects/{pid}/rules/test`.
 
 ## JSON flags
 
@@ -257,6 +269,9 @@ A flag whose value is a list or an object takes JSON, or `@file.json` to read it
 hookie rules create --name Orders --dataset orders \
   --conditions '[{"path":"type","equals":"order.created"}]' \
   --mappings @mappings.json
+
+hookie rules update --rule-id r_123 \
+  --conditions '[{"path":"total","op":"gte","value":100},{"path":"country","op":"in","value":["US","CA"]}]'
 
 hookie workflows create --name Scoring --entry-dataset leads --steps @steps.json
 ```

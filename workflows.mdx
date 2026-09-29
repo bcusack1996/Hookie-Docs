@@ -66,7 +66,7 @@ Branch sub-steps run _synchronously_: every step type except `delay` and `wait_f
 
 ### Branching on an AI answer
 
-`gt` and `lt` compare numbers, and a model replies with text, so what a `call_ai` or `agent_call` step puts in the context matters. A reply that _is_ a JSON value is stored as that value; anything else is stored as the text the model wrote. So `"8"` becomes the number `8` and `{"score": 8, "reason": "…"}` becomes an object, while `"Looks like a good fit"` stays a string.
+`gt`, `gte`, `lt` and `lte` compare numbers, and a model replies with text, so what a `call_ai` or `agent_call` step puts in the context matters. A reply that _is_ a JSON value is stored as that value; anything else is stored as the text the model wrote. So `"8"` becomes the number `8` and `{"score": 8, "reason": "…"}` becomes an object, while `"Looks like a good fit"` stays a string.
 
 Models do not always answer with bare JSON. A reply wrapped in a ```` ```json ```` fence, or introduced with a line such as "Here is the JSON:", is stored as the JSON inside it: the first fenced block that parses, otherwise the first `{…}` or `[…]` in the text that parses. A number inside a sentence ("8 out of 10") stays text. The run's step history says what each reply became (`output_type`), and flags `json_parse_failed` when a reply had a fence or a brace but no JSON could be read from it — check there first when a branch on an AI answer always takes `else`.
 
@@ -81,23 +81,53 @@ What does _not_ work is asking for JSON and then branching on the `output_key` i
 
 ## Conditions
 
-Every place Hookie takes conditions uses one shape: workflow entry conditions, `branch` and `wait_for_event` conditions, WebSocket triggers and AI triggers.
+Every place Hookie takes conditions uses one shape and the same ten operators: routing rules, endpoint criteria, workflow entry conditions, `branch` and `wait_for_event` conditions, WebSocket triggers and AI triggers.
 
 ```json
 { "path": "status", "op": "equals", "value": "paid" }
 { "path": "status", "equals": "paid" }
 ```
 
-The second line is shorthand for the first, so the shape a rule takes works everywhere. The operators are `equals`, `not_equals`, `contains`, `exists`, `gt` and `lt`, and every condition in a list must hold.
+The second line is shorthand for the first. Every condition in a list must hold, and an empty list matches everything. A list holds at most 50 conditions.
 
-- `equals` and `not_equals` compare exactly, type included: `5` and `"5"` are different values.
-- `gt` and `lt` compare numbers, so their value must be a number. `contains` looks for text, so its value must be a string. `exists` takes no value.
+| Operator | Value | Matches when the field… |
+| --- | --- | --- |
+| `equals` | a string, number, boolean or `null` | equals the value. |
+| `not_equals` | a string, number, boolean or `null` | does not equal the value. A missing field counts as not equal. |
+| `contains` | a string | is text that contains the value. |
+| `exists` | none | is present and not `null`. |
+| `gt` · `gte` | a number | is a number greater than · at least the value. |
+| `lt` · `lte` | a number | is a number less than · at most the value. |
+| `in` | a list of 1 to 100 strings, numbers, booleans or `null` | equals one of the values. |
+| `regex` | a pattern | is text the pattern matches. See [Regular expressions](#regular-expressions). |
 
-A condition that could never match is refused when you save it, rather than stored and silently never matching. That covers an unknown operator, a condition missing its value, both the shorthand and `op`/`value` at once (such as `{"path": "status", "op": "equals", "equals": "paid"}`), a key Hookie does not know, and a `gt` against text.
+```json
+{ "path": "amount", "op": "gte", "value": 100 }
+{ "path": "country", "op": "in", "value": ["US", "CA", "MX"] }
+{ "path": "email", "op": "regex", "value": "@example\\.com$" }
+```
 
-Rules match exact values only. They take `{path, equals}`, or `{path, op: "equals", value}`, and refuse any other operator.
+- **Where equality is exact, and where it is text.** In workflows and triggers, `equals`, `not_equals` and `in` compare exactly, type included: `5` and `"5"` are different values. In rules and endpoint criteria they compare as text, as rules always have, so `5` and `"5"` are equal.
+- **Numbers stay numbers.** `gt`, `gte`, `lt` and `lte` match only a field that is a number. A feed that sends a price as text (`"60000"`) never matches one.
+- **Text stays text.** `contains` and `regex` match only a field that is a string.
 
-A condition's value can be a `{{placeholder}}` only in a `branch` or `wait_for_event`, where there is an instance context to read it from. Anywhere else it would be compared as the literal text `{{…}}`, so it is refused.
+A condition that could never match is refused when you save it, with a `400` that names the condition, rather than stored and silently never matching. That covers an unknown operator, a condition missing its value, both the shorthand and `op`/`value` at once (such as `{"path": "status", "op": "equals", "equals": "paid"}`), a key Hookie does not know, a numeric operator against anything but a number, `contains` or `regex` against anything but a string, an `in` without a list of 1 to 100 plain values, and a pattern outside the bounds below.
+
+A condition's value can be a `{{placeholder}}` only in a `branch` or `wait_for_event`, where there is an instance context to read it from. Anywhere else it would be compared as the literal text `{{…}}`, so it is refused. The values in an `in` list are never resolved, so a placeholder there is refused too.
+
+### Regular expressions
+
+A `regex` value is a JavaScript regular expression, written without the surrounding slashes. It matches anywhere in the field unless you anchor it with `^` or `$`, and it is case-sensitive, so use a class such as `[Pp]aid` to match either case.
+
+Patterns run against every matching event on a shared service, so each one is bounded to keep a single event cheap:
+
+- **At most 200 characters**, and the pattern must compile.
+- **No backreferences**, such as `\1` or `\k<name>`.
+- **No nested quantifiers.** A repeated group that itself repeats or alternates, such as `(a+)+`, `(a|b)*` or `(\w+\s?)*`, is refused.
+- **At most 2 open-ended repeats**: `*`, `+`, `{n,}`, or `{n,m}` with `m` above 16. `.*paid.*usd` is accepted; `.*a.*b.*c` is not.
+- **Only the first 256 characters** of the field are tested.
+
+A pattern that breaks a bound is refused when you save it. A stored pattern that breaks one (saved before these bounds existed) never matches; it is not run.
 
 ## Defining a workflow
 
@@ -148,7 +178,7 @@ Build workflows on the canvas under **Project → Workflows**, or send the defin
 
 | Type | What it does |
 | --- | --- |
-| `emit_event` | Write a record into a dataset and enqueue signed deliveries for it. The record is the entry record's fields with an optional `payload` merged over them, and the payload is [templated](#templating) from the instance context, so `"summary": "{{triage.summary}}"` delivers what an AI step produced. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
+| `emit_event` | Write a record into a dataset and enqueue signed deliveries for it. The record is the entry record's fields with an optional `payload` merged over them, and the payload is [templated](#templating) from the instance context, so `"summary": "{{triage.summary}}"` delivers what an AI step produced. An emitted record is delivered, streamed and offered to the project's AI triggers like any other, and it is written together with its fan-out, so a fan-out interrupted part-way is finished later rather than lost. It never re-triggers workflow entry, so there are no feedback loops. With `"deliver": false` the record is only stored and streamed. |
 | `call_ai` | Run an AI prompt over the instance context. The reply lands in the context under output_key (default ai_result), as a number or object if the model replied with one, so a later branch can compare it, and, verbatim as text, in output_dataset. The output_dataset record is delivered like any other record: to the project's destinations whose filter admits the dataset, the live stream and AI triggers. Like an emitted record, it never starts a workflow, not even one that starts on that dataset. |
 | `agent_call` | Invoke a reusable AI agent by ID: its model, system prompt, and memory dataset apply. The result lands under output_key (default agent_result), interpreted the same way call_ai's is. In the builder, pick the agent from a list. |
 | `http` | Call an https URL on a public host with `method` (GET, POST, PUT, PATCH or DELETE), optional `headers` (up to 32) and a JSON `body` (up to 64 KB; not on GET). A `{{path}}` placeholder can appear after the host. The response lands in the context under output_key (default http_result). `timeout_seconds` is 1 to 30. |
@@ -235,7 +265,9 @@ A cron trigger lands one record on a schedule: a 5-field cron expression (`minut
 
 ### WebSocket triggers
 
-A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt` and `lt` compare numbers, so a feed that sends prices as text (`"60000"`) never matches one.
+A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt`, `gte`, `lt` and `lte` compare numbers, so a feed that sends prices as text (`"60000"`) never matches one.
+
+**Mappings** reshape each matching frame the way a rule's mappings do: each `{ "path": "data.p", "key": "price" }` picks a field out of the frame into a key of the event. With no mappings, the frame is kept as it arrived. The raw submission always keeps the frame exactly as received; the mapped event is what is filed into the trigger's dataset, or handed to the project's rules when the trigger names no dataset. A mapping key must be a plain identifier (a letter, then letters, digits or underscores); anything else is refused with `400` when you create the trigger, rather than saved and then dropping every frame. Set mappings over the API (`POST /admin/api/projects/{pid}/ws-triggers`), with a connected agent's `create_ws_trigger`, or with `hookie ws-triggers create --mappings`.
 
 - **Edit** changes the name, URL, connect message, conditions or dataset, each checked as it is when you create the trigger. A new URL, connect message, set of conditions or dataset reconnects the socket; a new name does not. Over the API, `PATCH /admin/api/projects/{pid}/ws-triggers/{id}` also takes `headers` and `subprotocols`.
 - The URL, headers and connect message are stored encrypted and never shown again, so the Edit form leaves the URL blank: leave it blank to keep the current connection. A new URL is saved with the connect message you enter, and none if you leave it blank.
@@ -243,7 +275,9 @@ A WebSocket trigger holds a connection to a feed open and lands a record for eve
 
 ### AI triggers
 
-An AI trigger runs an AI agent when a matching record lands. If the model is briefly unavailable (busy, rate-limited, timing out, or failing on its side), the run is retried after about 30 seconds, then 2 minutes, then 10 minutes, and marked failed with the model's error after the fourth attempt. While it waits, the run shows `queued` and says why. A request the model refuses (for example, an unknown model) fails at once. A run refused because the month's AI allowance is used up also fails at once and is not retried.
+An AI trigger runs an AI agent when a matching record lands. Its reply is stored as a record in the trigger's output dataset, and that record is fanned out like any other: delivered to the project's destinations whose filter admits the dataset (counted against the delivery allowance), and sent to the live stream. It carries the hop count of the event that triggered it. It never fires an AI trigger and never starts a workflow, so a trigger that matches its own output cannot loop.
+
+If the model is briefly unavailable (busy, rate-limited, timing out, or failing on its side), the run is retried after about 30 seconds, then 2 minutes, then 10 minutes, and marked failed with the model's error after the fourth attempt. While it waits, the run shows `queued` and says why. A request the model refuses (for example, an unknown model) fails at once. A run refused because the month's AI allowance is used up also fails at once and is not retried.
 
 ## AI allowance and the AI call log
 

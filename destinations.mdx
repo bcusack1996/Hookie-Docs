@@ -86,6 +86,30 @@ The notice carries `Hookie-Signature`, signed with the destination's own signing
 
 Hookie does not send email alerts.
 
+## When your plan changes
+
+Each plan caps how many destinations and database sources a workspace runs, across all its projects, and how often a source may poll:
+
+| Plan | Destinations | Database sources | Fastest source poll |
+| --- | --- | --- | --- |
+| Free | 1 | 0 | every hour |
+| Pro | 10 | 3 | every 60 seconds |
+| Team | 25 | 10 | every 30 seconds |
+
+When the workspace moves to a plan with lower caps (a downgrade, a cancellation, or a trial ending), Hookie brings what is running in line with the new plan straight away:
+
+- **Destinations and sources over the cap are paused, newest first.** The oldest keep running. A paused one shows a **Paused: over plan limit** tag, with a link to billing. A paused destination's deliveries wait as `paused`, like any disabled destination's, rather than being lost.
+- **Poll intervals below the new minimum are raised to it.** They are not lowered again if you upgrade later; set them yourself.
+- One `plan_limits_applied` entry in **Settings → Audit log** lists everything that was paused, resumed or slowed.
+
+When the plan rises again, only what Hookie paused is resumed, oldest first, as far as the new caps allow. A resumed destination sends its waiting deliveries, and a resumed source starts polling again.
+
+**What you switched off stays off.** Hookie never turns on a destination or source you disabled yourself, on any plan change. Switching one on or off yourself also takes it out of Hookie's hands, so it is not resumed automatically later. Turning one on while the workspace already runs its cap is refused with `402`: disable another first, or upgrade.
+
+A destination that belongs to a [customer portal](/customer-portal) customer is paused the same way. The customer cannot turn it back on from the portal while it is over the limit, and is told to contact you.
+
+Over the API, destinations and sources carry `paused_reason`: `"over_plan_limit"` when Hookie paused them for the plan, `null` otherwise.
+
 ## API
 
 `POST` and `PATCH /admin/api/projects/{pid}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state. `GET /admin/api/dashboard/summary` lists failing destinations in `failing_destinations`. See the [API reference](/api-reference).
