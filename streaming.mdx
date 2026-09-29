@@ -67,3 +67,4 @@ The console itself does _not_ tail it. Its views read what has already landed: *
 
 - Concurrent connections are capped per plan (Free: 1, Pro: 5, Team: 20).
 - Authenticate with an active ingest key. The stream is a read-only tail and never exposes stored data. A key streams **its own project's events only**: `project_id` is optional, and naming any other project answers `403`.
+- A suspended workspace cannot open a stream: `403` with `"reason": "workspace_suspended"`.

@@ -58,4 +58,5 @@ The **Data API** gives tools outside Hookie (a BI dashboard, a spreadsheet, a ni
 | **Unexposed looks nonexistent** | A dataset you did not expose answers exactly like one that does not exist: `404`. |
 | **One project per key** | The workspace and project come only from the key. A key can never read another project, whatever the request says. |
 | **Revocable at once** | Revoke a key in Settings and its next request is a `401`. |
+| **Stops with the workspace** | While the workspace is suspended, every request answers `403` with `"reason": "workspace_suspended"`. |
 | **Rate-limited** | Each key has the same burst limit as an ingest key; over it, `429`. |
