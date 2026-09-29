@@ -34,7 +34,7 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
   <Step title="It arrives">
     Post to an endpoint's URL, where the high-entropy slug in `app.hookie.ai/{workspace}/{project}/{webhook}` is the credential, or to `/v1/ingest/{key}` with an ingest key. JSON, form posts, and multipart all work, so an HTML `<form>` can point straight at an endpoint with no JavaScript and no backend of your own.
 
-    Before anything is stored, the request passes the endpoint's IP allowlist, its rate limit, an `Idempotency-Key` check, and your plan quota.
+    Before anything is stored, the request passes the endpoint's IP allowlist, its rate limit, a duplicate check (an `Idempotency-Key`, or the delivery id your provider already sends), and your plan quota. Refused requests are logged in the endpoint's Activity, and never counted.
   </Step>
   <Step title="It's captured, then routed">
     The raw body is stored as a **submission** exactly as it arrived, before anything reshapes it, so "no rule matched" is always distinguishable from "the event never arrived."

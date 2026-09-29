@@ -1,0 +1,96 @@
+---
+title: "Delete, export and close"
+description: "Erase one record, purge a dataset, download everything a workspace holds, or close the workspace for good."
+icon: "trash-can"
+---
+
+Hookie keeps event data for your plan's retention window and then deletes it on its own. When you need something gone **sooner** (an erasure request from one of your users, a secret someone posted to the wrong endpoint, a pile of test events) or you want all of your data out, use the tools on this page.
+
+Everything here is permanent. The audit log records **that** a record was deleted, a dataset purged or the workspace closed, and by whom, but never what the data said.
+
+## Delete one record
+
+Open the record (a project's **Datasets** tab → a dataset → the eye icon on a row), choose **Delete record**, type `delete` and confirm. Developers, admins and owners can do this.
+
+Deleting a record also deletes every copy Hookie keeps of it:
+
+- its **raw submission**, the body exactly as it arrived. If that submission was routed into several records, the others keep their own data;
+- its **deliveries**, replays included, with the responses your destinations returned;
+- deliveries **held** for it because the monthly allowance was used up;
+- the **workflow runs** it started, with their step log and the AI calls they made. A run that is still going is stopped first;
+- the output of **AI triggers** that ran on it. A trigger run that had not started yet will not run.
+
+Copies already delivered to your destinations are theirs: Hookie cannot recall them.
+
+From the API:
+
+```bash
+curl -X DELETE https://app.hookie.ai/admin/api/projects/$PROJECT_ID/records/$RECORD_ID \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{ "ok": true, "deleted": { "records": 1, "submissions": 1, "deliveries": 2, "workflow_runs": 1 } }
+```
+
+A connected coding agent with `hookie:write` can do the same with the `delete_record` tool. It is marked destructive, so your MCP client asks before running it.
+
+## Purge a dataset
+
+On a project's **Datasets** tab, open the menu on a dataset's row, choose **Purge dataset** and type the dataset's name. Owners and admins can do this.
+
+A purge deletes every record in the dataset **received up to that moment**, each with the copies listed above. Records that arrive while it runs are new data and are kept. A small dataset is gone before the dialog closes; a large one is deleted in the background, normally within minutes, and the dataset's record count falls as it goes.
+
+```bash
+curl -X POST https://app.hookie.ai/admin/api/projects/$PROJECT_ID/datasets/orders/purge \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"confirm": "orders"}'
+```
+
+The answer is `200` with `"status": "done"`, or `202` with `"status": "running"` and `records_remaining`. `GET` the same path to follow it. There is no MCP tool for this: a purge has to be typed out by a person.
+
+## Export all data
+
+**Settings → Export & closure → Export all data** downloads one file with everything the workspace holds: projects, endpoints, rules, keys, destinations, sources, triggers, workflows, members, every stored record and raw submission, delivery history, workflow and AI runs, and the audit log. Owners and admins can export.
+
+The file is [JSON Lines](https://jsonlines.org): one JSON object per line.
+
+```json
+{"type":"header","format":"hookie-workspace-export","version":1,"workspace":{…},"tables":[…],"omitted_columns":{…}}
+{"type":"row","table":"projects","row":{…}}
+{"type":"table_end","table":"projects","rows":3}
+…
+{"type":"end","complete":true,"counts":{…}}
+```
+
+It is written as it downloads, so a workspace of any size exports without a wait, and your browser keeps downloading in the background. A file **without** the final `end` line is incomplete: download it again.
+
+<Note>
+Secrets are never exported, not even encrypted: signing secrets, database and WebSocket credentials, Broadcast Logs keys, key and token hashes, and the secret part of each endpoint URL are left out. The header's `omitted_columns` lists exactly which fields.
+</Note>
+
+```bash
+curl -OJ https://app.hookie.ai/admin/api/workspace/export -H "Authorization: Bearer $TOKEN"
+```
+
+## Close the workspace
+
+**Settings → Export & closure → Close workspace**, then type the workspace's slug. Only the owner can close a workspace, and only from the console: a connected agent cannot.
+
+Closing does three things:
+
+<Steps>
+  <Step title="Cancels the subscription, now">
+    A paid plan is cancelled in Stripe immediately, so nothing more is charged. If Stripe cannot cancel it, nothing else happens and the console says so.
+  </Step>
+  <Step title="Suspends the workspace, now">
+    Endpoints and ingest keys answer `403` with `reason: "workspace_suspended"`, nothing is delivered, schedules and sources stop, and settings are read-only. Members can still sign in, read everything and export.
+  </Step>
+  <Step title="Deletes everything after 14 days">
+    Every project, record, raw submission, delivery, workflow run, AI call, setting, secret, key and membership is permanently deleted. The audit log is kept for its own retention (at least a year), and the workspace's name is removed.
+  </Step>
+</Steps>
+
+During those 14 days every page shows when the data will be deleted, and the owner can choose **Keep this workspace** to reopen it exactly as it was. A subscription the closure cancelled is not restarted: subscribe again from **Plan & billing**.
+
+Closing a workspace does not delete your personal account, because you may belong to other workspaces. To delete it, email [privacy@hookie.ai](mailto:privacy@hookie.ai). The [privacy policy](https://hookie.ai/legal/privacy) describes what is kept and for how long.
