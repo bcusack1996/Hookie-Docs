@@ -20,7 +20,7 @@ The **customer portal** is an embeddable, token-authed surface your _end custome
     https://app.hookie.ai/portal/{workspace}/{portal-slug}#token={token}
     ```
 
-    The token (`hpt_…`) is shown once and stored hashed. It sits in the URL **fragment** (after `#`), which a browser never sends to a server, so it stays out of request logs. Tokens issued from the console expire after 30 days unless you change that when issuing; revoke from the same list at any time.
+    The token (`hpt_…`) is shown once and stored hashed. It sits in the URL **fragment** (after `#`), which a browser never sends to a server, so it stays out of request logs. Tokens issued from the console expire after 30 days unless you change that when issuing; revoke from the same list at any time. Issuing and revoking a token are both recorded in **Settings → Audit log**, as are the destinations a customer adds or changes in the portal (the actor is `portal|{customer_id}`).
 
     Links issued before this change carry `?token=…` instead. They still open the portal.
   </Step>

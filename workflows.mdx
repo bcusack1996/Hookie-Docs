@@ -199,6 +199,8 @@ Workflows run on [Cloudflare Workflows](https://developers.cloudflare.com/workfl
 
 Each matching entry record starts an **instance** (a run). The console lists instances per workflow with a drill-down into the live context and a per-step history, and shows any run on the workflow's graph (see [Runs on the graph](#runs-on-the-graph)), so you can see exactly where a flow is and why it stopped. A running or waiting instance can be **cancelled**, and a failed, timed-out or cancelled one **retried** from the start, from the console, the API (`POST /admin/api/projects/{pid}/workflow-instances/{id}/cancel` and `…/retry`), the CLI (`hookie workflows cancel|retry`) or a connected agent. Over the API, `GET /admin/api/projects/{pid}/workflows/{id}/instances` takes `state`, `since`, `until`, `limit` and `offset`, and answers with a `total`.
 
+A run's context starts as a copy of the record that started it, so run history is kept for your plan's retention window, like the records themselves: a finished run (completed, failed, cancelled or timed out) is removed, with its step history, once both its start and its last change are older than the window. A run that is pending, running or waiting is never removed.
+
 | State | Meaning |
 | --- | --- |
 | `pending` | Created from a matching entry record; about to run. |

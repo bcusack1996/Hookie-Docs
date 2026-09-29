@@ -70,7 +70,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | --- | --- |
 | `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. |
 | `projects` | List, create and manage the projects everything else hangs off. |
-| `audit` | Audit log, with CSV export (UTF-8 with a BOM; cells a spreadsheet would run as a formula are neutralised). |
+| `audit` | Audit log, filtered by `actor` (part of an email or subject), `action` (exact), `target`, `since` and `until`, with CSV export of the same filters (`format=csv`, owners and admins; UTF-8 with a BOM; cells a spreadsheet would run as a formula are neutralised). `audit/actions` lists the actions your workspace has recorded. Entries are kept for the longer of your plan's retention and one year, then pruned. |
 | `ip-allowlist` | The workspace IP allowlist: `GET` to read it, `PUT {"ip_allowlist": [...]}` to replace it (`[]` allows every address). Owners and admins. |
 | `agents` | Coding agents you have connected over OAuth — list and revoke. |
 | `sso` | SAML configuration (Team plan). |
