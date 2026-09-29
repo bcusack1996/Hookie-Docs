@@ -223,7 +223,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown endpoint'. Uniform miss for any of: unknown workspace slug, unknown project slug, unknown webhook slug. A webhook that exists but is disabled answers 503 instead.",
+            "description": "error: 'Unknown endpoint'. Uniform miss for any of: unknown workspace slug, unknown project slug, unknown webhook slug. A webhook that exists but is disabled answers 503 instead. After a rotation the previous webhook slug is still accepted until its overlap ends, then it is 404 like any unknown slug.",
             "content": {
               "application/json": {
                 "schema": {
@@ -552,7 +552,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown endpoint' \u2014 unknown workspace/project slug or unknown webhook slug (a disabled one answers 503).",
+            "description": "error: 'Unknown endpoint' \u2014 unknown workspace/project slug or unknown webhook slug (a disabled one answers 503). After a rotation the previous webhook slug is still accepted until its overlap ends, then it is 404 like any unknown slug.",
             "content": {
               "application/json": {
                 "schema": {
@@ -899,7 +899,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown ingest key' \u2014 no non-revoked key with this prefix, hash mismatch, or the key's tenant row is missing.",
+            "description": "error: 'Unknown ingest key' \u2014 no live key with this prefix (revoked, or past its expires_at), hash mismatch, or the key's tenant row is missing.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2142,7 +2142,7 @@
             }
           },
           "404": {
-            "description": "Two messages. 'Unknown ingest key' \u2014 unknown/revoked key, hash mismatch or missing tenant row. 'Unknown webhook endpoint' \u2014 no webhook with that slug in the key's PROJECT. The lookup is confined to the key's project, so a slug that belongs to another project of the same workspace is 404 too. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
+            "description": "Two messages. 'Unknown ingest key' \u2014 unknown, revoked or expired key, hash mismatch or missing tenant row. 'Unknown webhook endpoint' \u2014 no webhook with that slug in the key's PROJECT. The lookup is confined to the key's project, so a slug that belongs to another project of the same workspace is 404 too. The slug is resolved BEFORE quota is charged and before the submission is stored, so a bad slug costs nothing and leaves no pending row.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2794,7 +2794,7 @@
             }
           },
           "404": {
-            "description": "error: 'Unknown ingest key' \u2014 no non-revoked key with this prefix, hash mismatch, or the key's tenant row is missing.",
+            "description": "error: 'Unknown ingest key' \u2014 no live key with this prefix (revoked, or past its expires_at), hash mismatch, or the key's tenant row is missing.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6501,7 +6501,7 @@
         ],
         "responses": {
           "200": {
-            "description": "All webhook versions in the project, ordered by base_slug then version. slug is the high-entropy public URL credential used at app.hookie.ai/{workspace}/{project}/{slug}; base_slug plus version is the human identity. criteria, mappings and ip_allowlist are JSON-encoded strings as stored.",
+            "description": "All webhook versions in the project, ordered by base_slug then version. slug is the high-entropy public URL credential used at app.hookie.ai/{workspace}/{project}/{slug}; base_slug plus version is the human identity. criteria, mappings and ip_allowlist are JSON-encoded strings as stored. After a rotation, previous_public_url is the replaced URL, still accepted until previous_url_expires_at; both are null outside an overlap.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6578,7 +6578,8 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "The allowlist as stored: a JSON array of IPs/CIDRs encoded as a string, or null for any address."
                           },
                           "created_at": {
                             "type": "string",
@@ -6599,6 +6600,22 @@
                             "format": "uri",
                             "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
                             "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
+                          },
+                          "previous_public_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uri",
+                            "description": "The URL a rotation replaced, while it is still accepted. It contains the old credential - treat it as a secret."
+                          },
+                          "previous_url_expires_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When previous_public_url stops being accepted (404)."
                           }
                         }
                       }
@@ -6729,7 +6746,7 @@
             }
           },
           "400": {
-            "description": "Validation failure - name, slug pattern, dataset identifier, criteria or mappings.",
+            "description": "Validation failure - name, slug pattern, dataset identifier, criteria or mappings, or ip_allowlist is not an array of valid IPs/CIDRs (at most 64).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6877,6 +6894,22 @@
                         }
                       }
                     }
+                  },
+                  "ip_allowlist": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "description": "An IPv4 or IPv6 address, or a CIDR range."
+                    },
+                    "description": "IP addresses or CIDR ranges allowed to use this credential, validated exactly as the workspace and project allowlists are. [] or null removes the restriction (stored as null). A request must pass every allowlist that is set: this one, the project's and the workspace's. Refused requests get 403 'Source IP not allowed' and an ingest_ip_blocked audit row.",
+                    "example": [
+                      "203.0.113.0/24",
+                      "2001:db8::/32"
+                    ]
                   }
                 }
               }
@@ -7119,13 +7152,78 @@
     "/admin/api/projects/{pid}/webhooks/{id}": {
       "patch": {
         "operationId": "updateWebhook",
-        "summary": "Enable or disable a webhook",
+        "summary": "Change a webhook endpoint: enabled, name, dataset, IP allowlist",
         "tags": [
           "Webhooks"
         ],
+        "description": "Top-level alias: PATCH /admin/api/webhooks/{id}. Write role required. Send at least one field; only those sent change, and the endpoint keeps its id and its URL. A new dataset applies to events from now on; records already stored keep the dataset they were filed under. The mirror mapping rule the legacy /v1/webhooks/{ingest_key}/{slug} route reads moves with name, dataset and enabled in the same batch. The URL is changed with POST .../rotate; criteria and mappings are not editable here (publish a new version). Audited as update_webhook with each change's from and to.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "While false, the endpoint's URL (and the key+slug route) answers 503 {reason: 'endpoint_disabled'} and stores nothing."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "dataset": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$",
+                    "description": "Where events that arrive from now on are filed."
+                  },
+                  "ip_allowlist": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "description": "An IPv4 or IPv6 address, or a CIDR range."
+                    },
+                    "description": "IP addresses or CIDR ranges allowed to use this credential, validated exactly as the workspace and project allowlists are. [] or null removes the restriction (stored as null). A request must pass every allowlist that is set: this one, the project's and the workspace's. Refused requests get 403 'Source IP not allowed' and an ingest_ip_blocked audit row.",
+                    "example": [
+                      "203.0.113.0/24",
+                      "2001:db8::/32"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Updated.",
+            "description": "Updated. Echoes what changed (ip_allowlist as the normalised array).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7137,6 +7235,21 @@
                     "ok": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "dataset": {
+                      "type": "string"
+                    },
+                    "ip_allowlist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -7144,7 +7257,7 @@
             }
           },
           "400": {
-            "description": "Only enabled can be toggled.",
+            "description": "Body is not an object, sends no field, sends a field that cannot change here (slug, criteria, mappings, ...), or a field is invalid: enabled not a boolean, empty or over-long name, invalid dataset name, invalid allowlist entry.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7189,46 +7302,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "description": "Top-level alias: PATCH /admin/api/webhooks/{id}. Write role required. Name, slug, criteria, dataset and mappings are not editable - publish a new version instead.",
-        "parameters": [
-          {
-            "name": "pid",
-            "in": "path",
-            "required": true,
-            "description": "Project id (UUID) belonging to the caller workspace.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Webhook id.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "enabled"
-                ],
-                "properties": {
-                  "enabled": {
-                    "type": "boolean",
-                    "description": "The mirror mapping rule is toggled with it. While false, the endpoint's URL (and the key+slug route) answers 503 {reason: 'endpoint_disabled'} and stores nothing."
-                  }
                 }
               }
             }
@@ -8363,7 +8436,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Keys of the project, newest first. Only the prefix is stored in the clear - the key itself is held as a SHA-256 hash and can never be read back. Revoked keys stay listed with revoked_at set.",
+            "description": "Keys of the project, newest first. Only the prefix is stored in the clear - the key itself is held as a SHA-256 hash and can never be read back. Revoked and expired keys stay listed. status is derived: revoked when revoked_at is set, expired once expires_at has passed, otherwise active. A key with replaced_by set was rotated and stops at its expires_at.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8385,7 +8458,10 @@
                           "ip_allowlist",
                           "created_at",
                           "last_used_at",
-                          "revoked_at"
+                          "revoked_at",
+                          "expires_at",
+                          "replaced_by",
+                          "status"
                         ],
                         "properties": {
                           "id": {
@@ -8412,7 +8488,8 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "The allowlist as stored: a JSON array of IPs/CIDRs encoded as a string, or null for any address."
                           },
                           "created_at": {
                             "type": "string",
@@ -8431,6 +8508,30 @@
                               "null"
                             ],
                             "format": "date-time"
+                          },
+                          "expires_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When the key stops authenticating; null means never."
+                          },
+                          "replaced_by": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "After a rotation, the id of the key that replaced this one."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "expired",
+                              "revoked"
+                            ],
+                            "description": "Only an active key authenticates."
                           }
                         }
                       }
@@ -8534,6 +8635,24 @@
                         "null"
                       ],
                       "description": "Present only when require_signature was true; otherwise null."
+                    },
+                    "key_prefix": {
+                      "type": "string",
+                      "description": "The first 16 characters, which is all the list shows from now on."
+                    },
+                    "expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "ip_allowlist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The normalised allowlist; [] for any address."
                     }
                   }
                 }
@@ -8541,7 +8660,7 @@
             }
           },
           "400": {
-            "description": "Key name is required (at most 80 characters), or dataset_default is not a valid dataset name.",
+            "description": "Key name is required (at most 80 characters), dataset_default is not a valid dataset name, expires_at is not a future timestamp, or ip_allowlist is not an array of valid IPs/CIDRs (at most 64).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8618,6 +8737,30 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Only the literal true enables it. When enabled a signing secret is generated and returned once."
+                  },
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "When the key stops authenticating, at ingest and on /v1/stream alike. Must be in the future; null means never. A key past it answers 404 'Unknown ingest key', exactly like a revoked one."
+                  },
+                  "ip_allowlist": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "description": "An IPv4 or IPv6 address, or a CIDR range."
+                    },
+                    "description": "IP addresses or CIDR ranges allowed to use this credential, validated exactly as the workspace and project allowlists are. [] or null removes the restriction (stored as null). A request must pass every allowlist that is set: this one, the project's and the workspace's. Refused requests get 403 'Source IP not allowed' and an ingest_ip_blocked audit row.",
+                    "example": [
+                      "203.0.113.0/24",
+                      "2001:db8::/32"
+                    ]
                   }
                 }
               }
@@ -8702,7 +8845,7 @@
             }
           }
         },
-        "description": "Top-level alias: DELETE /admin/api/ingest-keys/{id}. Write role required. There is no PATCH on ingest keys (405).",
+        "description": "Top-level alias: DELETE /admin/api/ingest-keys/{id}. Write role required. The key stops authenticating on the next request, at ingest and on /v1/stream. To replace a key without an outage, rotate it instead.",
         "parameters": [
           {
             "name": "pid",
@@ -8723,6 +8866,182 @@
             }
           }
         ],
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateIngestKey",
+        "summary": "Rename an ingest key, or set its expiry or IP allowlist",
+        "tags": [
+          "Ingest keys"
+        ],
+        "description": "Top-level alias: PATCH /admin/api/ingest-keys/{id}. Write role required. Send at least one of name, expires_at and ip_allowlist. dataset_default and require_signature are fixed at creation. A revoked or expired key cannot be changed (409) - nothing revives a dead credential. On a rotated key, moving expires_at moves the end of the overlap. Audited as update_ingest_key with each change's from and to.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ingest key id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "When the key stops authenticating, at ingest and on /v1/stream alike. Must be in the future; null means never. A key past it answers 404 'Unknown ingest key', exactly like a revoked one."
+                  },
+                  "ip_allowlist": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "description": "An IPv4 or IPv6 address, or a CIDR range."
+                    },
+                    "description": "IP addresses or CIDR ranges allowed to use this credential, validated exactly as the workspace and project allowlists are. [] or null removes the restriction (stored as null). A request must pass every allowlist that is set: this one, the project's and the workspace's. Refused requests get 403 'Source IP not allowed' and an ingest_ip_blocked audit row.",
+                    "example": [
+                      "203.0.113.0/24",
+                      "2001:db8::/32"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated. Echoes what changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "ip_allowlist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body is not an object, sends no field, sends a field that cannot change (dataset_default, require_signature, ...), or a field is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The key is revoked or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
         "security": [
           {
             "session": []
@@ -10930,7 +11249,9 @@
                           "attempts",
                           "error",
                           "created_at",
-                          "updated_at"
+                          "updated_at",
+                          "destination_name",
+                          "next_retry_at"
                         ],
                         "properties": {
                           "id": {
@@ -10979,6 +11300,21 @@
                               "null"
                             ],
                             "format": "date-time"
+                          },
+                          "destination_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The destination's name; null when the destination has been deleted."
+                          },
+                          "next_retry_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When the next attempt is due while one is scheduled (a failed delivery that is retrying); null once it settles."
                           }
                         }
                       }
@@ -11057,20 +11393,39 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "description": "All filters optional and ANDed. Note there is no until filter on this entity.",
+                "description": "All filters optional and ANDed. A blank response_code or min_latency_ms is ignored.",
                 "properties": {
                   "status": {
-                    "type": "string",
-                    "enum": [
-                      "queued",
-                      "delivering",
-                      "delivered",
-                      "failed",
-                      "dead",
-                      "paused",
-                      "cancelled"
-                    ],
-                    "description": "Matched exactly; any string is accepted by the handler."
+                    "description": "One status, or an array of statuses matched with IN (\"failed\" and \"dead\" together are everything that did not arrive). Matched exactly.",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "queued",
+                          "delivering",
+                          "delivered",
+                          "failed",
+                          "dead",
+                          "paused",
+                          "cancelled"
+                        ]
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "queued",
+                            "delivering",
+                            "delivered",
+                            "failed",
+                            "dead",
+                            "paused",
+                            "cancelled"
+                          ]
+                        }
+                      }
+                    ]
                   },
                   "response_code": {
                     "type": "integer",
@@ -11300,7 +11655,18 @@
                     "type": "string"
                   },
                   "status": {
-                    "type": "string"
+                    "description": "One status (queued, running, done, failed), or an array of them matched with IN.",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
                   },
                   "trigger_id": {
                     "type": "string"
@@ -11319,6 +11685,11 @@
                     "type": "integer",
                     "minimum": 0,
                     "default": 0
+                  },
+                  "until": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Upper bound on created_at (ISO 8601)."
                   }
                 }
               }
@@ -12024,7 +12395,7 @@
     "/admin/api/projects/{pid}/search/correlate/{id}": {
       "get": {
         "operationId": "correlateById",
-        "summary": "Correlate a submission or record across the pipeline",
+        "summary": "Correlate any pipeline id across the pipeline",
         "tags": [
           "Search"
         ],
@@ -12040,7 +12411,8 @@
                     "submission",
                     "records",
                     "deliveries",
-                    "ai_runs"
+                    "ai_runs",
+                    "matched"
                   ],
                   "properties": {
                     "correlation_id": {
@@ -12119,7 +12491,13 @@
                           "status",
                           "response_code",
                           "response_ms",
-                          "created_at"
+                          "created_at",
+                          "destination_name",
+                          "dataset",
+                          "attempts",
+                          "next_retry_at",
+                          "error",
+                          "updated_at"
                         ],
                         "properties": {
                           "id": {
@@ -12148,6 +12526,39 @@
                           },
                           "created_at": {
                             "type": "string",
+                            "format": "date-time"
+                          },
+                          "destination_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The destination's name; null when it has been deleted."
+                          },
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "attempts": {
+                            "type": "integer"
+                          },
+                          "next_retry_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updated_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
                             "format": "date-time"
                           }
                         }
@@ -12204,6 +12615,16 @@
                           }
                         }
                       }
+                    },
+                    "matched": {
+                      "type": "string",
+                      "enum": [
+                        "record",
+                        "submission",
+                        "delivery",
+                        "ai_run"
+                      ],
+                      "description": "Which kind of id was looked up."
                     }
                   }
                 }
@@ -12241,7 +12662,7 @@
             }
           },
           "404": {
-            "description": "Nothing found for that id - neither a submission nor any record in this project matched.",
+            "description": "No record, submission, delivery or AI run with that id in this project.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12286,7 +12707,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "A record id or a submission id. A record id is resolved to its submission first.",
+            "description": "A record, submission, delivery or AI run id. A record id is resolved to its submission; a delivery or AI run id to the record it belongs to (a replay's `#replay:<n>` suffix is ignored) and then to its submission.",
             "schema": {
               "type": "string"
             }
@@ -22439,6 +22860,362 @@
             }
           }
         }
+      }
+    },
+    "/admin/api/projects/{pid}/webhooks/{id}/rotate": {
+      "post": {
+        "operationId": "rotateWebhookUrl",
+        "summary": "Give a webhook endpoint a new public URL, with an overlap",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Top-level alias: POST /admin/api/webhooks/{id}/rotate. Write role required. Mints a new high-entropy slug for the SAME endpoint: its id, dataset, settings and history are unchanged. The old URL keeps being accepted for overlap_hours (default 24), then answers 404. Rotating again inside an overlap ends the older URL at once - one previous URL is kept at a time. Audited as rotate_webhook_url (overlap and deadline only, never either slug).",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "overlap_hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 720,
+                    "default": 24,
+                    "description": "How long the OLD credential keeps working, in hours (at most 30 days). 0 ends it at once."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated. public_url is the new URL; previous_public_url and previous_url_expires_at are null when overlap_hours was 0.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "webhook_slug",
+                    "public_path",
+                    "public_url",
+                    "previous_public_url",
+                    "previous_url_expires_at"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The same webhook id as before."
+                    },
+                    "webhook_slug": {
+                      "type": "string",
+                      "description": "The new credential. Never log it."
+                    },
+                    "public_path": {
+                      "type": "string"
+                    },
+                    "public_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "previous_public_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
+                    },
+                    "previous_url_expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "overlap_hours is not a number from 0 to 720.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The URL changed while it was being rotated (a concurrent rotation). Load it again and retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{pid}/ingest-keys/{id}/rotate": {
+      "post": {
+        "operationId": "rotateIngestKey",
+        "summary": "Rotate an ingest key with an overlap",
+        "tags": [
+          "Ingest keys"
+        ],
+        "description": "Top-level alias: POST /admin/api/ingest-keys/{id}/rotate. Write role required. Issues a NEW key with the old one's name, dataset_default, require_signature and ip_allowlist, and gives the OLD key an expiry overlap_hours from now (an earlier expiry it already had is kept). Both authenticate until then, at ingest and on /v1/stream. A key that requires signatures gets a new signing secret. The new key and secret are returned once, exactly as on create. A key can be rotated once; rotate its replacement after that. Audited as rotate_ingest_key on the old key, naming the new one.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ingest key id (the key being replaced).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "overlap_hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 720,
+                    "default": 24,
+                    "description": "How long the OLD credential keeps working, in hours (at most 30 days). 0 ends it at once."
+                  },
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "Optional expiry for the NEW key. Default: none."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new key. key and signing_secret are shown exactly once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "key",
+                    "key_prefix",
+                    "signing_secret",
+                    "expires_at",
+                    "previous_key"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "ik_live_ followed by 48 hex characters."
+                    },
+                    "key_prefix": {
+                      "type": "string"
+                    },
+                    "signing_secret": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "A new whsec_ secret when the key requires signatures; otherwise null."
+                    },
+                    "expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "previous_key": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "expires_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the old key stops working."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "overlap_hours is not a number from 0 to 720, or expires_at is not a future timestamp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The key is revoked, expired, or already rotated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   }
