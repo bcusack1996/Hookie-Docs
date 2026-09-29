@@ -103,16 +103,17 @@ Available with `hookie:write`:
 | `create_webhook · update_webhook · delete_webhook` | Endpoints. Update toggles enabled. |
 | `create_rule · update_rule · delete_rule` | Mapping rules. Update toggles enabled. |
 | `create_record_view · delete_record_view` | Saved table views on a dataset, the same ones people see on the console's Datasets tab. |
-| `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled and the dataset filter. An empty filter is refused; leave it out for every dataset. |
+| `create_destination · update_destination · delete_destination` | Outbound sinks. Update changes enabled, the dataset filter and the delivery limits (`timeout_seconds`, `max_per_second`, `max_concurrency`; `null` restores the default). An empty filter is refused; leave it out for every dataset. |
 | `create_workflow · update_workflow` | A multi-step workflow: entry dataset, entry conditions, and the ordered steps. A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
 | `delete_workflow` | Despite the name, this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. |
 | `replay_delivery` | Re-queue a past delivery to its destination. |
+| `replay_deliveries` | Replay every delivery that did not arrive, by destination, status and time range, in bounded passes: call again while `more` is true. `dry_run` counts without sending. Charged to the delivery allowance and stops when it runs out. |
 | `create_ingest_key` | A new ingest key. Returns the plaintext once, so treat it as a credential. |
 | `revoke_ingest_key` | Kill a key. It stops authenticating on the next request; the row and its audit trail survive. Not reversible. |
 
 There is no `create_dataset`, because a dataset is not something you create. A dataset is a name records carry: it exists the moment the first record is routed into it, and the console has no way to make an empty one either. Name it in a rule, an endpoint, or a workflow's `entry_dataset` and it appears.
 
-Every tool carries MCP annotations, so a client can tell at a glance which calls are safe. `readOnlyHint` is derived from the tool's required scope rather than maintained by hand, so it cannot disagree with what the tool is allowed to do. `destructiveHint` is set only where something is genuinely unrecoverable — the four `delete_` tools and `revoke_ingest_key`. It is deliberately **not** set on `delete_workflow`, which only deactivates, or on `replay_delivery`, which re-sends: prompting for confirmation on a reversible action trains people to click through the ones that matter.
+Every tool carries MCP annotations, so a client can tell at a glance which calls are safe. `readOnlyHint` is derived from the tool's required scope rather than maintained by hand, so it cannot disagree with what the tool is allowed to do. `destructiveHint` is set only where something is genuinely unrecoverable — the four `delete_` tools and `revoke_ingest_key`. It is deliberately **not** set on `delete_workflow`, which only deactivates, or on `replay_delivery` and `replay_deliveries`, which re-send: prompting for confirmation on a reversible action trains people to click through the ones that matter.
 
 ## Addressing an endpoint you just created
 

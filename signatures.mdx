@@ -6,7 +6,7 @@ icon: "signature"
 
 Every outbound delivery is signed with the destination's secret, a `whsec_`-prefixed value that Hookie generates when you create the destination. Verify the signature before trusting the payload.
 
-You never have to write it down. The secret is encrypted at rest and masked in the console. The destination's **Reveal** button fetches it on demand for owners and admins only, and every reveal is written to your audit log. **Rotate** issues a new secret, and the next delivery is signed with it, so update your receiver first or it will reject deliveries until you do.
+You never have to write it down. The secret is encrypted at rest and masked in the console. The destination's **Reveal** button fetches it on demand for owners and admins only, and every reveal is written to your audit log. **Rotate** issues a new secret and shows it to you. The secret it replaces keeps signing for **24 hours**: every delivery in that window carries two signatures, one per secret, so your receiver keeps verifying while you update it (see [Rotating the secret](#rotating-the-secret)).
 
 ## The headers
 
@@ -19,7 +19,7 @@ Hookie-Delivery-Id: 4c7b…
 Hookie-Hop: 1
 ```
 
-- `Hookie-Signature`: `t=<unix>,v1=<hex>`, an HMAC-SHA256 (Stripe-style).
+- `Hookie-Signature`: `t=<unix>,v1=<hex>`, an HMAC-SHA256 (Stripe-style). For 24 hours after a rotation it carries a second `v1`: `t=<unix>,v1=<new>,v1=<previous>`.
 - `Hookie-Event-Id`: the event ID. **Dedupe on this**, since delivery is at-least-once and unordered.
 - `Hookie-Delivery-Id`: the specific delivery attempt, useful in logs.
 - `Hookie-Hop`: how many times this event has passed through Hookie. If your service forwards the event into Hookie again, pass this header on: Hookie refuses an event at 8 hops, which stops a delivery loop.
@@ -28,7 +28,7 @@ Deliveries **never follow redirects**. A `3xx` answer is recorded as a failed at
 
 ## What's signed
 
-The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex and compare it to `v1` in constant time.
+The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex and compare it in constant time with **each** `v1` in the header. Accept the request if any of them matches.
 
 ## Node.js
 
@@ -36,18 +36,34 @@ The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact requ
 const crypto = require("crypto");
 
 // Verify a Hookie outbound webhook signature.
-// header: the raw "Hookie-Signature" value ("t=<unix>,v1=<hex>")
+// header: the raw "Hookie-Signature" value ("t=<unix>,v1=<hex>[,v1=<hex>]")
 // rawBody: the exact request body bytes (do NOT re-serialize the JSON)
-function verifyHookie(secret, header, rawBody) {
-  const parts = Object.fromEntries(header.split(",").map((kv) => kv.split("=")));
-  if (!parts.t || !parts.v1) return false;
-  const signed = `${parts.t}.${rawBody}`;
-  const expected = crypto.createHmac("sha256", secret).update(signed).digest("hex");
-  const a = Buffer.from(parts.v1);
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+function verifyHookie(secret, header, rawBody, toleranceSeconds = 300) {
+  // v1 repeats during a secret rotation, so collect every one. (Object.fromEntries
+  // would keep only the last, which is the PREVIOUS secret's signature.)
+  const pairs = String(header ?? "").split(",").map((kv) => kv.split("="));
+  const t = pairs.find(([k]) => k === "t")?.[1];
+  const signatures = pairs.filter(([k]) => k === "v1").map(([, v]) => v);
+  if (!t || signatures.length === 0) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > toleranceSeconds) return false; // replay protection
+  const expected = Buffer.from(crypto.createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex"));
+  return signatures.some((sig) => {
+    const given = Buffer.from(sig);
+    return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+  });
 }
 ```
+
+## Rotating the secret
+
+Rotating is safe to do while deliveries are flowing:
+
+1. Press **Rotate** on the destination (owner or admin). The new secret is shown to you.
+2. For the next 24 hours every delivery is signed with **both** secrets, new first: `Hookie-Signature: t=1718000000,v1=<new>,v1=<previous>`. A receiver that accepts any matching `v1` (as the verifier above does) keeps working whichever secret it holds.
+3. Update your receiver to the new secret at any point in that window. The destination shows when the previous secret stops signing.
+4. Once every receiver is on the new secret you can press **Expire now** to stop sending the previous signature early; otherwise it stops on its own after 24 hours.
+
+Rotating again inside the window replaces the older of the two, so at most two secrets ever sign a delivery. A receiver that briefly needs to accept both can also hold both secrets and check each.
 
 ## Express handler
 
