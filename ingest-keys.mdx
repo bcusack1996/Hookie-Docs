@@ -1,0 +1,88 @@
+---
+title: "Ingest keys"
+description: "Create, restrict, expire, rotate and revoke the ik_live_ keys servers use to send events and tail the live stream."
+icon: "key"
+---
+
+An **ingest key** (`ik_live_…`) is the credential for a server. An endpoint URL is what you paste into a provider's dashboard; a key is what your own code sends with, and it is the only way to use three things:
+
+- **Rules.** `POST /v1/ingest/{key}` with no dataset in the path runs the project's [mapping rules](/quickstart#route-with-rules).
+- **The live stream.** `GET /v1/stream` authenticates with a key and tails that key's project. See [Live streaming](/streaming).
+- **Inbound signatures.** A key can require every request to carry an `X-Hookie-Signature` (`t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` with the key's signing secret). See [request headers](/api-reference#request-headers).
+
+A key belongs to one project. Anyone holding it can send events into that project and watch its events arrive, so treat it like a password.
+
+## Create a key
+
+<Steps>
+  <Step title="Open the Ingest keys tab">
+    In the console, open the project and choose **Ingest keys**. Owners, admins and developers can create and change keys; viewers see the list.
+  </Step>
+  <Step title="Create it">
+    Choose **Create key** and give it the name of the sender that will use it. Optionally set:
+
+    - a **default dataset**, used when a request names none and no rule matches;
+    - an **expiry**, after which the key is refused exactly as if it had been revoked;
+    - **allowed source IPs**, one IP or CIDR range per line;
+    - **require a signature**, which also mints a signing secret.
+  </Step>
+  <Step title="Copy it now">
+    The key (and its signing secret, if any) is shown **once**. Hookie stores only a SHA-256 hash of the key and its first 16 characters, which is what the list shows from then on.
+  </Step>
+</Steps>
+
+```bash
+curl -X POST "https://app.hookie.ai/v1/ingest/$HOOKIE_KEY/orders" \
+  -H "Content-Type: application/json" \
+  -d '{"order":1042,"total":59.9}'
+```
+
+The list shows each key's name, prefix, status, expiry, allowed IPs, default dataset, when it was last used and when it was created. Status is **active**, **rotating** (still working, with a replacement and a deadline), **expired** or **revoked**. Only an active or rotating key authenticates.
+
+## Restrict a key to your servers
+
+A key's **allowed source IPs** refuse every request from anywhere else with `403 Source IP not allowed`, and each refusal is recorded in the audit log as `ingest_ip_blocked`. Entries are IPv4 or IPv6 addresses or CIDR ranges, up to 64, validated the same way as the project and workspace allowlists. An empty list accepts any address.
+
+The lists stack: a request must pass every one that is set, whether on the key (or the endpoint), the project or the workspace. A key's list can only narrow what the project and workspace allow.
+
+Set it when you create the key, or later with **Edit…** on the key's row. The same field is on an endpoint's **Edit…** dialog, for endpoint URLs.
+
+## Rotate without an outage
+
+**Rotate…** issues a new key with the same name, default dataset, allowed IPs and signature requirement, and gives the old key a deadline. Until then both work, so you can move every sender over, then let the old one lapse.
+
+<Steps>
+  <Step title="Rotate">
+    Choose how long the old key keeps working: an hour, a day (the default), a week or 30 days. **End it now** stops it at once, which breaks anything still using it.
+  </Step>
+  <Step title="Copy the new key">
+    It is shown once, like a new key. A key that requires signatures gets a **new signing secret** too, so a rotation after a leak does not carry the leaked secret forward.
+  </Step>
+  <Step title="Update your senders">
+    The old key's row reads **rotating** until its deadline and **expired** after it. To give yourself more time, use **Edit…** on the old key and move its expiry.
+  </Step>
+</Steps>
+
+A key can be rotated once; after that, rotate its replacement. A revoked or expired key cannot be edited or brought back: create a new key instead.
+
+## Revoke
+
+**Revoke…** stops a key on its very next request, at ingest and on `/v1/stream`. It is not reversible, and the row stays listed with its history. To replace a key without an outage, rotate it instead.
+
+## Endpoint URLs rotate too
+
+An endpoint's URL is its credential in the same way. On the **Endpoints** tab, **Rotate URL…** gives the endpoint a new URL while keeping the same endpoint: its id, dataset, settings and records are unchanged. The old URL keeps working through the overlap you choose (a day by default), and the card says until when. **Edit…** renames an endpoint, points it at another dataset from now on, and sets its allowed source IPs.
+
+## From the API, an agent or the CLI
+
+| Action | Admin API | MCP tool | CLI |
+| --- | --- | --- | --- |
+| List keys | `GET /admin/api/projects/{pid}/ingest-keys` | `list_ingest_keys` | `hookie keys list` |
+| Create | `POST …/ingest-keys` with `name`, `dataset_default`, `require_signature`, `expires_at`, `ip_allowlist` | `create_ingest_key` | `hookie keys create` |
+| Edit name, expiry, allowlist | `PATCH …/ingest-keys/{id}` | `update_ingest_key` | `hookie keys update` |
+| Rotate | `POST …/ingest-keys/{id}/rotate` with `overlap_hours` (0 to 720, default 24) | `rotate_ingest_key` | `hookie keys rotate` |
+| Revoke | `DELETE …/ingest-keys/{id}` | `revoke_ingest_key` | `hookie keys revoke` |
+| Edit an endpoint | `PATCH …/webhooks/{id}` with `enabled`, `name`, `dataset`, `ip_allowlist` | `update_webhook` | `hookie endpoints update` |
+| Rotate an endpoint URL | `POST …/webhooks/{id}/rotate` with `overlap_hours` | `rotate_webhook` | `hookie endpoints rotate` |
+
+`expires_at` is an ISO 8601 time in the future, or `null` for never. `ip_allowlist` is an array; `[]` or `null` removes it. Every change is recorded in the audit log, and neither a key nor an endpoint URL ever appears in it.

@@ -33,6 +33,7 @@
         "icon": "book-open",
         "pages": [
           "signatures",
+          "ingest-keys",
           "streaming",
           "workflows",
           "customer-portal",
