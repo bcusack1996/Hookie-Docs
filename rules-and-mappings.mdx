@@ -86,14 +86,14 @@ An endpoint applies its own conditions, called **criteria**, and its own mapping
 - An event that fails the criteria is kept as a submission and makes no record.
 - They are set when the endpoint is created over the API, MCP or the CLI, and changed only by a new [version](/endpoints-and-keys#versions). The console's **Add endpoint** sets neither.
 
-Project rules are never tried on an endpoint.
+An endpoint accepts at most 10 criteria, the same limit as a rule's conditions, and 50 mappings. Project rules are never tried on an endpoint.
 
 ## Build and test rules in the console
 
-On a project's **Rules** tab, choose **Add rule**. The editor has a **Name**, a **Dataset** picker (one of the project's datasets, or a new name), a row per condition with its **Path**, **Operator** and value, a row per mapping with its **Payload path** and **Record key**, and a **Status** switch. A rule with no conditions is listed as **matches everything**.
+On a project's **Rules** tab, choose **Add rule**. Until a project has a rule, the tab's empty state says the same as the warning above: rules run only on `POST /v1/ingest/{ingest_key}` with no dataset in the URL, and endpoint URLs do not run rules. The editor has a **Name**, a **Dataset** picker (one of the project's datasets, or a new name), a row per condition with its **Path**, **Operator** and value, a row per mapping with its **Payload path** and **Record key**, and a **Status** switch. A rule with no conditions is listed as **matches everything**.
 
 **Test against a sample event** runs the rule on a payload, prefilled with the project's most recent event, and stores nothing. **Test rule** answers **Matched**, with the record the rule would store, or **Not matched**.
 
 Each rule's menu has **Edit**, **Duplicate**, **Enable** or **Disable**, and **Delete**, which keeps the records the rule stored. Owners, admins and developers can change rules.
 
-Over the API, rules live at `/admin/api/projects/{pid}/rules`, and `POST …/rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` without writing anything. Connected agents use `create_rule`, `update_rule` and `delete_rule`.
+Over the API, rules live at `/admin/api/projects/{project_id}/rules`, and `POST …/rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` without writing anything. Connected agents use `create_rule`, `update_rule` and `delete_rule`.

@@ -116,7 +116,7 @@ Browsers show the portal inside another site's `iframe` only when that site is o
     </script>
     ```
 
-    Issue `ACCESS_TOKEN` from your server (`POST /admin/api/projects/{pid}/portals/{id}/tokens`) for the signed-in customer. Never put a token in page source.
+    Issue `ACCESS_TOKEN` from your server (`POST /admin/api/projects/{project_id}/portals/{id}/tokens`) for the signed-in customer. Never put a token in page source.
   </Step>
 </Steps>
 
@@ -139,7 +139,7 @@ Two ways to cut a customer off, both under **Access tokens**:
 
 Either way they stop receiving events. If you issue them a new token later, their destinations are still off, for them to turn back on.
 
-In **Connections**, a customer's destination carries a **Portal customer · {name}** tag, so it never reads as one of your own. `GET /admin/api/projects/{pid}/destinations` returns `portal_id`, `customer_id` and `customer_name` for them.
+In **Connections**, a customer's destination carries a **Portal customer · {name}** tag, so it never reads as one of your own. `GET /admin/api/projects/{project_id}/destinations` returns `portal_id`, `customer_id` and `customer_name` for them.
 
 ## Remove a portal
 
@@ -152,7 +152,7 @@ Switching a portal off is reversible: its tokens stop working and it delivers no
 
 It cannot be undone. The project can then have a new portal, with a new link. Removing a portal needs the developer role or above, and is refused while the workspace is suspended.
 
-From the API it is `DELETE /admin/api/projects/{pid}/portal` with `{"confirm": "<the portal's name>"}`. The name must match exactly, so a stray `DELETE` cannot remove a portal; without it the answer is `400`. A project with no portal, or one already removed, answers `404`. To switch a portal off instead, which you can undo, update it with `enabled: false` (or `hookie portals delete`, which only switches it off).
+From the API it is `DELETE /admin/api/projects/{project_id}/portal` with `{"confirm": "<the portal's name>"}`. The name must match exactly, so a stray `DELETE` cannot remove a portal; without it the answer is `400`. A project with no portal, or one already removed, answers `404`. To switch a portal off instead, which you can undo, update it with `enabled: false` (or `hookie portals delete`, which only switches it off).
 
 ## Portal API
 

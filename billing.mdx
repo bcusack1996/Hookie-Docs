@@ -11,7 +11,7 @@ A plan belongs to a workspace, and only the workspace's **owner** manages its bi
 | Plan | Billed | How to get it |
 | --- | --- | --- |
 | **Free** | Nothing, and no card needed | Every workspace starts on it. |
-| **Pro** | A flat monthly price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**. |
+| **Pro** | A flat monthly price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**, or **Add payment method** during a Pro trial. |
 | **Team** | Monthly, per user | Not available to buy yet: its button is marked **coming soon**. |
 
 For prices, see the [pricing page](https://hookie.ai/pricing). What each plan includes is in [Limits and plans](/limits-and-plans). Single sign-on (SAML or OIDC) is planned and not available yet, on any plan, so no plan includes it today.
@@ -54,10 +54,16 @@ Stripe retries the charge, and meanwhile the workspace keeps its plan. **Plan & 
 
 ## The sign-up trial
 
-When Hookie offers a trial, the sign-up page has a checkbox such as **Start a 14-day Pro trial**; the plan and the length are Hookie's to set. A workspace created with the box ticked runs on that plan until the trial ends, with no card. **Plan & billing** shows how many days are left. When the trial ends, the workspace moves to Free and the new limits apply as for any downgrade, and **Upgrade to Pro** is there as for any Free workspace. A trial is only offered when a workspace is created.
+When Hookie offers a trial, the sign-up page has a checkbox such as **Start a 14-day Pro trial**; the plan and the length are Hookie's to set. A workspace created with the box ticked runs on that plan until the trial ends, with no card. **Plan & billing** shows how many days are left. When a trial ends without a paid subscription, the workspace moves to Free and the new limits apply as for any downgrade, and **Upgrade to Pro** is there as for any Free workspace. A trial is only offered when a workspace is created.
+
+### Keep the plan: add a payment method
+
+During a free trial, **Plan & billing** shows **Add payment method**, followed by the plan you are trying and its monthly price. It opens the same Stripe checkout as **Upgrade to Pro**, for the plan you are trying. Your paid subscription starts when checkout completes, and the trial ends then: checkout bills from today, and the days left in the trial are not carried over. Once Stripe confirms the subscription, the trial notice goes away and **Manage billing** appears.
+
+As with any checkout, only the owner can complete it. A trial of a plan that is not available to buy yet, such as Team, shows no **Add payment method** button.
 
 ## Good to know
 
 - **Quotas and billing run on different calendars.** Monthly quotas reset at 00:00 UTC on the 1st, whatever day the subscription renews.
 - **Closing the workspace** cancels its subscription at once. See [Delete, export and close](/data-deletion#close-the-workspace).
-- **Only the owner** sees the subscription details and invoices, and can upgrade or open **Manage billing**.
+- **Only the owner** sees the subscription details and invoices, and can upgrade, add a payment method during a trial, or open **Manage billing**.
