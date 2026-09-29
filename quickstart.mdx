@@ -9,13 +9,17 @@ icon:
 
 ## 1. Create a project & endpoint
 
-[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**, then open the project's **Endpoints** tab and **Add Endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
+[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**. The new project opens on its **Endpoints** tab, with a starter endpoint marked **new**; use it, or choose **Add endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
 
 ```http
 https://app.hookie.ai/{workspace}/{project}/{webhook}
 ```
 
-The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example.
+The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example. Each endpoint's card also has **Send test event**, **View records** and **Show curl**, so you can try it without leaving the tab.
+
+<Tip>
+  Until your workspace has an endpoint, an event and a destination, **Home** shows a **Get started** checklist: create an endpoint, send a test event, see it arrive, add a destination. Each step is ticked off from what your workspace actually has, not from what you clicked.
+</Tip>
 
 ## 2. Send an event
 
@@ -97,7 +101,7 @@ if (res.ok) showThanks();
 
 ## 3. See it in the console
 
-Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
+Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. **Export CSV** and **Export XLSX** on a dataset export all of it, not just the page you see, with progress and a **Cancel export** button; if an export fails part-way, **Resume export** carries on from where it stopped. An XLSX file stops at a spreadsheet's 1,048,575 rows and says so; a CSV has no limit. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
 
 Open a record, or trace a submission, to see the **request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
 
@@ -144,7 +148,9 @@ curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
   -d '{"type":"refund","order":1042,"total":59.9}'
 ```
 
-Every enabled rule in the project is then tried against that payload. A rule's _conditions_ are exact matches on a path (for example, `type` equals `refund`), all of which must hold. Its _mappings_ pick fields out into a record of your own shape. Leave conditions empty to match everything, and mappings empty to store the payload whole.
+Every enabled rule in the project is then tried against that payload. A rule's _conditions_ test paths in the payload, all of which must hold: `type` equals `refund`, `total` at least `50`, `country` in a list, or a bounded regular expression. They use the same ten operators as every other condition in Hookie (see [Conditions](/workflows#conditions)); in a rule, `equals`, `not_equals` and `in` compare as text, so `5` and `"5"` match. Its _mappings_ pick fields out into a record of your own shape. Leave conditions empty to match everything, and mappings empty to store the payload whole.
+
+Build rules on the project's **Rules** tab. The rule editor has a row per condition, with an operator picker and a value field that fits the operator, rows for mappings, a dataset picker and a **Status** switch. **Test against a sample event** runs the rule over a payload, prefilled from the latest submission when it parses, and shows whether it matched and the record it would write, without storing anything. Each rule's menu has **Edit**, **Duplicate**, **Enable** or **Disable**, and **Delete**. Over the API, `PATCH /admin/api/projects/{pid}/rules/{id}` changes any field, validated as a create is, and `POST /admin/api/projects/{pid}/rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` and writes nothing.
 
 Rules are not first-match: every rule that matches writes its own record, so one event can land in several datasets at once. If none match, the response comes back with `"routed": []` and the raw submission is still captured. Find it under **Observability → Submissions**, which is how you tell "no rule matched" from "the event never arrived".
 

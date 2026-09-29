@@ -4,7 +4,7 @@ description: "Hookie public HTTP API — ingest and streaming endpoints."
 icon: "code"
 ---
 
-Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console (authenticated by your session in the browser, or by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf).
+Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console (authenticated by your session in the browser, by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf, or by an [API key](/api-keys) for CI jobs, scripts and backends).
 
 ## Ingest
 
@@ -26,7 +26,7 @@ Criteria and mappings address it as `body` and `content_type`. NDJSON is not spl
 
 `/v1/webhooks/{key}/{slug}` looks the slug up **in the key's project only**. A slug that belongs to another project, even in the same workspace, is `404`.
 
-An endpoint applies **its own criteria and mappings** to every event it receives, on its public path-form URL as on `/v1/webhooks/{key}/{slug}`. Every criterion must hold, or the event is kept as a submission but makes no record, and `routed` comes back empty. Mappings pick fields into the record's shape; with none, the payload is stored whole. Project [mapping rules](/quickstart) are not evaluated on an endpoint, and not on `/v1/ingest/{ingest_key}/{dataset}`, which stores the payload whole into that dataset. Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project. To send one source into several datasets, use an ingest key. An ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the endpoint or key, the project and the workspace. An endpoint's URL and an ingest key can each be **rotated with an overlap**, and a key can **expire**; see [Ingest keys](/ingest-keys).
+An endpoint applies **its own criteria and mappings** to every event it receives, on its public path-form URL as on `/v1/webhooks/{key}/{slug}`. Every criterion must hold, or the event is kept as a submission but makes no record, and `routed` comes back empty. Mappings pick fields into the record's shape; with none, the payload is stored whole. Project [mapping rules](/quickstart) are not evaluated on an endpoint, and not on `/v1/ingest/{ingest_key}/{dataset}`, which stores the payload whole into that dataset. Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset, where every matching rule writes its own record and none matching leaves `routed` empty. A path-form endpoint writes only to its own dataset: a trailing `{dataset}` that names any other is refused with `403`, so a public form's URL cannot be used to write elsewhere in the project. To send one source into several datasets, use an ingest key. An endpoint can [verify its provider's signature](/endpoint-verification) (Stripe, GitHub, Shopify, Slack, Standard Webhooks or a generic HMAC) before anything is stored, an ingest key can require an HMAC signature, and a source-IP allowlist is enforced at every level that has one: the endpoint or key, the project and the workspace. An endpoint's URL and an ingest key can each be **rotated with an overlap**, and a key can **expire**; see [Ingest keys](/ingest-keys).
 
 ## Streaming
 
@@ -40,55 +40,122 @@ See [Live streaming](/streaming) for SSE/WebSocket details and resume.
 
 ```http
 # Authorization: Bearer <portal token>   (or the portal's session cookie)
-POST /portal/api/session                # trade the token for an 8-hour session cookie
-GET  /portal/api/me                     # portal + customer info + event types
-GET  /portal/api/event-types            # datasets the portal exposes
-GET  /portal/api/destinations           # the customer's destinations
-POST /portal/api/destinations           # create (https only; signing secret shown once)
-PUT  /portal/api/destinations/{id}      # enable/disable or change URL
-GET  /portal/api/deliveries             # deliveries to the customer's destinations
+POST   /portal/api/session                                   # trade the token for an 8-hour session cookie
+GET    /portal/api/me                                        # portal name + branding, customer name, event types
+GET    /portal/api/event-types                               # datasets the portal exposes
+GET    /portal/api/examples                                  # a redacted example per dataset + the signature scheme
+GET    /portal/api/destinations                              # the customer's destinations
+POST   /portal/api/destinations                              # create (https only; signing secret shown once)
+PATCH  /portal/api/destinations/{id}                         # edit name, URL, event types; pause or resume
+DELETE /portal/api/destinations/{id}                         # delete
+GET    /portal/api/destinations/{id}/secret                  # show the signing secret
+POST   /portal/api/destinations/{id}/rotate-secret           # rotate, with a 24-hour overlap
+POST   /portal/api/destinations/{id}/expire-previous-secret  # end the overlap early
+GET    /portal/api/deliveries                                # deliveries to the customer's destinations
+GET    /portal/api/deliveries/{id}                           # one delivery in full
+POST   /portal/api/deliveries/{id}/replay                    # send it again
 ```
 
 A separate, token-authed surface for your _end customers_, scoped to one portal and customer. The token is not accepted in the query string, and each token may make 60 calls a minute. See [Customer portal](/customer-portal) for issuing tokens and embedding.
 
 ## Admin API
 
-The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app. [Sign in](https://app.hookie.ai/) to explore it. It accepts either a browser session or `Authorization: Bearer` with an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes. While a workspace is suspended, reads keep working and every write except billing answers `403` with `"reason": "workspace_suspended"`, for a connected agent exactly as for the console. Project-scoped resources:
+The console's admin API lives at `/admin/api/projects/{pid}/…` and drives everything you see in the app. [Sign in](https://app.hookie.ai/) to explore it. It accepts a browser session, or `Authorization: Bearer` with either an OAuth access token, which is how a [connected agent](/connected-agents) reaches the very same routes, or an [API key](/api-keys) (`hk_…`). While a workspace is suspended, reads keep working and every write except billing answers `403` with `"reason": "workspace_suspended"`, for a connected agent or an API key exactly as for the console.
+
+Every credential may make 100 requests every 10 seconds, after which the API answers `429` with `Retry-After: 10`. A `POST` may carry an `Idempotency-Key`, so a retry is answered once for 24 hours rather than run twice, and every response carries the API version in `Hookie-Version`. [API keys](/api-keys#rate-limits) covers all three.
+
+The resources share one contract:
+
+- **Get one by id.** `GET <resource>/{id}` returns the object under the resource's singular name (`rule`, `webhook`, `destination`, `source`, `trigger`, `view`, and so on), or `404`. Ingest keys use `ingest_key`, because a create's `key` is the plaintext token.
+- **Creates return what they created**, under that same name, alongside every field they already returned.
+- **Lists page.** Every configuration list takes `limit` (1 to 1,000, default 1,000) and `offset`, and adds `total`, `limit` and `offset` beside the array. The array keeps its name and shape, so a caller that sends neither gets every row, as before. A dataset's records page by cursor instead; see [Reading a whole dataset](#reading-a-whole-dataset).
+
+Project-scoped resources:
 
 | Resources | Covers |
 | --- | --- |
-| `datasets · submissions · rules · webhooks` | Routing: raw capture, mapping rules, versioned endpoints. `PATCH webhooks/{id}` changes `enabled`, `name`, `dataset` and `ip_allowlist`; `POST webhooks/{id}/rotate` gives the endpoint a new URL and keeps the old one for `overlap_hours`. |
-| `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. `PATCH ingest-keys/{id}` changes a key's `name`, `expires_at` and `ip_allowlist`; `POST ingest-keys/{id}/rotate` issues its replacement with an overlap. |
+| `datasets · submissions · rules · webhooks` | Routing: raw capture, mapping rules, versioned endpoints. `GET datasets/{name}` returns a dataset's records, flattened, a page at a time ([Reading a whole dataset](#reading-a-whole-dataset)). `POST webhooks` needs only a `name`: with no `slug`, one is made from the name (accents folded, Cyrillic and Greek transliterated, plus a short random suffix; a name with no Latin spelling gets `endpoint-<random>`), and with no `dataset`, the name as an identifier or `default`. The slug is a readable label, never part of the public URL. `PATCH rules/{id}` changes any of `name`, `enabled`, `dataset`, `conditions` and `mappings`, validated as a create is; `POST rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` and stores nothing. `PATCH webhooks/{id}` changes `enabled`, `name`, `dataset`, `ip_allowlist` and `verification`; `POST webhooks/{id}/rotate` gives the endpoint a new URL and keeps the old one for `overlap_hours`; `POST webhooks/{id}/rotate-verification-secret` replaces the provider signing secret and keeps the old one verifying for `overlap_hours` (see [Verify provider signatures](/endpoint-verification)). |
+| `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. `PATCH destinations/{id}` also takes `name` and `url`: the destination keeps its id and signing secret, and a portal customer's destination keeps its URL (`409`). `DELETE destinations/{id}` removes a destination that has never had a delivery outright; one with delivery history leaves the project for good, and its past deliveries keep its name. `PATCH ingest-keys/{id}` changes a key's `name`, `expires_at` and `ip_allowlist`; `POST ingest-keys/{id}/rotate` issues its replacement with an overlap. |
 | `sources · triggers · cron-triggers · ws-triggers` | DB polling, AI triggers, scheduled + WebSocket sources. |
-| `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. |
+| `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. `PATCH workflows/{id}` merges: fields you leave out keep their stored values, and the merged definition is validated like a new one; `PUT` replaces the whole definition. A rename or an on/off switch keeps the workflow's version; new steps, entry conditions or entry dataset make a new one. `DELETE ai-agents/{id}` retires the agent (inactive, and `PATCH` with `active: true` brings it back); `DELETE ai-agents/{id}?permanent=true` removes it, after which a workflow step that names it fails with not found. |
 | `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. `q` matches the payload as literal text, ignoring case for any letter. Each result's `payload` is a preview of the first 2,000 characters; `payload_truncated` and `payload_length` say when it was cut. Every search takes `since` and `until` (ISO 8601); deliveries and AI runs take one `status` or an array of them, and delivery results carry `destination_name`. `correlate` accepts a record, submission, delivery, AI run or workflow run id and says which it `matched`. It answers the raw submission, each record with a `payload` preview, each delivery with its `destination_name` and `error`, each AI run with its `error`, and `workflow_runs`: every workflow run the event's records started, with its `state`, `last_error` and per-step `steps` (path, type, status, error). |
 | `search/ai-calls` · `search/ai-calls/{id}` | The AI call log: every AI call a trigger, `call_ai` or `agent_call` step made, refusals included. `q` matches the instructions, input or output; filter by `status`, `source_kind`, `source_id`, `model`, `since` / `until`. The list carries a 200-character `output_preview`; `GET` one call for its full instructions, input and output (each capped at 8,000 characters, flagged when cut). |
-| `portals (+ /tokens)` | Customer portals and per-customer access tokens. |
+| `portal · portals (+ /tokens)` | Customer portals and per-customer access tokens. `DELETE portal` with `{confirm: <the portal's name>}` [removes the portal for good](/customer-portal#remove-a-portal): its tokens are revoked and its customers' pending deliveries cancelled, nothing is deleted, and the project can have a new portal. `POST portals/{id}/tokens` with `{revoke: <token id>}` revokes one token, and `{offboard: <customer id>}` revokes all of a customer's tokens and switches off their destinations. See [Customer portal](/customer-portal#offboard-a-customer). |
+| `config · clone` | [Export, import and clone](#export-import-and-clone-a-project) the project's configuration. |
 | `telemetry (+ /test)` | [Broadcast Logs](/broadcast-logs): the project's one OTLP integration (Datadog, Grafana Cloud, OpenTelemetry Collector, PostHog or Sentry) and its test event. |
 
 Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` segment:
 
 | Resources | Covers |
 | --- | --- |
-| `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. |
+| `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. In `dashboard/summary`, `error_rate_7d` is failed deliveries as a share of **finished** ones (`failed_7d / (delivered_7d + failed_7d)`), per project too; deliveries still queued, retrying or held by a paused destination have no outcome yet and are counted apart in `in_flight_7d`. It also carries `plan_name` (such as "Pro") and the number of `destinations`. `dashboard/timeseries` counts every event, delivery and AI run in the window, with no cap. |
 | `projects` | List, create and manage the projects everything else hangs off. |
 | `audit` | Audit log, filtered by `actor` (part of an email or subject), `action` (exact), `target`, `since` and `until`, with CSV export of the same filters (`format=csv`, owners and admins; UTF-8 with a BOM; cells a spreadsheet would run as a formula are neutralised). `audit/actions` lists the actions your workspace has recorded. Entries are kept for the longer of your plan's retention and one year, then pruned. |
 | `ip-allowlist` | The workspace IP allowlist: `GET` to read it, `PUT {"ip_allowlist": [...]}` to replace it (`[]` allows every address). Owners and admins. |
 | `agents` | Coding agents you have connected over OAuth — list and revoke. |
+| `api-keys` | [API keys](/api-keys): list, create (a person in the console only) and revoke. Owners and admins. |
 | `sso` | SAML configuration (Team plan). |
 | `destination-presets · source-presets` | Integration presets for outbound sinks and sources. |
 | `billing · stream` | Subscription state and the live event tail. |
+
+## Reading a whole dataset
+
+`GET /admin/api/projects/{pid}/datasets/{name}` returns a dataset's records, newest first, each flattened into `columns` and `rows` with `_id`, `_received_at` and `_source`. It pages by cursor, so a walk of the whole dataset is exact however many records arrive meanwhile, and can resume where it stopped:
+
+- `limit` is 1 to 1,000 (default 1,000).
+- Every page carries `next_cursor`: pass it back as `cursor` for the next page. It is `null` on the last page. A cursor is opaque; one this API did not issue is refused with `400`.
+- The first page (no `cursor`) also carries `total`, so you can show progress. Later pages skip the count.
+
+```bash
+curl "https://app.hookie.ai/admin/api/projects/$PROJECT/datasets/orders?limit=1000" \
+  -H "Authorization: Bearer $HOOKIE_API_KEY"
+# { "dataset": "orders", "columns": [...], "rows": [...], "next_cursor": "…", "total": 8214 }
+```
+
+This is what the console's CSV and XLSX export walks. For filtered, searchable reads, use `search/events`; for tools outside Hookie, the [Data API](/data-api).
+
+## Export, import and clone a project
+
+A project's configuration can leave it as one document, and that document can build the same setup in another project. Use it to promote a pipeline from staging to production, or to start a new customer's project from a template. In the console, it is under the project's **Settings → Configuration**: **Export JSON**, **Export YAML**, **Import configuration (JSON)** and **Clone project**.
+
+```http
+GET  /admin/api/projects/{pid}/config               # the document, as JSON
+GET  /admin/api/projects/{pid}/config?format=yaml   # the same, as YAML
+POST /admin/api/projects/{pid}/config               # create in this project what a document describes
+POST /admin/api/projects/{pid}/clone                # {name}: a new project with this one's configuration
+```
+
+The document is the same `hookie.yml` shape the CLI reads, so `hookie export` writes it and `hookie apply` applies it (see [Configuration](/cli/configuration)). Connected agents have `export_project_config` and `import_project_config`.
+
+**What is in it:** endpoints (the newest version of each, with its criteria, mappings, dataset and IP allowlist, but not its [signature verification](/endpoint-verification), so an imported endpoint starts with none), rules, destinations (name, URL, dataset filter and delivery limits), AI agents, workflows, AI triggers, cron triggers and record views.
+
+**What is never in it:**
+
+- **Endpoint URLs.** An endpoint's URL is its credential. The document carries the endpoint's readable `slug` only, and every imported endpoint gets a new URL.
+- **Signing secrets.** Every imported destination gets a new signing secret, so its receiver must be given the new one.
+- **Ingest keys.** Create new keys in the target project.
+- **Sources, WebSocket triggers and portals.** Their connection settings are encrypted credentials, and a portal belongs to its customers and their tokens. They are listed under `not_exported`, with a count and the reason, rather than silently dropped. Set them up again in the target project.
+- **Destinations that belong to a portal customer**, and anything the project has received: records, submissions, deliveries and run history.
+
+A workflow's `http` step headers are exported as stored, like the rest of the definition, which is why they should never hold a secret.
+
+**Import only adds.** Each resource is created through its own create route, so it is validated, plan-limited and audited exactly as if you had created it by hand. A resource whose identity already exists in the project is skipped, never overwritten: an endpoint by its slug, a record view by its dataset and name, everything else by its name. An AI agent is exported with a `ref`, and a workflow's `agent_call` that names that ref is pointed at the agent created (or found) in the target project. One request imports at most 250 resources. The console imports JSON files; import YAML with `hookie apply`. The response lists what was `created`, `skipped` and `failed`, with `ok: false` if anything failed. To bring an existing project in line with a document, changes included, use `hookie apply`, where you review the diff first.
+
+**Endpoint slugs are unique in the workspace**, not just the project. So an endpoint imported into another project of the same workspace, which is always the case for a clone, cannot keep its slug. It is created as `{slug}-copy`, or `-copy-2` up to `-copy-5` if that is taken too, and its entry in `created` carries a `note` saying so. A second import of the same document recognises the copy and skips it. The public URL is minted fresh either way, so the slug change affects only the endpoint's label.
+
+**Clone** creates a new project of the same type, without the starter endpoint a new project normally gets, and imports the source project's export into it. It answers `201` with the new `project` and the `import` result. Importing needs the developer role or above; cloning creates a project, so it needs owner or admin.
 
 ## Request headers
 
 | Header | Purpose |
 | --- | --- |
 | `Content-Type` | On ingest: application/json, application/x-www-form-urlencoded, multipart/form-data, or a text type (`text/*`, XML, CSV, NDJSON), which is stored as `{ body, content_type }` when the body is not JSON. Any body that parses as JSON is read as JSON. |
-| `Idempotency-Key` | Optional. Dedupes retries per endpoint (on `/v1/ingest`, per key); the same submission is returned and never double-counted. Without it, a provider's own delivery id is used: `webhook-id` (Standard Webhooks), `svix-id`, `X-GitHub-Delivery`, `X-Shopify-Webhook-Id`, `X-Gitlab-Event-UUID`, `I-Twilio-Idempotency-Token`, `Linear-Delivery`, `Twitch-Eventsub-Message-Id`, `X-Atlassian-Webhook-Identifier`, or Stripe's `evt_` id or Slack's `event_id` in the body. |
+| `Idempotency-Key` | Optional. Dedupes retries per endpoint (on `/v1/ingest`, per key); the same submission is returned and never double-counted. Without it, a provider's own delivery id is used: `webhook-id` (Standard Webhooks), `svix-id`, `X-GitHub-Delivery`, `X-Shopify-Webhook-Id`, `X-Gitlab-Event-UUID`, `I-Twilio-Idempotency-Token`, `Linear-Delivery`, `Twitch-Eventsub-Message-Id`, `X-Atlassian-Webhook-Identifier`, or Stripe's `evt_` id or Slack's `event_id` in the body. On a `POST` to `/admin/api`, it makes the call safe to retry: the first response is stored for 24 hours and replayed with `Idempotent-Replayed: true` (see [Idempotent retries](/api-keys#idempotent-retries)). |
+| `Hookie-Version` | Optional, on `/admin/api` and `/mcp`. Pins the API version; an unsupported one is refused with `400` and `supported_versions`. Every response carries the current one, `2026-09-29`. See [Versioning](/api-keys#versioning). |
 | `Origin` | On an endpoint URL: when it is one of the endpoint's allowed origins, the response carries `Access-Control-Allow-Origin`, and `OPTIONS` answers the preflight. |
 | `X-Hookie-Signature` | Required only for keys with signature enforcement. `t=<unix>,v1=<hex>` over `<t>.<body>`. `t` must be within 5 minutes of now, and several `v1=` values may be sent while you rotate the secret. |
 | `Hookie-Hop` | Optional. How many times this event has already passed through Hookie. Hookie sets it on its own deliveries; a relay that forwards a delivery back into Hookie should pass it on. At 8 the request is refused with `508`. |
-| `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` as a connected agent. |
+| `Authorization` | `Bearer <ingest_key>` for `GET /v1/stream` (or `?key=` for EventSource); `Bearer <access token>` for `/admin/api/*` and `/mcp` as a connected agent; `Bearer <hk_… API key>` for the same routes as an [API key](/api-keys). |
 
 ## Request details
 
@@ -114,7 +181,7 @@ Every request that is refused once its endpoint or key is known is logged with i
 | `200 OK` | Duplicate: the original submission is returned, with `deduplicated_by`. Also the answer to a provider's URL-verification challenge. |
 | `303 See Other` | A browser's native form post to an endpoint with a redirect URL. `Location` is that URL. |
 | `400 Bad Request` | The body declares JSON (or no `Content-Type`) and is not valid JSON, or is not a well-formed form encoding. |
-| `401 Unauthorized` | Missing/invalid inbound signature (when required), or missing stream key. |
+| `401 Unauthorized` | Missing or invalid inbound signature (when required), or missing stream key. On an endpoint with [signature verification](/endpoint-verification), `reason` is `missing_header`, `bad_signature` or `stale_timestamp` and `scheme` names the check. Nothing is stored or counted. |
 | `403 Forbidden` | Source IP not in the allowlist, or an agent token without the scope for this call. With `"reason": "workspace_suspended"`, the workspace has been suspended: nothing is stored or counted, so retry once it is reinstated. |
 | `404 Not Found` | Unknown, revoked or expired ingest key, or unknown webhook endpoint (on `/v1/webhooks/{key}/{slug}`, one outside the key's project; on an endpoint URL, a rotated-away URL past its overlap). |
 | `415 Unsupported Media Type` | The body is not JSON and its `Content-Type` is neither a form encoding nor a text type. The error names the type. |
@@ -127,7 +194,7 @@ Every request that is refused once its endpoint or key is known is logged with i
 
 Deliveries are signed twice and carry `Hookie-Signature`, the [Standard Webhooks](https://www.standardwebhooks.com) headers `webhook-id`, `webhook-timestamp` and `webhook-signature`, `Hookie-Event-Id`, `Hookie-Delivery-Id` and `Hookie-Hop`. Delivery is at-least-once and unordered, so dedupe on the event ID and [verify the signature](/signatures). A 5xx, a network error, or a `404`, `408`, `409`, `425` or `429` is retried after about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h and 10 h (eight attempts over roughly a day, with jitter, and never sooner than a `Retry-After` your service sends). Any other 4xx means your service refused the request, so it is not asked again: the delivery is marked `dead` after that one attempt, with the error `HTTP 4xx (not retried: the receiver refused the request)`. A dead delivery can be replayed.
 
-A delivery waiting on a **disabled** destination is `paused`, not failed. It keeps its last response and is sent when the destination is enabled again. A delivery whose destination was **deleted** is `cancelled`. Neither counts as a failure. A destination's dataset filter is a list of dataset names; leave it out (or send `null`) for every dataset. An empty list is refused, since it used to mean "every dataset" rather than "none"; to stop deliveries, disable the destination. Creating a destination whose URL is one of the same project's own endpoint URLs or ingest keys, with a filter that admits the dataset it writes to, still succeeds but returns a `warning`: every event would loop back until `Hookie-Hop` stops it. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, events from cron and WebSocket triggers, and the record a workflow's `call_ai` step writes to its `output_dataset` fan out exactly like ingested ones.
+A delivery waiting on a **disabled** destination is `paused`, not failed. It keeps its last response and is sent when the destination is enabled again. A delivery whose destination was **deleted** is `cancelled`. Neither counts as a failure. A destination's dataset filter is a list of dataset names; leave it out (or send `null`) for every dataset. An empty list is refused, since it used to mean "every dataset" rather than "none"; to stop deliveries, disable the destination. Creating a destination whose URL is one of the same project's own endpoint URLs or ingest keys, with a filter that admits the dataset it writes to, still succeeds but returns a `warning`: every event would loop back until `Hookie-Hop` stops it. An event acknowledged with `201` is fanned out even if the first attempt at that fails: it is re-driven every few minutes for about eight hours, and if it still cannot be, the workspace audit log records a `fanout_abandoned` entry. Rows polled by a database source, events from cron and WebSocket triggers, the record a workflow's `call_ai` step writes to its `output_dataset`, a workflow's `emit_event` records (unless the step sets `deliver: false`), and an AI trigger's output record fan out exactly like ingested ones, including that re-drive. An AI trigger's output fires no AI trigger and starts no workflow, and an emitted record starts no workflow, so neither can loop.
 
 ### Replaying in bulk
 

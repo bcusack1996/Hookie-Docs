@@ -1,0 +1,132 @@
+---
+title: "Verify provider signatures"
+description: "Have an endpoint check Stripe, GitHub, Shopify, Slack, Standard Webhooks or HMAC signatures before anything is stored."
+icon: "shield-check"
+---
+
+An endpoint's URL is its credential. Turn on **signature verification** and the endpoint also checks the signature your provider puts on every request. Hookie verifies it over the raw request bytes before anything is stored or counted against your quota, on the endpoint's public URL and on `/v1/webhooks/{key}/{slug}` alike.
+
+A request that fails gets `401` and is **neither stored nor counted**. The body says what went wrong:
+
+```json
+{ "error": "Missing signature header: Stripe-Signature", "reason": "missing_header", "scheme": "stripe" }
+```
+
+| `reason` | Meaning |
+| --- | --- |
+| `missing_header` | The provider's signature header (or its timestamp) is absent. |
+| `bad_signature` | The signature does not match the body under the endpoint's secret, or the header is malformed. |
+| `stale_timestamp` | The signature is valid, but its timestamp is outside the tolerance. The request is too old, or the sender's clock is wrong. |
+
+Every refusal is written to your audit log as `ingest_signature_rejected`, with the scheme and reason, and appears in the endpoint's **Activity** as `signature_required`, `signature_invalid` or `signature_stale`. Neither ever includes the secret or the signature that was sent. Your provider's delivery log shows the `401` body, so it tells you which of the three went wrong.
+
+Where the check sits: a provider's URL-verification handshake (Slack, Meta, Microsoft Graph, Zoom, Twitch) is answered first, and a body Hookie cannot read is refused with `400`, `415` or `422` as usual. The signature is checked next, before duplicate detection, the quota and the store.
+
+## Schemes
+
+| Scheme | Header(s) checked | What is signed |
+| --- | --- | --- |
+| `none` | — | Nothing is checked. The default for every endpoint. |
+| `stripe` | `Stripe-Signature: t=<unix>,v1=<hex>` | HMAC-SHA256 of `<t>.<body>`. Any `v1` may match, as Stripe sends one per secret while it rolls one. |
+| `github` | `X-Hub-Signature-256: sha256=<hex>` | HMAC-SHA256 of the body. |
+| `shopify` | `X-Shopify-Hmac-Sha256` | HMAC-SHA256 of the body, base64. |
+| `slack` | `X-Slack-Signature: v0=<hex>` and `X-Slack-Request-Timestamp` | HMAC-SHA256 of `v0:<ts>:<body>`. |
+| `standard_webhooks` | `webhook-id`, `webhook-timestamp`, `webhook-signature` (or Svix's `svix-id`, `svix-timestamp`, `svix-signature`) | HMAC-SHA256 of `<id>.<ts>.<body>`, keyed by the base64-decoded secret after `whsec_`. Any `v1,` entry may match. |
+| `hmac` | The header you choose (default `X-Signature`) | HMAC of the body, with the options below. |
+
+**Timestamps.** `stripe`, `slack` and `standard_webhooks` sign a timestamp, and a request more than **5 minutes** from now is refused as `stale_timestamp`. Set `tolerance_seconds` (a whole number from 30 to 86400) to change the window. It applies to those three schemes only; the others sign no timestamp, and sending it with them is refused with `400`.
+
+**Generic HMAC.** For a sender with its own scheme, `hmac` takes:
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| `header` | the HTTP header carrying the signature | `X-Signature` |
+| `algorithm` | `sha256` or `sha1` | `sha256` |
+| `encoding` | `hex` or `base64` | `hex` |
+| `prefix` | text before the digest, such as `sha256=` (up to 32 characters) | none |
+
+These settings apply to `hmac` only. The other schemes have fixed headers, so sending one of them with another scheme is refused with `400`, as is any setting Hookie does not know. What is stored is always what is used.
+
+<Warning>
+Don't turn verification on for an endpoint that a browser form posts to. A browser signs nothing, so every submission would get `401`. The same goes for an endpoint with live traffic from a sender that does not sign yet: from the moment you save, its requests are refused.
+</Warning>
+
+## Turn it on
+
+In the console, open the endpoint's **Edit…** (or **Add endpoint**). Choose the provider under **Signature verification** and paste its signing secret. The secret is encrypted at rest and never shown again. The endpoint card shows only the scheme.
+
+Over the API, pass `verification` when you create the endpoint or in a `PATCH`:
+
+```bash
+curl -X PATCH https://app.hookie.ai/admin/api/projects/$PROJECT/webhooks/$ENDPOINT \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"verification": {"scheme": "stripe", "secret": "whsec_…"}}'
+```
+
+A generic HMAC sender:
+
+```json
+{ "verification": { "scheme": "hmac", "secret": "…", "header": "X-Acme-Signature", "algorithm": "sha256", "encoding": "hex", "prefix": "sha256=" } }
+```
+
+**The secret is write-only.** It is up to 512 characters; a Standard Webhooks secret is `whsec_` followed by base64, or the base64 alone. No response, audit entry, log or workspace export ever contains it. Responses describe verification as:
+
+```json
+{ "verification": { "scheme": "stripe", "tolerance_seconds": 600, "has_secret": true, "previous_secret_expires_at": null } }
+```
+
+`has_secret` says whether a secret is held, and `previous_secret_expires_at` is when a rotated-out secret stops verifying, or `null` outside a [rotation](#rotating-the-secret). The list, `GET webhooks/{id}` and a create's `webhook` object all carry it.
+
+- **Change settings without pasting the secret again**: send the same `scheme` with no `secret`. Switching to a different scheme needs that provider's secret.
+- **Replace the secret at once**: send a new `secret` in the `PATCH`. The old one stops verifying immediately. To keep it working while your provider switches over, [rotate](#rotating-the-secret) instead.
+- **Turn verification off**: send `{"scheme": "none"}`. The stored secret is deleted.
+
+Any change to `verification` in a `PATCH` also ends a rotation's overlap. A new [version](/api-reference) of an endpoint starts with its parent's verification. Project [export and import](/api-reference#export-import-and-clone-a-project) do not carry verification: an imported endpoint starts with `none`, so turn it on again in the target project.
+
+The Stripe, GitHub and Shopify source presets (`GET /admin/api/source-presets`) name their scheme in `verification_scheme`.
+
+## Rotating the secret
+
+When your provider rolls its signing secret, rotate it here too. The secret it replaces keeps verifying through an overlap, so events signed either way are kept while the provider switches:
+
+```bash
+curl -X POST https://app.hookie.ai/admin/api/projects/$PROJECT/webhooks/$ENDPOINT/rotate-verification-secret \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"secret": "whsec_new…", "overlap_hours": 24}'
+```
+
+`overlap_hours` is 0 to 720 and defaults to 24. With 0, the old secret stops at once. Hookie keeps one previous secret, so rotating again inside an overlap ends the older one. An endpoint that does not verify signatures answers `409`: turn verification on first. The rotation is recorded in the audit log as `rotate_webhook_verification_secret`, with the overlap and never either secret.
+
+In the console, choose **Rotate signing secret…** in the endpoint's menu, paste the **New signing secret**, and choose how long to **Keep accepting the current secret for**: an hour, a day (the default), a week or 30 days, or end it now.
+
+## Agents and the CLI
+
+| | MCP tool | CLI |
+| --- | --- | --- |
+| Set on create | `create_webhook` with `verification` | `hookie endpoints create --name … --slug … --dataset … --verification @verification.json` |
+| Change or remove | `update_webhook` with `verification` | `hookie endpoints update --webhook-id … --verification @verification.json` |
+| Rotate the secret | `rotate_webhook_verification_secret` | `hookie endpoints rotate-secret --webhook-id … --secret … [--overlap-hours 24]` |
+
+All three tools need `hookie:write`. A connected agent is told to ask you for the provider's secret rather than invent one.
+
+## Provider notes
+
+### Stripe
+
+Stripe signs with the endpoint's signing secret (`whsec_…`), under **Reveal** on the endpoint in Stripe's dashboard. Choose **Stripe** and paste it. While Stripe rolls a secret it can sign with both, and [rotating](#rotating-the-secret) here keeps the old one verifying through the overlap.
+
+### GitHub
+
+When you add the webhook in GitHub, set **Content type** to `application/json` and set a **Secret**: a long random string. Give Hookie the same value under **GitHub**. GitHub's **Recent Deliveries** shows Hookie's `401` body when a delivery is refused.
+
+### Shopify
+
+Shopify signs with your app's client secret, or, for webhooks created under **Notifications**, the signing secret shown on that page. Choose **Shopify** and paste it. Shopify signs no timestamp, so there is no tolerance to set. When you rotate the app's client secret, [rotate](#rotating-the-secret) here too.
+
+### Slack
+
+Use the **Signing Secret** on your Slack app's **Basic Information** page. An endpoint that also answers Slack's `url_verification` [handshake](/api-reference#html-forms-cors-and-url-verification) keeps answering it, since the handshake is handled before the signature check.
+
+### Standard Webhooks and Svix
+
+For any sender that follows [Standard Webhooks](https://www.standardwebhooks.com), including services built on Svix and another Hookie workspace's destinations, choose **Standard Webhooks (Svix and others)** and paste the `whsec_…` secret. For any other sender that signs the body with a shared secret, choose **Custom HMAC** and set the [HMAC options](#schemes).
