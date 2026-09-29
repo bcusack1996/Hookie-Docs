@@ -651,6 +651,30 @@
             "description": "Days between closing and deletion (14)."
           }
         }
+      },
+      "RetentionGrace": {
+        "type": "object",
+        "required": [
+          "retention_days",
+          "plan_retention_days",
+          "ends_at"
+        ],
+        "properties": {
+          "retention_days": {
+            "type": "integer",
+            "description": "The retention, in days, the retention prune keeps until `ends_at`: the plan's before the downgrade, or the longest of them after repeat downgrades."
+          },
+          "plan_retention_days": {
+            "type": "integer",
+            "description": "The current plan's retention, in days: what applies from `ends_at` on."
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the window closes. The first retention prune after it (every 5 minutes) permanently deletes event data older than `plan_retention_days`."
+          }
+        },
+        "description": "A retention grace window (#281). For 7 days after a plan change that shortens retention (a Stripe downgrade or cancellation, a lapsed trial, an operator override), the retention prune keeps the retention that was in force before it. A second downgrade inside the window keeps the longest retention and restarts the 7 days; an upgrade to a plan whose retention covers `retention_days` ends it."
       }
     },
     "parameters": {
@@ -5149,7 +5173,8 @@
                     "workspaceName",
                     "platform_admin",
                     "workspaceStatus",
-                    "workspaceClosure"
+                    "workspaceClosure",
+                    "retentionGrace"
                   ],
                   "properties": {
                     "user": {
@@ -5249,6 +5274,17 @@
                         }
                       ],
                       "description": "Set while the owner's closure is pending (the workspace is also `suspended`); null otherwise."
+                    },
+                    "retentionGrace": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/RetentionGrace"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Set for 7 days after a downgrade that shortened the workspace's retention: until `ends_at` the previous plan's retention still applies, and after it data older than the current plan's retention is deleted. Null otherwise."
                     }
                   }
                 }
