@@ -279,7 +279,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -298,6 +298,22 @@
                           "type": "string",
                           "format": "uri",
                           "description": "monthly-quota 429 only"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -608,7 +624,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -625,6 +641,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -955,7 +987,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -974,6 +1006,22 @@
                           "type": "string",
                           "format": "uri",
                           "description": "quota 429 only"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -1017,7 +1065,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key. It is looked up by its first 16 characters (key_prefix) among non-revoked keys and then compared constant-time against the stored SHA-256 hash.",
+            "description": "The plaintext ingest key. It is looked up by its full SHA-256 hash (#177), among keys that are neither revoked nor expired, and compared constant-time; key_prefix is only a display label.",
             "schema": {
               "type": "string"
             }
@@ -1262,7 +1310,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1279,6 +1327,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -1322,7 +1386,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison).",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -1568,7 +1632,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1585,6 +1649,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -1628,7 +1708,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison; revoked keys never match).",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -1881,7 +1961,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1898,6 +1978,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2198,7 +2294,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2215,6 +2311,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2283,7 +2395,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison). It authenticates the request; the tenant it belongs to scopes the webhook lookup.",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match). It authenticates the request; the tenant it belongs to scopes the webhook lookup.",
             "schema": {
               "type": "string"
             }
@@ -2536,7 +2648,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2553,6 +2665,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2874,7 +3002,7 @@
             "name": "key",
             "in": "query",
             "required": false,
-            "description": "Ingest key as a query parameter, for browser EventSource clients that cannot set headers. Used only when no 'Authorization: Bearer <ingest key>' header is present; if neither is supplied the request is 401. Same key resolution as ingest (prefix lookup + constant-time SHA-256 comparison; revoked keys never match).",
+            "description": "Ingest key as a query parameter, for browser EventSource clients that cannot set headers. Used only when no 'Authorization: Bearer <ingest key>' header is present; if neither is supplied the request is 401. Same key resolution as ingest (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -8498,7 +8626,7 @@
                           },
                           "key_prefix": {
                             "type": "string",
-                            "description": "First 16 characters of the issued token."
+                            "description": "First 16 characters of the issued token: a display label only, since a key is authenticated by its full hash (#177)."
                           },
                           "dataset_default": {
                             "type": "string"
@@ -15414,19 +15542,20 @@
     "/admin/api/projects/{project_id}/ws-triggers/{ws_trigger_id}": {
       "patch": {
         "operationId": "updateWsTrigger",
-        "summary": "Enable or disable a WebSocket trigger",
+        "summary": "Edit, pause or resume a WebSocket trigger",
         "tags": [
           "WebSocket triggers"
         ],
         "responses": {
           "200": {
-            "description": "Updated; the WsListener DO is armed or stopped to match.",
+            "description": "Updated. The listener is reconnected, stopped or armed to match. The trigger as stored now, never its connection settings.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "ok"
+                    "ok",
+                    "ws_trigger"
                   ],
                   "properties": {
                     "ok": {
@@ -15434,6 +15563,83 @@
                       "enum": [
                         true
                       ]
+                    },
+                    "ws_trigger": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "conditions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "op": {
+                                "type": "string",
+                                "enum": [
+                                  "equals",
+                                  "not_equals",
+                                  "contains",
+                                  "exists",
+                                  "gt",
+                                  "lt"
+                                ]
+                              },
+                              "value": {}
+                            },
+                            "description": "Stored in the full {path, op, value} form."
+                          }
+                        },
+                        "mappings": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "dataset": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "connected",
+                            "connecting",
+                            "disconnected",
+                            "error"
+                          ]
+                        },
+                        "last_event_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }
@@ -15441,7 +15647,7 @@
             }
           },
           "400": {
-            "description": "`Only 'enabled' is supported for PATCH in this phase`.",
+            "description": "`Nothing to change: send any of name, enabled, url, headers, subprotocols, connect_message, conditions, dataset`, `enabled must be true or false`, `name is required (1-80 chars)`, `conditions: \u2026` (the #165 validation), `dataset: \u2026`, `url must be a ws:// or wss:// URL`, or `url moves this trigger to another host: send headers and connect_message with it (null for none). \u2026`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15481,7 +15687,7 @@
             }
           },
           "500": {
-            "description": "`Internal error`.",
+            "description": "`This trigger's stored connection settings could not be read`, or `Internal error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15515,13 +15721,84 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "enabled"
-                ],
+                "minProperties": 1,
+                "additionalProperties": true,
                 "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
                   "enabled": {
                     "type": "boolean",
                     "description": "true arms the listener socket; false tears it down."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Must start with ws:// or wss://. To a different host, send headers and connect_message too when the trigger has them stored."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "default": {},
+                    "description": "Connection headers. Encrypted; never returned."
+                  },
+                  "subprotocols": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "connect_message": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Sent once on connect (e.g. a subscribe frame)."
+                  },
+                  "conditions": {
+                    "type": "array",
+                    "default": [],
+                    "description": "Frame filter; an empty array matches every frame. Validated on save (#165) and stored in the full {path, op, value} form.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path"
+                      ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Dot path. The empty path is rejected."
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "equals",
+                            "not_equals",
+                            "contains",
+                            "exists",
+                            "gt",
+                            "lt"
+                          ]
+                        },
+                        "value": {
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                        }
+                      }
+                    }
+                  },
+                  "dataset": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "null or empty routes each frame by the project's rules. Validated as a dataset name."
                   }
                 }
               }
@@ -15535,7 +15812,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Change any of name, enabled, url, headers, subprotocols, connect_message, conditions and dataset (#177); each is checked as create checks it, conditions in the one dialect (#165). A change to the connection, the conditions or the dataset reconnects the listener, which reads them when it connects; a rename alone leaves the socket open. enabled false closes the socket and true opens it. The connection settings stay encrypted and are never returned. Moving url to a different host is refused unless the request also sends each stored headers / connect_message (null for none): credentials nobody can read back are never carried to a new host unseen."
       },
       "delete": {
         "operationId": "deleteWsTrigger",
@@ -16120,7 +16398,7 @@
                             "output_dataset": {
                               "type": "string",
                               "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,62}$",
-                              "description": "Optional dataset to also write the AI result into."
+                              "description": "Optional dataset to also write the AI result into, as a record {output, workflow_id, instance_id} carrying the entry event's hop. The record goes through the shared fan-out like any other event, with a fan-out outbox row behind it (#177, FLOW-6): the project's destinations whose filter admits the dataset (under the monthly delivery allowance), the live stream and matching AI triggers. It never starts or resumes a workflow, not even one entered on this dataset, so a workflow cannot feed itself."
                             }
                           }
                         },
@@ -21407,7 +21685,37 @@
             }
           },
           "429": {
-            "description": "Too many requests for this key."
+            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "retry_after": {
+                          "type": "integer",
+                          "enum": [
+                            10
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -21555,7 +21863,37 @@
             "description": "No such dataset \u2014 or one this project does not expose; the two are deliberately indistinguishable."
           },
           "429": {
-            "description": "Too many requests for this key."
+            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "retry_after": {
+                          "type": "integer",
+                          "enum": [
+                            10
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }

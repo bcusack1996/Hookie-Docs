@@ -149,7 +149,7 @@ Build workflows on the canvas under **Project → Workflows**, or send the defin
 | Type | What it does |
 | --- | --- |
 | `emit_event` | Write a record into a dataset and enqueue signed deliveries for it. The record is the entry record's fields with an optional `payload` merged over them, and the payload is [templated](#templating) from the instance context, so `"summary": "{{triage.summary}}"` delivers what an AI step produced. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
-| `call_ai` | Run an AI prompt over the instance context. The reply lands in the context under output_key (default ai_result), as a number or object if the model replied with one, so a later branch can compare it, and, verbatim as text, in output_dataset. |
+| `call_ai` | Run an AI prompt over the instance context. The reply lands in the context under output_key (default ai_result), as a number or object if the model replied with one, so a later branch can compare it, and, verbatim as text, in output_dataset. The output_dataset record is delivered like any other record: to the project's destinations whose filter admits the dataset, the live stream and AI triggers. Like an emitted record, it never starts a workflow, not even one that starts on that dataset. |
 | `agent_call` | Invoke a reusable AI agent by ID: its model, system prompt, and memory dataset apply. The result lands under output_key (default agent_result), interpreted the same way call_ai's is. In the builder, pick the agent from a list. |
 | `http` | Call an https URL on a public host with `method` (GET, POST, PUT, PATCH or DELETE), optional `headers` (up to 32) and a JSON `body` (up to 64 KB; not on GET). A `{{path}}` placeholder can appear after the host. The response lands in the context under output_key (default http_result). `timeout_seconds` is 1 to 30. |
 | `set` | Write `values` into the context. A value of exactly `"{{entry.email}}"` copies that context path; anything else is stored as written. |
@@ -236,6 +236,10 @@ A cron trigger lands one record on a schedule: a 5-field cron expression (`minut
 ### WebSocket triggers
 
 A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt` and `lt` compare numbers, so a feed that sends prices as text (`"60000"`) never matches one.
+
+- **Edit** changes the name, URL, connect message, conditions or dataset, each checked as it is when you create the trigger. A new URL, connect message, set of conditions or dataset reconnects the socket; a new name does not. Over the API, `PATCH /admin/api/projects/{pid}/ws-triggers/{id}` also takes `headers` and `subprotocols`.
+- The URL, headers and connect message are stored encrypted and never shown again, so the Edit form leaves the URL blank: leave it blank to keep the current connection. A new URL is saved with the connect message you enter, and none if you leave it blank.
+- Moving the URL to a **different host** is refused unless the request also sends each stored connection header and connect message (`null` for none). They often carry the feed's credentials, and Hookie will not pass them to a new host that nobody chose to give them to.
 
 ### AI triggers
 
