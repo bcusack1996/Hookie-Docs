@@ -46,7 +46,9 @@ A move to a lower plan, whether from a cancellation, a failed payment or a trial
 
 - Destinations and database sources over the new plan's numbers are paused, newest first, and database source poll intervals are raised to the new minimum. See [When your plan changes](/destinations#when-your-plan-changes).
 - The monthly quotas keep this month's counts. A workspace that has already used more than the new plan allows has its new events refused, and its deliveries held, until the 1st.
-- The shorter retention window applies from the next cleanup, a few minutes later, so older records, submissions and deliveries are deleted then.
+- **Retention is the exception.** Your previous plan's retention window still applies for **7 days**. After that, event data older than the new plan's window is deleted. **Home** shows the date. See [Retention after a downgrade](/limits-and-plans#retention-after-a-downgrade).
+
+If you need the data, export it from **Settings → Export & closure** before downgrading, or within those 7 days. See [Export all data](/data-deletion#export-all-data).
 
 ## When a payment fails
 

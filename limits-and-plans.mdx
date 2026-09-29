@@ -27,6 +27,25 @@ Everything in this table is counted across the whole workspace, not per project.
 
 **Team** is $39.00 per user, per month, and is coming soon: it cannot be bought self-serve yet. **Nothing is billed as overage** on any plan: past a limit, new events are refused, deliveries held and AI calls refused, as described below, so a paid plan never charges more than its price.
 
+## Retention after a downgrade
+
+When your workspace moves to a plan with a shorter retention window, Hookie keeps your event data on your **previous** plan's window for **7 more days**. That happens when you downgrade or cancel a paid plan, when a subscription ends after failed payments, when a free trial ends, or when Hookie support changes your plan. After those 7 days, the new plan's window applies: event data older than it is permanently deleted by the automatic cleanup, which runs every five minutes. That covers records, raw submissions, delivery history, the AI call log, workflow runs and AI trigger runs.
+
+For example, moving from Team (90 days) to Free (7 days) keeps 90 days of data for 7 more days. After that, anything older than 7 days is deleted.
+
+- **Downgrade again within the 7 days:** the longest window still applies, and the 7 days start again. Team → Pro → Free keeps Team's 90 days until 7 days after the move to Free.
+- **Upgrade to a plan whose retention is at least as long as the window being kept:** the window ends, because the new plan keeps that data anyway.
+- **Upgrade to a plan with a shorter window than the one being kept** (for example Team → Free, then Free → Pro): the window runs on unchanged. When it closes, the new plan's window applies.
+- **Closing a workspace** works differently. See [Close the workspace](/data-deletion#close-the-workspace).
+
+While the window is open, **Home** shows a warning with the date the older data will be deleted. Below it are two buttons: **Export & closure**, where an owner or admin can download everything as one JSON Lines file (see [Export all data](/data-deletion#export-all-data)), and **Plan & billing**, where the owner can upgrade. The API returns the window on `GET /admin/api/me`:
+
+```json
+{ "retentionGrace": { "retention_days": 90, "plan_retention_days": 7, "ends_at": "2026-10-06T14:05:00.000Z" } }
+```
+
+`retention_days` is the window being kept, `plan_retention_days` is the current plan's, and `ends_at` is when the window closes. `retentionGrace` is `null` when no window is open.
+
 ## The same on every plan
 
 | Limit | |

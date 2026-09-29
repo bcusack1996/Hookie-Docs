@@ -59,6 +59,6 @@ Event data is kept for your plan's retention window, then deleted automatically:
 
 The window covers records, submissions, deliveries and their attempts, held deliveries, the refused-request log, workflow runs, AI trigger runs and the AI call log. A cleanup runs every five minutes and deletes what has aged past the window, counted from when it was received or created. A delivery that is still queued, retrying or paused is kept until it finishes. The audit log has its own, longer window: the longer of your plan's retention and one year.
 
-After a downgrade, the new plan's shorter window applies from the next cleanup, so data older than it is deleted then. A delivery whose record has been pruned cannot be replayed.
+After a downgrade to a plan with a shorter window, your previous plan's window still applies for 7 days. After that, the next cleanup deletes data older than the new plan's window. **Home** shows the date until then. See [Retention after a downgrade](/limits-and-plans#retention-after-a-downgrade). A delivery whose record has been pruned cannot be replayed.
 
 To delete data sooner, one record or a whole dataset, or to export everything, see [Delete, export and close](/data-deletion).
