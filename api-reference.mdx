@@ -68,16 +68,16 @@ The resources share one contract:
 
 - **Get one by id.** `GET <resource>/{id}` returns the object under the resource's singular name (`rule`, `webhook`, `destination`, `source`, `trigger`, `view`, and so on), or `404`. Ingest keys use `ingest_key`, because a create's `key` is the plaintext token.
 - **Creates return what they created**, under that same name, alongside every field they already returned.
-- **Lists page.** Every configuration list takes `limit` (1 to 1,000, default 1,000) and `offset`, and adds `total`, `limit` and `offset` beside the array. The array keeps its name and shape, so a caller that sends neither gets every row, as before.
+- **Lists page.** Every configuration list takes `limit` (1 to 1,000, default 1,000) and `offset`, and adds `total`, `limit` and `offset` beside the array. The array keeps its name and shape, so a caller that sends neither gets every row, as before. A dataset's records page by cursor instead; see [Reading a whole dataset](#reading-a-whole-dataset).
 
 Project-scoped resources:
 
 | Resources | Covers |
 | --- | --- |
-| `datasets · submissions · rules · webhooks` | Routing: raw capture, mapping rules, versioned endpoints. `PATCH rules/{id}` changes any of `name`, `enabled`, `dataset`, `conditions` and `mappings`, validated as a create is; `POST rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` and stores nothing. `PATCH webhooks/{id}` changes `enabled`, `name`, `dataset`, `ip_allowlist` and `verification`; `POST webhooks/{id}/rotate` gives the endpoint a new URL and keeps the old one for `overlap_hours`; `POST webhooks/{id}/rotate-verification-secret` replaces the provider signing secret and keeps the old one verifying for `overlap_hours` (see [Verify provider signatures](/endpoint-verification)). |
-| `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. `PATCH ingest-keys/{id}` changes a key's `name`, `expires_at` and `ip_allowlist`; `POST ingest-keys/{id}/rotate` issues its replacement with an overlap. |
+| `datasets · submissions · rules · webhooks` | Routing: raw capture, mapping rules, versioned endpoints. `GET datasets/{name}` returns a dataset's records, flattened, a page at a time ([Reading a whole dataset](#reading-a-whole-dataset)). `POST webhooks` needs only a `name`: with no `slug`, one is made from the name (accents folded, Cyrillic and Greek transliterated, plus a short random suffix; a name with no Latin spelling gets `endpoint-<random>`), and with no `dataset`, the name as an identifier or `default`. The slug is a readable label, never part of the public URL. `PATCH rules/{id}` changes any of `name`, `enabled`, `dataset`, `conditions` and `mappings`, validated as a create is; `POST rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` and stores nothing. `PATCH webhooks/{id}` changes `enabled`, `name`, `dataset`, `ip_allowlist` and `verification`; `POST webhooks/{id}/rotate` gives the endpoint a new URL and keeps the old one for `overlap_hours`; `POST webhooks/{id}/rotate-verification-secret` replaces the provider signing secret and keeps the old one verifying for `overlap_hours` (see [Verify provider signatures](/endpoint-verification)). |
+| `ingest-keys · destinations · deliveries` | Credentials, outbound sinks, delivery log + replay. `PATCH destinations/{id}` also takes `name` and `url`: the destination keeps its id and signing secret, and a portal customer's destination keeps its URL (`409`). `DELETE destinations/{id}` removes a destination that has never had a delivery outright; one with delivery history leaves the project for good, and its past deliveries keep its name. `PATCH ingest-keys/{id}` changes a key's `name`, `expires_at` and `ip_allowlist`; `POST ingest-keys/{id}/rotate` issues its replacement with an overlap. |
 | `sources · triggers · cron-triggers · ws-triggers` | DB polling, AI triggers, scheduled + WebSocket sources. |
-| `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. |
+| `workflows · workflow-instances · ai-agents` | Multi-step workflows, instance history, reusable AI agents. `PATCH workflows/{id}` merges: fields you leave out keep their stored values, and the merged definition is validated like a new one; `PUT` replaces the whole definition. A rename or an on/off switch keeps the workflow's version; new steps, entry conditions or entry dataset make a new one. `DELETE ai-agents/{id}` retires the agent (inactive, and `PATCH` with `active: true` brings it back); `DELETE ai-agents/{id}?permanent=true` removes it, after which a workflow step that names it fails with not found. |
 | `search/{events,deliveries,ai-runs} · search/correlate/{id}` | Filtered search + cross-entity correlation. `q` matches the payload as literal text, ignoring case for any letter. Each result's `payload` is a preview of the first 2,000 characters; `payload_truncated` and `payload_length` say when it was cut. Every search takes `since` and `until` (ISO 8601); deliveries and AI runs take one `status` or an array of them, and delivery results carry `destination_name`. `correlate` accepts a record, submission, delivery, AI run or workflow run id and says which it `matched`. It answers the raw submission, each record with a `payload` preview, each delivery with its `destination_name` and `error`, each AI run with its `error`, and `workflow_runs`: every workflow run the event's records started, with its `state`, `last_error` and per-step `steps` (path, type, status, error). |
 | `search/ai-calls` · `search/ai-calls/{id}` | The AI call log: every AI call a trigger, `call_ai` or `agent_call` step made, refusals included. `q` matches the instructions, input or output; filter by `status`, `source_kind`, `source_id`, `model`, `since` / `until`. The list carries a 200-character `output_preview`; `GET` one call for its full instructions, input and output (each capped at 8,000 characters, flagged when cut). |
 | `portal · portals (+ /tokens)` | Customer portals and per-customer access tokens. `DELETE portal` with `{confirm: <the portal's name>}` [removes the portal for good](/customer-portal#remove-a-portal): its tokens are revoked and its customers' pending deliveries cancelled, nothing is deleted, and the project can have a new portal. `POST portals/{id}/tokens` with `{revoke: <token id>}` revokes one token, and `{offboard: <customer id>}` revokes all of a customer's tokens and switches off their destinations. See [Customer portal](/customer-portal#offboard-a-customer). |
@@ -88,7 +88,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 
 | Resources | Covers |
 | --- | --- |
-| `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. |
+| `me · dashboard/{summary,timeseries}` | Signed-in user, workspace + plan, usage rollups. In `dashboard/summary`, `error_rate_7d` is failed deliveries as a share of **finished** ones (`failed_7d / (delivered_7d + failed_7d)`), per project too; deliveries still queued, retrying or held by a paused destination have no outcome yet and are counted apart in `in_flight_7d`. It also carries `plan_name` (such as "Pro") and the number of `destinations`. `dashboard/timeseries` counts every event, delivery and AI run in the window, with no cap. |
 | `projects` | List, create and manage the projects everything else hangs off. |
 | `audit` | Audit log, filtered by `actor` (part of an email or subject), `action` (exact), `target`, `since` and `until`, with CSV export of the same filters (`format=csv`, owners and admins; UTF-8 with a BOM; cells a spreadsheet would run as a formula are neutralised). `audit/actions` lists the actions your workspace has recorded. Entries are kept for the longer of your plan's retention and one year, then pruned. |
 | `ip-allowlist` | The workspace IP allowlist: `GET` to read it, `PUT {"ip_allowlist": [...]}` to replace it (`[]` allows every address). Owners and admins. |
@@ -97,6 +97,22 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{pid}` se
 | `sso` | SAML configuration (Team plan). |
 | `destination-presets · source-presets` | Integration presets for outbound sinks and sources. |
 | `billing · stream` | Subscription state and the live event tail. |
+
+## Reading a whole dataset
+
+`GET /admin/api/projects/{pid}/datasets/{name}` returns a dataset's records, newest first, each flattened into `columns` and `rows` with `_id`, `_received_at` and `_source`. It pages by cursor, so a walk of the whole dataset is exact however many records arrive meanwhile, and can resume where it stopped:
+
+- `limit` is 1 to 1,000 (default 1,000).
+- Every page carries `next_cursor`: pass it back as `cursor` for the next page. It is `null` on the last page. A cursor is opaque; one this API did not issue is refused with `400`.
+- The first page (no `cursor`) also carries `total`, so you can show progress. Later pages skip the count.
+
+```bash
+curl "https://app.hookie.ai/admin/api/projects/$PROJECT/datasets/orders?limit=1000" \
+  -H "Authorization: Bearer $HOOKIE_API_KEY"
+# { "dataset": "orders", "columns": [...], "rows": [...], "next_cursor": "…", "total": 8214 }
+```
+
+This is what the console's CSV and XLSX export walks. For filtered, searchable reads, use `search/events`; for tools outside Hookie, the [Data API](/data-api).
 
 ## Export, import and clone a project
 

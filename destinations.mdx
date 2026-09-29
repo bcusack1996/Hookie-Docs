@@ -112,4 +112,8 @@ Over the API, destinations and sources carry `paused_reason`: `"over_plan_limit"
 
 ## API
 
-`POST` and `PATCH /admin/api/projects/{pid}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state. `GET /admin/api/dashboard/summary` lists failing destinations in `failing_destinations`. See the [API reference](/api-reference).
+`POST` and `PATCH /admin/api/projects/{pid}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state.
+
+**Edit or delete.** A destination's **Edit…** changes its name, URL and dataset filter; over the API, `PATCH` takes `name` and `url` too. It stays the same destination, with the same id and signing secret, so your receiver keeps verifying. A new URL must be `https`, and a destination that belongs to a [customer portal](/customer-portal) customer keeps its URL (`409`): it is theirs to change. **Delete** removes a destination that has never had a delivery outright. One with delivery history leaves the project for good, and its past deliveries keep its name, so the delivery log still says where each one went.
+
+ `GET /admin/api/dashboard/summary` lists failing destinations in `failing_destinations`. See the [API reference](/api-reference).

@@ -9,13 +9,17 @@ icon:
 
 ## 1. Create a project & endpoint
 
-[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**, then open the project's **Endpoints** tab and **Add Endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
+[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**. The new project opens on its **Endpoints** tab, with a starter endpoint marked **new**; use it, or choose **Add endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
 
 ```http
 https://app.hookie.ai/{workspace}/{project}/{webhook}
 ```
 
-The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example.
+The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example. Each endpoint's card also has **Send test event**, **View records** and **Show curl**, so you can try it without leaving the tab.
+
+<Tip>
+  Until your workspace has an endpoint, an event and a destination, **Home** shows a **Get started** checklist: create an endpoint, send a test event, see it arrive, add a destination. Each step is ticked off from what your workspace actually has, not from what you clicked.
+</Tip>
 
 ## 2. Send an event
 
@@ -97,7 +101,7 @@ if (res.ok) showThanks();
 
 ## 3. See it in the console
 
-Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
+Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. **Export CSV** and **Export XLSX** on a dataset export all of it, not just the page you see, with progress and a **Cancel export** button; if an export fails part-way, **Resume export** carries on from where it stopped. An XLSX file stops at a spreadsheet's 1,048,575 rows and says so; a CSV has no limit. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
 
 Open a record, or trace a submission, to see the **request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
 

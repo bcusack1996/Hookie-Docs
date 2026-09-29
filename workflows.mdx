@@ -131,7 +131,7 @@ A pattern that breaks a bound is refused when you save it. A stored pattern that
 
 ## Defining a workflow
 
-Build workflows on the canvas under **Project → Workflows**, or send the definition to the API. Either way it is this JSON; the builder's **Definition (JSON)** panel shows it for the workflow you are editing. Entry conditions use the shared condition shape; an empty array matches every record in the dataset.
+Build workflows on the canvas under **Project → Workflows**, or send the definition to the API. A workflow's menu also has **Rename…** and **Activate** or **Deactivate**, which change nothing else and keep its version. Over the API, `PATCH /admin/api/projects/{pid}/workflows/{id}` merges what you send into the stored definition, so `{"active": false}` alone switches a workflow off, while `PUT` replaces the whole definition. The `update_workflow` tool and `hookie workflows update` send the whole definition. Either way it is this JSON; the builder's **Definition (JSON)** panel shows it for the workflow you are editing. Entry conditions use the shared condition shape; an empty array matches every record in the dataset.
 
 ```json
 {
@@ -214,6 +214,8 @@ The placeholder has to be something the run has at that point: the entry record 
 ## AI agents
 
 An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bounded token cap, and an optional _memory dataset_ that every output is also written to for recall. Define agents next to your workflows in the console, then reference one from any workflow with an `agent_call` step, including inside a branch. Update the agent once; every workflow that uses it picks up the change.
+
+**Deactivate** an agent from its menu to switch it off: its definition is kept, a workflow step that names it fails until you **Reactivate** it, and nothing else changes. **Delete** removes it for good, after a warning; a step that names it then fails with not found. Over the API, `DELETE /admin/api/projects/{pid}/ai-agents/{id}` only retires the agent, as the `delete_ai_agent` tool does, and `?permanent=true` removes it.
 
 ## Templating
 
