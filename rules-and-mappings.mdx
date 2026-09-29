@@ -1,0 +1,99 @@
+---
+title: "Rules and mappings"
+description: "How Hookie decides which dataset an event lands in and what shape it takes: rules on keyed ingest, criteria and mappings on endpoints, and the ten condition operators."
+icon: "route"
+---
+
+Routing decides which dataset an event lands in, and which fields its record has. What decides depends only on how the event was sent:
+
+| Sent to | Dataset | Shape |
+| --- | --- | --- |
+| An endpoint URL, `/{workspace}/{project}/{webhook}` | The endpoint's own | The endpoint's criteria and mappings |
+| `/v1/webhooks/{ingest_key}/{slug}` | That endpoint's own | That endpoint's criteria and mappings |
+| `/v1/ingest/{ingest_key}/{dataset}` | The one in the path | Stored whole |
+| `/v1/ingest/{ingest_key}` | Chosen by the project's **rules** | Each matching rule's mappings |
+
+<Warning>
+  **Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset in the path.** An endpoint URL never consults them, so adding a rule and then posting to an endpoint changes nothing. Rules are for a sender that cannot say where each event belongs.
+</Warning>
+
+## Rules
+
+A rule has a name, a dataset, conditions, mappings and a status. For an event sent with an ingest key and no dataset, every enabled rule in the key's project is tried:
+
+- **Every rule that matches writes its own record**, so one event can land in several datasets. Rules are not first-match.
+- **When none matches, no record is written.** The answer says `"routed": []`, and the submission is kept as **Pending (no rule matched yet)**, so an event nobody routed is never mistaken for one that never arrived.
+- **No conditions matches every event, and no mappings stores the payload whole.**
+
+For example, this event:
+
+```bash
+curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
+  -H "Content-Type: application/json" \
+  -d '{"type":"refund","order":1042,"total":59.9}'
+```
+
+matches this rule, which stores `{"order_id": 1042, "amount": 59.9}` in the `refunds` dataset:
+
+```json
+{
+  "name": "Large refunds",
+  "dataset": "refunds",
+  "conditions": [
+    { "path": "type", "equals": "refund" },
+    { "path": "total", "op": "gte", "value": 50 }
+  ],
+  "mappings": [
+    { "path": "order", "key": "order_id" },
+    { "path": "total", "key": "amount" }
+  ],
+  "enabled": true
+}
+```
+
+A rule holds up to 10 conditions and 50 mappings.
+
+## Conditions
+
+Every condition in a list must hold. A condition reads a dotted path into the event as it was sent, such as `customer.tier`, and tests it with one of ten operators:
+
+| Operator | In the console | Value | Matches when the field… |
+| --- | --- | --- | --- |
+| `equals` | equals | text, a number, a boolean or `null` | equals the value |
+| `not_equals` | does not equal | the same | does not equal it; a missing field counts as not equal |
+| `contains` | contains | text | is text that contains the value |
+| `exists` | exists | none | is present and not `null` |
+| `gt` · `gte` | is greater than · is at least | a number | is a number, or text that is one (such as `"150"`), greater than · at least the value |
+| `lt` · `lte` | is less than · is at most | a number | is a number, or text that is one (such as `"99.5"`), less than · at most the value |
+| `in` | is one of | a list of 1 to 100 values | equals one of them |
+| `regex` | matches pattern | a pattern | is text the pattern matches, within the [bounds on patterns](/workflows#regular-expressions) |
+
+- **Rules compare as text.** In rules and endpoint criteria, `equals`, `not_equals` and `in` compare as text, so `5` and `"5"` match. Workflows and triggers compare those three exactly, type included.
+- **Numbers sent as text still compare.** `gt`, `gte`, `lt` and `lte` read a field that is a number, or text that spells a plain decimal number: an optional `+` or `-`, digits and an optional fraction, with spaces around it ignored. So a form's `"150"` is 150. Any other text never matches, including hex (`"0x10"`), exponents (`"1e3"`), thousands separators (`"1,000"`) and empty text. The value you compare against must be a number.
+- **Text stays text.** `contains` and `regex` match only a field that is text.
+
+A condition that could never match, such as an unknown operator or `gt` against a value that is not a number, is refused with `400` when you save it. As in the example above, an exact match is stored in the `equals` shorthand, and every other operator with `op` and `value`.
+
+## Mappings
+
+A mapping copies one field of the event into the record under a key you choose: `{"path": "customer.email", "key": "email"}`. A key starts with a letter, uses only letters, digits and underscores, and is used once. Three special paths exist: `$payload` (the whole event), `$submission.id` and `$submission.received_at`. A path the event lacks leaves its key out of the record.
+
+## Criteria on endpoints
+
+An endpoint applies its own conditions, called **criteria**, and its own mappings to everything sent to it. They work like a rule's, with three differences:
+
+- The dataset is always the endpoint's own.
+- An event that fails the criteria is kept as a submission and makes no record.
+- They are set when the endpoint is created over the API, MCP or the CLI, and changed only by a new [version](/endpoints-and-keys#versions). The console's **Add endpoint** sets neither.
+
+Project rules are never tried on an endpoint.
+
+## Build and test rules in the console
+
+On a project's **Rules** tab, choose **Add rule**. The editor has a **Name**, a **Dataset** picker (one of the project's datasets, or a new name), a row per condition with its **Path**, **Operator** and value, a row per mapping with its **Payload path** and **Record key**, and a **Status** switch. A rule with no conditions is listed as **matches everything**.
+
+**Test against a sample event** runs the rule on a payload, prefilled with the project's most recent event, and stores nothing. **Test rule** answers **Matched**, with the record the rule would store, or **Not matched**.
+
+Each rule's menu has **Edit**, **Duplicate**, **Enable** or **Disable**, and **Delete**, which keeps the records the rule stored. Owners, admins and developers can change rules.
+
+Over the API, rules live at `/admin/api/projects/{pid}/rules`, and `POST …/rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` without writing anything. Connected agents use `create_rule`, `update_rule` and `delete_rule`.

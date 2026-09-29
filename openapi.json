@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds).\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -59,7 +59,7 @@
     },
     {
       "name": "Workspace",
-      "description": "Members, connected agents, SSO and billing."
+      "description": "The workspace itself: its name and slug, admin API keys, data export and closure. There are no member invites or member routes yet (#258): a workspace has its owner, plus any admin the platform sets up."
     },
     {
       "name": "Data API",
@@ -142,7 +142,7 @@
               "insufficient_role",
               "agent_not_permitted"
             ],
-            "description": "Present on a 403 to an OAuth-connected agent. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 a workspace owner or admin has to change the role. `agent_not_permitted`: no connected agent may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret)."
+            "description": "Present on a 403 to an OAuth-connected agent. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 and roles cannot be changed in the product yet, so the call is one for the workspace owner. `agent_not_permitted`: no connected agent may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret)."
           },
           "required_scope": {
             "type": "string",
@@ -329,7 +329,7 @@
       },
       "Condition": {
         "type": "object",
-        "description": "One condition of the one condition dialect (#165, extended in #201), accepted by rules, endpoint criteria, workflow entry/branch/wait conditions, AI-trigger match conditions and WebSocket-trigger conditions. Either {path, op, value} or the shorthand {path, equals}. op: equals | not_equals | contains | exists | gt | gte | lt | lte | in | regex. exists takes no value; gt/gte/lt/lte need a finite number and match only numeric fields; contains needs a string; in needs a list of 1-100 scalars; regex needs a pattern of at most 200 characters that compiles, with no backreferences, no repeated group that itself repeats or alternates ((a+)+, (a|b)*) and at most 2 open-ended repetitions (*, +, {n,}), and is tested against the first 256 characters of a string field. In rules and endpoint criteria equals, not_equals and in compare as TEXT (an exact match is stored as {path, equals}); in workflows and triggers they compare with ===. All conditions in a list must hold (AND); an empty list matches everything. An invalid condition is refused with 400 when saved.",
+        "description": "One condition of the one condition dialect (#165, extended in #201), accepted by rules, endpoint criteria, workflow entry/branch/wait conditions, AI-trigger match conditions and WebSocket-trigger conditions. Either {path, op, value} or the shorthand {path, equals}. op: equals | not_equals | contains | exists | gt | gte | lt | lte | in | regex. exists takes no value; gt/gte/lt/lte need a finite number and match a numeric field, or a string field that is a plain decimal once trimmed (optional sign, digits, optional fraction), such as a form's \"150\" (#259); hex, exponents, empty and other text never match; contains needs a string; in needs a list of 1-100 scalars; regex needs a pattern of at most 200 characters that compiles, with no backreferences, no repeated group that itself repeats or alternates ((a+)+, (a|b)*) and at most 2 open-ended repetitions (*, +, {n,}), and is tested against the first 256 characters of a string field. In rules and endpoint criteria equals, not_equals and in compare as TEXT (an exact match is stored as {path, equals}); in workflows and triggers they compare with ===. All conditions in a list must hold (AND); an empty list matches everything. An invalid condition is refused with 400 when saved.",
         "required": [
           "path"
         ],
@@ -691,7 +691,7 @@
     },
     "responses": {
       "RateLimited": {
-        "description": "Over this credential's limit (100 requests per 10 seconds). Retry after `Retry-After` seconds.",
+        "description": "Over this credential's burst limit (about 100 requests per 10 seconds; best-effort, counted separately at each Cloudflare location). Retry after `Retry-After` seconds.",
         "headers": {
           "Retry-After": {
             "schema": {
@@ -847,7 +847,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1317,7 +1317,7 @@
             }
           },
           "429": {
-            "description": "Burst rate limit. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Burst rate limit (about 100 requests per 10 seconds per endpoint URL; best-effort). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1472,7 +1472,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1875,7 +1875,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2216,7 +2216,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2556,7 +2556,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2903,7 +2903,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3254,7 +3254,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3626,7 +3626,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5325,7 +5325,9 @@
                     "plan_name",
                     "delivered_7d",
                     "in_flight_7d",
-                    "destinations"
+                    "destinations",
+                    "agent_runs_this_month",
+                    "agent_runs_quota"
                   ],
                   "properties": {
                     "plan": {
@@ -5419,6 +5421,14 @@
                     "ai_tokens_quota": {
                       "type": "integer",
                       "description": "The plan's monthly AI token allowance. A call made once it is used is refused and the step fails."
+                    },
+                    "agent_runs_this_month": {
+                      "type": "integer",
+                      "description": "AI trigger runs counted against this billing month's limit: the workspace's running and done runs created since the 1st (UTC). The same count a run is refused on, so a failed or still-queued run is not in it (#260)."
+                    },
+                    "agent_runs_quota": {
+                      "type": "integer",
+                      "description": "The plan's monthly AI trigger run limit (agentRunsPerMonth). No soft cap: once agent_runs_this_month reaches it, each further AI trigger run fails until the month resets. Events are still stored and delivered."
                     },
                     "deliveries_this_month": {
                       "type": [
@@ -22870,13 +22880,14 @@
       },
       "delete": {
         "operationId": "deleteWorkflow",
-        "summary": "Deactivate a workflow definition",
+        "summary": "Deactivate, or permanently delete, a workflow",
+        "description": "By default the workflow is DEACTIVATED: `active` is set to 0, the definition and all its run history are kept, it stays in listWorkflows, and PATCH {\"active\": true} turns it back on. Runs already in progress carry on. With ?permanent=true it is deleted for good (#256): the definition (a workflow's version is a number on it, not a separate row) and its whole run history, meaning every run, its step log and any legacy-engine waiter. Nothing else goes: records and deliveries the runs produced, and the AI call log, are kept. A permanent delete is refused (409) while any run has not finished: pending, running, waiting, or paused by a workspace suspension. Cancel those runs first (POST workflow-instances/{id}/cancel). The workflow is deactivated before its history is deleted, so it starts no new runs meanwhile. The history goes in chunks, at most 10,000 runs a call; a longer one answers 202 with `done: false`, and the same DELETE again carries on until the one that removes the workflow answers 200. Each call that deletes something writes a `delete_workflow` audit row (details: permanent, done, name, project_id, runs_deleted, step_events_deleted); a deactivation writes one with `permanent: false`. Scoped to the caller's workspace and this project: a workflow of another project or workspace is not found.",
         "tags": [
           "Workflows"
         ],
         "responses": {
           "200": {
-            "description": "SOFT delete \u2014 the row is kept and `active` set to 0, so it stops starting instances but still appears in listWorkflows. Running instances are not cancelled.",
+            "description": "Deactivated (`{\"ok\": true}`), or with ?permanent=true deleted along with its runs and their step log (`done: true`, and what went in `deleted`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -22890,8 +22901,98 @@
                       "enum": [
                         true
                       ]
+                    },
+                    "done": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Permanent delete only: the workflow itself is gone."
+                    },
+                    "deleted": {
+                      "type": "object",
+                      "required": [
+                        "runs",
+                        "step_events"
+                      ],
+                      "properties": {
+                        "runs": {
+                          "type": "integer",
+                          "description": "Runs this call deleted."
+                        },
+                        "step_events": {
+                          "type": "integer",
+                          "description": "Step-log rows this call deleted with them."
+                        }
+                      },
+                      "description": "Permanent delete only: what this call deleted."
                     }
                   }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Permanent delete only: the run history is longer than one call deletes (10,000 runs). This call deleted `deleted`; `remaining_runs` are left, and the workflow is still listed, now inactive. Send the same DELETE again to carry on.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "done",
+                    "deleted",
+                    "remaining_runs",
+                    "message"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "done": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "deleted": {
+                      "type": "object",
+                      "required": [
+                        "runs",
+                        "step_events"
+                      ],
+                      "properties": {
+                        "runs": {
+                          "type": "integer",
+                          "description": "Runs this call deleted."
+                        },
+                        "step_events": {
+                          "type": "integer",
+                          "description": "Step-log rows this call deleted with them."
+                        }
+                      }
+                    },
+                    "remaining_runs": {
+                      "type": "integer",
+                      "description": "Runs of the workflow still to delete."
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`permanent must be true or false`: the query parameter had another value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -22926,6 +23027,64 @@
               }
             }
           },
+          "409": {
+            "description": "Permanent delete only: a run of this workflow has not finished (pending, running, waiting, or paused by a suspension), so nothing was changed. `error` says to cancel those runs first (and to deactivate the workflow, if it is on) and then names up to 10 of them by id, so an agent that sees only the message can cancel them; `instances` lists the same runs, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code",
+                    "unfinished_runs",
+                    "instances"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Human-readable reason, naming up to 10 unfinished runs."
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "unfinished_runs"
+                      ]
+                    },
+                    "unfinished_runs": {
+                      "type": "integer",
+                      "description": "How many runs have not finished; may be more than are listed."
+                    },
+                    "instances": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "state",
+                          "paused"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "The run (workflow instance) id, as cancelWorkflowInstance takes it."
+                          },
+                          "state": {
+                            "type": "string",
+                            "description": "Its state: pending, running or waiting."
+                          },
+                          "paused": {
+                            "type": "boolean",
+                            "description": "True when a workspace suspension paused it."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`Internal error`.",
             "content": {
@@ -22955,6 +23114,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "required": false,
+            "description": "true deletes the workflow and its run history for good. Omitted or false, the workflow is only deactivated (active set to 0), and PATCH active:true brings it back. Any other value is refused with 400.",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -26690,9 +26859,10 @@
         "tags": [
           "SSO"
         ],
+        "description": "The workspace's saved SSO configurations. Single sign-on is not available yet (SEC-13a, #257), so none of them is active: nobody signs in through a saved configuration, whatever its `enabled` says. Readable on every plan and by any role, so a configuration saved before then stays visible.",
         "responses": {
           "200": {
-            "description": "Configs, newest first. `idp_certificate` is deliberately NOT selected, even though it is a public certificate.",
+            "description": "Configurations, newest first, at most one per provider. `idp_certificate` is deliberately NOT selected, even though it is a public certificate.",
             "content": {
               "application/json": {
                 "schema": {
@@ -26721,7 +26891,8 @@
                             "enum": [
                               0,
                               1
-                            ]
+                            ],
+                            "description": "The flag as it was saved. It has never switched anything on: there is no SSO sign-in."
                           },
                           "idp_entity_id": {
                             "type": [
@@ -26772,16 +26943,6 @@
               }
             }
           },
-          "402": {
-            "description": "`SSO/SAML is available on the Team plan \u2014 upgrade to configure SSO`. Checked before anything else, including the read.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "500": {
             "description": "`Internal error`.",
             "content": {
@@ -26820,46 +26981,12 @@
       },
       "post": {
         "operationId": "createSsoConfig",
-        "summary": "Create a workspace SSO configuration",
+        "summary": "Create a workspace SSO configuration (not available)",
         "tags": [
           "SSO"
         ],
+        "description": "Single sign-on is not available yet (SEC-13a, #257): there is no SAML or OIDC sign-in, so this always answers `501` with `reason: \"sso_not_available\"` and changes nothing. It answers before the plan, the role or the body is looked at. A configuration saved before then is kept as it was; list it with listSsoConfigs.",
         "responses": {
-          "201": {
-            "description": "Created.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "ok"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "`body must be an object`, `idp_sso_url must be https`, `acs_url must be https`, or `allowed_domains must be an array`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Not signed in.",
             "content": {
@@ -26870,28 +26997,8 @@
               }
             }
           },
-          "402": {
-            "description": "`SSO/SAML is available on the Team plan \u2014 upgrade to configure SSO`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability (owner/admin) required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "`an saml config already exists` / `an oidc config already exists` \u2014 UNIQUE(tenant_id, provider).",
+            "description": "Refused before the route is reached: the caller's email domain is not allowed, an agent bearer token carries no Hookie scope, `Missing X-Requested-With header` (a session without it), `reason: \"workspace_suspended\"` while the workspace is suspended, or an API key scoped to one project. Never a role or grant refusal: the 501 comes before the role is checked, so nobody is told to widen a grant for something no grant provides.",
             "content": {
               "application/json": {
                 "schema": {
@@ -26912,66 +27019,31 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "description": "Every field is optional \u2014 an empty config is storable and simply reports as not ready from the test action.",
-                "properties": {
-                  "provider": {
-                    "type": "string",
-                    "enum": [
-                      "saml",
-                      "oidc"
-                    ],
-                    "default": "saml",
-                    "description": "Only the exact string 'oidc' selects oidc; anything else (including omission) becomes 'saml'. One config per provider per workspace."
-                  },
-                  "enabled": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Only the literal true enables."
-                  },
-                  "idp_entity_id": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Trimmed; blank becomes null."
-                  },
-                  "idp_sso_url": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Must be https:// when present."
-                  },
-                  "idp_certificate": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "IdP signing certificate (PEM). Public material, not a secret \u2014 but never returned by the list endpoint."
-                  },
-                  "acs_url": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Must be https:// when present."
-                  },
-                  "allowed_domains": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
+          },
+          "501": {
+            "description": "`Single sign-on is not available yet, so an SSO configuration cannot be created or changed.` with `reason: \"sso_not_available\"` (SEC-13a, #257). There is no SAML or OIDC sign-in, so nothing may create or change a configuration, on any plan and for any role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
                     },
-                    "default": [],
-                    "description": "Email domains allowed to SSO. Trimmed, lowercased; non-strings and blanks dropped."
-                  }
+                    {
+                      "type": "object",
+                      "required": [
+                        "reason"
+                      ],
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "sso_not_available"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -26998,42 +27070,12 @@
     "/admin/api/sso/{sso_config_id}": {
       "put": {
         "operationId": "updateSsoConfig",
-        "summary": "Replace a workspace SSO configuration",
+        "summary": "Replace a workspace SSO configuration (not available)",
         "tags": [
           "SSO"
         ],
+        "description": "Single sign-on is not available yet (SEC-13a, #257): there is no SAML or OIDC sign-in, so this always answers `501` with `reason: \"sso_not_available\"` and changes nothing. It answers before the plan, the role or the body is looked at. A configuration saved before then is kept as it was; list it with listSsoConfigs.",
         "responses": {
-          "200": {
-            "description": "Replaced.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Same validation messages as createSsoConfig.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Not signed in.",
             "content": {
@@ -27044,28 +27086,8 @@
               }
             }
           },
-          "402": {
-            "description": "`SSO/SAML is available on the Team plan \u2014 upgrade to configure SSO`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "`SSO config not found`.",
+            "description": "Refused before the route is reached: the caller's email domain is not allowed, an agent bearer token carries no Hookie scope, `Missing X-Requested-With header` (a session without it), `reason: \"workspace_suspended\"` while the workspace is suspended, or an API key scoped to one project. Never a role or grant refusal: the 501 comes before the role is checked, so nobody is told to widen a grant for something no grant provides.",
             "content": {
               "application/json": {
                 "schema": {
@@ -27075,7 +27097,7 @@
             }
           },
           "500": {
-            "description": "`Internal error`. Changing `provider` onto one that already exists surfaces here rather than as a 409.",
+            "description": "`Internal error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -27086,6 +27108,34 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "501": {
+            "description": "`Single sign-on is not available yet, so an SSO configuration cannot be created or changed.` with `reason: \"sso_not_available\"` (SEC-13a, #257). There is no SAML or OIDC sign-in, so nothing may create or change a configuration, on any plan and for any role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "reason"
+                      ],
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "sso_not_available"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -27098,62 +27148,98 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "description": "Identical to the create body and validated by the same validateSsoSpec \u2014 FULL REPLACE: an omitted field is written as its default (omitting `idp_certificate` nulls it, omitting `enabled` disables, omitting `provider` resets it to saml). PATCH is accepted on this path and behaves identically.",
-                "properties": {
-                  "provider": {
-                    "type": "string",
-                    "enum": [
-                      "saml",
-                      "oidc"
-                    ],
-                    "default": "saml"
-                  },
-                  "enabled": {
-                    "type": "boolean",
-                    "default": false
-                  },
-                  "idp_entity_id": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "idp_sso_url": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "idp_certificate": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "acs_url": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "allowed_domains": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchSsoConfig",
+        "summary": "Update a workspace SSO configuration (not available)",
+        "tags": [
+          "SSO"
+        ],
+        "description": "Single sign-on is not available yet (SEC-13a, #257): there is no SAML or OIDC sign-in, so this always answers `501` with `reason: \"sso_not_available\"` and changes nothing. It answers before the plan, the role or the body is looked at. A configuration saved before then is kept as it was; list it with listSsoConfigs.",
+        "responses": {
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused before the route is reached: the caller's email domain is not allowed, an agent bearer token carries no Hookie scope, `Missing X-Requested-With header` (a session without it), `reason: \"workspace_suspended\"` while the workspace is suspended, or an API key scoped to one project. Never a role or grant refusal: the 501 comes before the role is checked, so nobody is told to widen a grant for something no grant provides.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "501": {
+            "description": "`Single sign-on is not available yet, so an SSO configuration cannot be created or changed.` with `reason: \"sso_not_available\"` (SEC-13a, #257). There is no SAML or OIDC sign-in, so nothing may create or change a configuration, on any plan and for any role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
                     },
-                    "default": []
-                  }
+                    {
+                      "type": "object",
+                      "required": [
+                        "reason"
+                      ],
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "sso_not_available"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
           }
         },
+        "parameters": [
+          {
+            "name": "sso_config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "security": [
           {
             "session": []
@@ -27174,7 +27260,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Deleted (hard delete).",
+            "description": "Deleted (hard delete). The only way a saved configuration is removed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -27196,16 +27282,6 @@
           },
           "401": {
             "description": "Not signed in.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "`SSO/SAML is available on the Team plan \u2014 upgrade to configure SSO`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -27280,7 +27356,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Completeness check only \u2014 it does NOT contact the IdP and does not attempt a login. The live SAML assertion-consumer flow is a documented follow-on.",
+            "description": "Completeness check only: it does NOT contact the IdP and does not attempt a login. Single sign-on is not available (#257), so nothing signs in through a configuration however complete it is, and `note` says so.",
             "content": {
               "application/json": {
                 "schema": {
@@ -27317,16 +27393,6 @@
           },
           "401": {
             "description": "Not signed in.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "`SSO/SAML is available on the Team plan \u2014 upgrade to configure SSO`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -29159,7 +29225,7 @@
             }
           },
           "429": {
-            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "description": "The key's burst limit (the ingest limiter: about 100 requests per 10 seconds per key, a best-effort guard counted separately at each Cloudflare location, so a short burst can get through above it): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -29337,7 +29403,7 @@
             "description": "No such dataset \u2014 or one this project does not expose; the two are deliberately indistinguishable."
           },
           "429": {
-            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "description": "The key's burst limit (the ingest limiter: about 100 requests per 10 seconds per key, a best-effort guard counted separately at each Cloudflare location, so a short burst can get through above it): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
             "content": {
               "application/json": {
                 "schema": {

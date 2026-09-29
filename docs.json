@@ -19,6 +19,21 @@
         ]
       },
       {
+        "group": "Concepts",
+        "icon": "lightbulb",
+        "pages": [
+          "projects",
+          "endpoints-and-keys",
+          "datasets-and-records",
+          "rules-and-mappings",
+          "destinations-and-deliveries",
+          "limits-and-plans",
+          "billing",
+          "roles-and-agents",
+          "glossary"
+        ]
+      },
+      {
         "group": "CLI",
         "icon": "terminal",
         "pages": [

@@ -6,13 +6,13 @@ icon: "lock"
 
 An **API key** (`hk_…`) lets a system with no browser call the same admin API the console uses, and the hosted [MCP server](/connected-agents) at `/mcp`: a CI job, an infrastructure-as-code tool, a nightly script or your own backend. For a coding agent working with you interactively, [connect it over OAuth](/connected-agents) instead.
 
-A key is not a user of its own. It **acts as the member who created it**, and its role is a ceiling on that member's role. So a key can never do more than its creator can do in the console, and it follows its creator: demote the creator and the key is demoted with them; remove them from the workspace and the key stops working.
+A key is not a user of its own. It **acts as the person who created it**, and its role is a ceiling on that person's role. So a key can never do more than its creator can do in the console. It follows its creator: the key's role is checked against the creator's role on every request, and the key stops working if its creator is no longer in the workspace.
 
 ## Create a key
 
 <Steps>
   <Step title="Open Settings → API keys">
-    In the console, open **Settings → API keys**. Owners and admins manage keys; other members see who to ask.
+    In the console, open **Settings → API keys**. Owners and admins manage keys; anyone else is asked to go to one of them.
   </Step>
   <Step title="Create it">
     Choose **Create API key** and fill in:
@@ -38,11 +38,11 @@ Creating and revoking a key are recorded in **Settings → Audit log** (`create_
 | --- | --- |
 | **Viewer** | List and read resources, records and deliveries. |
 | **Developer** | Also create, change and delete project resources. |
-| **Admin** | Also manage members, SSO, network access and the audit log. |
+| **Admin** | Also manage projects, cron and WebSocket triggers, the workspace IP allowlist and the audit log export. |
 
 There is no owner role for a key, so **billing is never reachable with one**. Like a connected agent, a key also cannot reveal or rotate a destination's signing secret, manage connected agents, or create API keys. Those stay with a person in the console.
 
-The role is applied on every request against the creator's role at that moment. A developer key made by an admin who is later made a viewer can only read.
+The role is applied on every request against the creator's role at that moment, so a key never acts above its creator's current role.
 
 ## Project scope
 
@@ -52,7 +52,7 @@ A key for **one project** reaches:
 - `/admin/api/me`
 - the destination and source presets
 
-Everything else answers `403` and names the routes the key can use. That includes the project list (it would name the other projects), other projects, the Default-project shortcuts such as `/admin/api/rules`, and workspace-wide routes such as members, SSO and the audit log.
+Everything else answers `403` and names the routes the key can use. That includes the project list (it would name the other projects), other projects, the Default-project shortcuts such as `/admin/api/rules`, and workspace-wide routes such as the IP allowlist, API keys and the audit log.
 
 A key for **all projects** reaches whatever its role allows across the workspace.
 
@@ -112,7 +112,7 @@ claude mcp add --transport http hookie https://app.hookie.ai/mcp \
 
 ## Rate limits
 
-Each credential may make **100 requests every 10 seconds** to `/admin/api` and `/mcp` combined. Each API key, each connected agent and each person signed in to the console is counted separately, so one runaway script cannot lock out the rest of your team.
+Each credential may make **about 100 requests every 10 seconds** to `/admin/api` and `/mcp` combined. The limit is a best-effort burst guard, not an exact count: each Cloudflare location counts separately, so a short burst can get through above it. Each API key, each connected agent and each person signed in to the console is counted separately, so one runaway script cannot lock out the rest of your team.
 
 Over the limit, the request is refused with `429` and a `Retry-After: 10` header. On `/admin/api` the body is:
 

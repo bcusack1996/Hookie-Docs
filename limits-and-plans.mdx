@@ -1,0 +1,72 @@
+---
+title: "Limits and plans"
+description: "Every per-plan number in one place, how the monthly quotas count and reset, and the best-effort burst limit every credential has."
+icon: "gauge"
+---
+
+Hookie has three plans: **Free**, **Pro** and **Team**. A plan belongs to the workspace and sets the limits of every project in it. How to change plans is in [Billing](/billing), and prices are on the [pricing page](https://hookie.ai/pricing).
+
+## Per plan
+
+| | Free | Pro | Team |
+| --- | --- | --- | --- |
+| Events a month | 1,000 | 100,000 | 500,000 |
+| New events refused after | 1,000 | 110,000 | 550,000 |
+| Deliveries a month | 1,000 | 90,000 | 600,000 |
+| Deliveries held after | 1,000 | 99,000 | 660,000 |
+| AI tokens a month | 100,000 | 750,000 | 1,500,000 |
+| AI trigger runs a month | 100 | 2,000 | 10,000 |
+| Destinations | 1 | 10 | 25 |
+| Database sources | none | 3 | 10 |
+| Fastest database source poll | every hour | every 60 seconds | every 30 seconds |
+| Live stream connections at once | 1 | 5 | 20 |
+| Workflow runs active at once | 25 | 500 | 2,000 |
+| Data retention | 7 days | 30 days | 90 days |
+
+Everything in this table is counted across the whole workspace, not per project. Pro and Team accept 10% over the event and delivery numbers before they bite; Free stops at the number. Single sign-on (SAML or OIDC) is planned and not available yet, on any plan.
+
+## The same on every plan
+
+| Limit | |
+| --- | --- |
+| Endpoints | 10 per project, versions included |
+| Cron triggers | 10 per project, firing at most every 5 minutes |
+| WebSocket triggers | 5 per project |
+| Request body | 1,000,000 bytes |
+| Burst limit | about 100 requests per 10 seconds per credential; see [below](#the-burst-limit) |
+| Workflows | 32 steps, branches nested 3 deep; see [Workflows](/workflows#limits) |
+
+## Monthly quotas
+
+Every monthly quota resets at 00:00 UTC on the 1st of the month, whatever day your subscription renews. **Home** shows this month's events, deliveries and AI tokens against your plan, with a warning from 80%.
+
+- **Events.** Every accepted submission counts once, however many records it makes, and so does every event a cron trigger, WebSocket trigger or database source writes. Refused requests and recognised duplicates are not counted. The count is exact: one counter per workspace. Past the ceiling, a new event is refused with `429` and not stored. The answer carries `"reason": "quota_exceeded"`, `reset_at`, an `upgrade_url` and `Retry-After: 3600`. A trigger or source shows the refusal instead.
+- **Deliveries.** One delivery is one event sent to one destination, counted when it is created. Retries are free, and replays count. Past the ceiling, deliveries are held, not dropped: see [The delivery allowance and holds](/destinations-and-deliveries#the-delivery-allowance-and-holds).
+- **AI tokens.** The input and output tokens of every AI call count: AI trigger runs, and workflow `call_ai` and `agent_call` steps. There is no grace: once the allowance is used, the next AI call is refused before the model runs, and its step or run fails. See [AI allowance](/workflows#ai-allowance-and-the-ai-call-log).
+- **AI trigger runs.** Each AI trigger run counts once it starts running; one that fails is not counted. Past the quota, a new run fails.
+
+## The burst limit
+
+Each credential has a burst limit of **about 100 requests per 10 seconds**, the same on every plan:
+
+- on ingest, per endpoint URL and per ingest key, and per [Data API](/data-api) key;
+- on `/admin/api` and `/mcp` together, per API key, per connected agent and per person signed in to the console.
+
+Over it, the request is refused with `429` and a `Retry-After: 10` header.
+
+The burst limit is a best-effort burst guard, not an exact count. It runs on Cloudflare's rate limiting, where each Cloudflare location counts separately and its count catches up within seconds. So a short burst can get through above 100 before the first `429`, and a sender whose requests reach several Cloudflare locations is counted once at each. It is there to stop a runaway sender, not to meter one. The monthly event quota is separate from it, and exact.
+
+The customer portal's API has the same kind of guard, at about 60 calls a minute per portal token.
+
+## When you reach a limit
+
+| Limit | What happens |
+| --- | --- |
+| Event quota | New events are refused with `429` and not stored, until the 1st or an upgrade. |
+| Delivery allowance | Events are stored, and their deliveries held until someone sends them. |
+| AI tokens or AI trigger runs | The AI step or trigger run fails with the reason. |
+| Destinations or sources | Creating one more is refused with `402`. After a downgrade, the newest over the cap are paused: see [When your plan changes](/destinations#when-your-plan-changes). |
+| Live stream connections | One more connection is refused with `429`; the console's **Live** mode refreshes every 10 seconds instead. |
+| Active workflow runs | A record that would start one more run does not start it, and the audit log records `workflow_start_skipped`. |
+| Endpoints, cron or WebSocket triggers | Creating one more in the project is refused: `402` for an endpoint, `409` for a trigger. |
+| Burst limit | `429` with `Retry-After: 10`. |
