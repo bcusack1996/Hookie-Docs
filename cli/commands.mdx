@@ -66,8 +66,8 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | --- | --- | --- |
 | `hookie cron-triggers list` | `—` | This project's cron triggers: schedule, time zone, payload template, dataset, and the last and next run. |
 | `hookie cron-triggers preview` | `--schedule* --timezone` | The next five times a cron schedule would fire, before anything is saved — or the reason it cannot be stored. |
-| `hookie cron-triggers create` | `--name* --schedule* --timezone --payload --dataset` | Create a cron trigger: on its schedule it emits `payload` as an event, filed into `dataset` if given or routed by the project's rules if not, and fanned out like any other event. |
-| `hookie cron-triggers update` | `--cron-trigger-id* --enabled --name --schedule --timezone --payload --dataset` | Change a cron trigger in place: pause or resume it, rename it, or change its schedule, time zone, payload or dataset. |
+| `hookie cron-triggers create` | `--name* --schedule* --timezone --payload --dataset` | Create a cron trigger: on its schedule it emits `payload` as an event, filed into `dataset` if given or routed by the project's rules if not (a run no rule matches is stored whole, as one record, in `default`), and fanned out like any other event. |
+| `hookie cron-triggers update` | `--cron-trigger-id* --enabled --name --schedule --timezone --payload --dataset` | Change a cron trigger in place: pause or resume it, rename it, or change its schedule, time zone, payload or dataset. With no dataset, a run no rule matches is stored whole, as one record, in `default`. |
 | `hookie cron-triggers test` | `--cron-trigger-id*` | Fire a cron trigger once, now. |
 | `hookie cron-triggers delete` ⚠️ | `--cron-trigger-id*` | Delete a cron trigger. |
 
@@ -252,7 +252,7 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--heade
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie ws-triggers list` | `—` | This project's WebSocket triggers: name, conditions, mappings, dataset, connection status and last error. |
-| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --mappings --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules. `--mappings` reshape each frame the way a rule's do; with none, the frame is kept as it arrived. |
+| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --mappings --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules (a frame no rule matches is stored whole, as one record, in `default`). `--mappings` reshape each frame the way a rule's do; with none, the frame is kept as it arrived. |
 | `hookie ws-triggers update` | `--ws-trigger-id* --enabled*` | Connect or disconnect a WebSocket trigger. |
 | `hookie ws-triggers test` | `--ws-trigger-id*` | Open a short-lived connection with a WebSocket trigger's settings and return the first frames, without storing anything. |
 | `hookie ws-triggers delete` ⚠️ | `--ws-trigger-id*` | Delete a WebSocket trigger. |
