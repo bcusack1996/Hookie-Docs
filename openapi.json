@@ -23258,7 +23258,7 @@
                         },
                         "context": {
                           "type": "string",
-                          "description": "Raw JSON string of the instance scratchpad (entry payload plus each step's output_key). Truncated to 100000 chars on write."
+                          "description": "JSON string of the instance scratchpad (entry payload plus each step's output_key), redacted with the same rules as the step samples (#247): a credential-named key's value, a Bearer/Basic value and a URL password read \"[redacted]\"; nothing else is cut. The stored run state is not redacted (the run needs it); stored text is truncated to 100000 chars on write, and a truncated context that no longer parses is withheld as a JSON string saying so."
                         },
                         "correlation_id": {
                           "type": [
@@ -32276,8 +32276,8 @@
     "/portal/api/examples": {
       "get": {
         "operationId": "getPortalExamples",
-        "summary": "Example payloads for each exposed event type, and how to verify a delivery",
-        "description": "For each dataset the portal exposes (#198, PORT-11): the JSON envelope Hookie POSTs, around the shape of the dataset's latest record with every value replaced (strings `\"<string>\"`, numbers 0, booleans false, arrays one element, at most 6 levels and 50 keys). A portal's customers share its datasets, so no value from a record is ever returned \u2014 only field names. A dataset with no record yet shows the envelope with empty `data`.",
+        "summary": "Example payloads for each exposed event type, and how to verify a delivery (both signature schemes)",
+        "description": "For each dataset the portal exposes (#198, PORT-11): the JSON envelope Hookie POSTs, around the shape of the dataset's latest record with every value replaced (strings `\"<string>\"`, numbers 0, booleans false, arrays one element, at most 6 levels and 50 keys). A portal's customers share its datasets, so no value from a record is ever returned \u2014 only field names. A dataset with no record yet shows the envelope with empty `data`. The response documents both signatures every delivery carries over one timestamp: `signature` (Hookie-Signature) and, since #245, `standard_webhooks` (the Standard Webhooks `webhook-id` / `webhook-timestamp` / `webhook-signature` set added by #192, DLV-12), which a receiver can check with an official `standardwebhooks` library by passing the `whsec_` signing secret as is.",
         "tags": [
           "Customer Portal"
         ],
@@ -32291,6 +32291,7 @@
                   "required": [
                     "examples",
                     "signature",
+                    "standard_webhooks",
                     "headers"
                   ],
                   "properties": {
@@ -32354,11 +32355,60 @@
                         }
                       }
                     },
+                    "standard_webhooks": {
+                      "type": "object",
+                      "description": "The Standard Webhooks signature (https://www.standardwebhooks.com) every delivery also carries (DLV-12). `webhook-id` is the delivery id, so a retry repeats it; during a secret rotation `webhook-signature` carries one space-separated `v1,` value per live secret.",
+                      "required": [
+                        "headers",
+                        "format",
+                        "signed_content",
+                        "secret",
+                        "libraries",
+                        "spec",
+                        "note"
+                      ],
+                      "properties": {
+                        "headers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "webhook-id",
+                              "webhook-timestamp",
+                              "webhook-signature"
+                            ]
+                          }
+                        },
+                        "format": {
+                          "type": "string"
+                        },
+                        "signed_content": {
+                          "type": "string"
+                        },
+                        "secret": {
+                          "type": "string",
+                          "description": "How to hand the signing secret to a library: the `whsec_` value exactly as shown, not stripped or decoded."
+                        },
+                        "libraries": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The official Standard Webhooks libraries."
+                        },
+                        "spec": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      }
+                    },
                     "headers": {
                       "type": "array",
                       "items": {
                         "type": "string"
-                      }
+                      },
+                      "description": "Every header a delivery carries: Hookie's own and the Standard Webhooks set."
                     }
                   }
                 },
@@ -32384,11 +32434,27 @@
                     "signed_content": "<t>.<raw request body>",
                     "note": "During a secret rotation the header carries one v1 per live secret for 24 hours; accept the request when any v1 matches."
                   },
+                  "standard_webhooks": {
+                    "headers": [
+                      "webhook-id",
+                      "webhook-timestamp",
+                      "webhook-signature"
+                    ],
+                    "format": "v1,<base64 HMAC-SHA256>",
+                    "signed_content": "<webhook-id>.<webhook-timestamp>.<raw request body>",
+                    "secret": "Pass your whsec_ signing secret to the library exactly as shown. Do not strip the prefix or decode it: the library does both.",
+                    "libraries": "https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries",
+                    "spec": "https://www.standardwebhooks.com",
+                    "note": "webhook-id is the delivery id, so a retry repeats it. During a secret rotation webhook-signature carries one space-separated v1 per live secret for 24 hours; a library accepts the request when any matches."
+                  },
                   "headers": [
                     "Hookie-Signature",
                     "Hookie-Event-Id",
                     "Hookie-Delivery-Id",
-                    "Idempotency-Key"
+                    "Idempotency-Key",
+                    "webhook-id",
+                    "webhook-timestamp",
+                    "webhook-signature"
                   ]
                 }
               }
@@ -33742,7 +33808,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. Audited as `export_workspace`.",
+        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
         "security": [
           {
             "session": []
