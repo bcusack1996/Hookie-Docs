@@ -11,17 +11,17 @@ A plan belongs to a workspace, and only the workspace's **owner** manages its bi
 | Plan | Billed | How to get it |
 | --- | --- | --- |
 | **Free** | Nothing, and no card needed | Every workspace starts on it. |
-| **Pro** | A flat monthly price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**, or **Add payment method** during a Pro trial. |
-| **Team** | Monthly, per user | Not available to buy yet: its button is marked **coming soon**. |
+| **Pro** | $9.99 a month, a flat price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**, or **Add payment method** during a Pro trial. |
+| **Team** | $39.00 per user, per month | Not available to buy yet: its button is marked **coming soon**. |
 
-For prices, see the [pricing page](https://hookie.ai/pricing). What each plan includes is in [Limits and plans](/limits-and-plans). Single sign-on (SAML or OIDC) is planned and not available yet, on any plan, so no plan includes it today.
+For current prices, see the [pricing page](https://hookie.ai/pricing). What each plan includes is in [Limits and plans](/limits-and-plans). Single sign-on (SAML or OIDC) is planned and not available yet, on any plan, so no plan includes it today.
 
 ## Plan & billing
 
 **Settings → Plan & billing** shows the workspace's **Current plan**, and **Your access** shows your own role. The owner also sees:
 
 - the subscription's **Status**: **Active**, **Trialing**, **Payment failed**, **Unpaid**, **Cancels at period end** or **Cancelled**;
-- when it **Renews**, or, once it has been cancelled, when it **Ends**;
+- when it **Renews**, or, while it is in Stripe's trial, the date of its **First charge**; once it has been cancelled, when it **Ends**;
 - on Team, the number of **Seats**;
 - **Invoices**: up to the 12 most recent, with the number, date, amount and status (**Paid**, **Due**, **Open**, **Void** or **Uncollectible**), and **View** and **PDF** links;
 - **Manage billing**, which opens Stripe's customer portal in a new tab, already signed in to the workspace's billing account. Change the card, cancel, and download receipts there.
@@ -56,9 +56,15 @@ Stripe retries the charge, and meanwhile the workspace keeps its plan. **Plan & 
 
 When Hookie offers a trial, the sign-up page has a checkbox such as **Start a 14-day Pro trial**; the plan and the length are Hookie's to set. A workspace created with the box ticked runs on that plan until the trial ends, with no card. **Plan & billing** shows how many days are left. When a trial ends without a paid subscription, the workspace moves to Free and the new limits apply as for any downgrade, and **Upgrade to Pro** is there as for any Free workspace. A trial is only offered when a workspace is created.
 
-### Keep the plan: add a payment method
+### Adding a payment method during a trial
 
-During a free trial, **Plan & billing** shows **Add payment method**, followed by the plan you are trying and its monthly price. It opens the same Stripe checkout as **Upgrade to Pro**, for the plan you are trying. Your paid subscription starts when checkout completes, and the trial ends then: checkout bills from today, and the days left in the trial are not carried over. Once Stripe confirms the subscription, the trial notice goes away and **Manage billing** appears.
+While your workspace is on a free trial, **Settings → Plan & billing** shows **Add payment method**, followed by the plan you are trying and its monthly price. It opens Stripe Checkout for the plan you are trying.
+
+**You keep the rest of your trial.** If your trial has more than 48 hours left, adding a card does not charge you. Your subscription starts in a trial that ends at the same moment as your Hookie trial, and your card is first charged then. The note under the button shows the date. The trial is never extended: it ends when it would have ended anyway.
+
+**With less than 48 hours left, billing starts today.** Stripe cannot start a trial that ends that soon. Checkout starts the paid subscription immediately, and your trial ends with it. The note under the button says so before you check out.
+
+Once the card is added, **Plan & billing** shows your subscription as **Trialing**, with the date of the **First charge**. You are on the paid plan from that moment. Everything the plan includes stays on, and nothing changes when the trial converts. To change your card or cancel before the first charge, use **Manage billing**. If you cancel during the trial, the workspace moves to Free, and subscribing again starts billing that day.
 
 As with any checkout, only the owner can complete it. A trial of a plan that is not available to buy yet, such as Team, shows no **Add payment method** button.
 

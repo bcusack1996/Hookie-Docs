@@ -1733,7 +1733,7 @@
     "/v1/ingest/{ingest_key}": {
       "post": {
         "operationId": "ingestEvent",
-        "summary": "Ingest an event with an ingest key, routed by the project's mapping rules",
+        "summary": "Ingest an event with an ingest key, routed by the project's mapping rules, with the key's default dataset as the fallback",
         "tags": [
           "Ingest"
         ],
@@ -1783,7 +1783,7 @@
             }
           },
           "201": {
-            "description": "Stored. With no dataset in the path the payload runs through the project's enabled mapping rules (webhook mirror rules excluded), and 'routed' holds the NAME of every rule that matched and applied. No matching rule is still a 201 with routed: [] and records: 0, as is a swallowed routing failure \u2014 the raw submission is always kept.",
+            "description": "Stored. With no dataset in the path the payload runs through the project's enabled mapping rules (webhook mirror rules excluded), and 'routed' holds the NAME of every rule that matched and applied (fallback: false). When no rule produces a record (none matched, or every matching rule failed to write), the whole payload is stored as one record in the key's dataset_default instead (#280): routed: [\"<that dataset>\"], records: 1, fallback: true. That record fans out (deliveries, live stream, AI triggers, workflows) exactly as a rule-routed one does, and the request is charged the same one quota event either way. A routing failure the fallback cannot recover from is still a 201, with routed: [] and records: 0; the raw submission is always kept and marked failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1791,7 +1791,8 @@
                   "required": [
                     "submission_id",
                     "routed",
-                    "records"
+                    "records",
+                    "fallback"
                   ],
                   "additionalProperties": false,
                   "properties": {
@@ -1803,11 +1804,15 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "names of the mapping rules that applied"
+                      "description": "names of the mapping rules that applied; with fallback: true, the single dataset the event was stored in instead"
                     },
                     "records": {
                       "type": "integer",
                       "description": "routed.length"
+                    },
+                    "fallback": {
+                      "type": "boolean",
+                      "description": "True when no mapping rule routed the event and it was stored whole, as one record, in the ingest key's dataset_default (#280); 'routed' then holds that dataset's name instead of rule names. False when rules routed it. Present only on this route (no dataset segment)."
                     }
                   }
                 }
@@ -2126,7 +2131,7 @@
             }
           },
           "201": {
-            "description": "Stored; 'routed' holds the names of the mapping rules that applied.",
+            "description": "Stored; 'routed' holds the names of the mapping rules that applied or, when none routed it and fallback is true, the key's dataset_default the whole payload was stored in (#280).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2134,7 +2139,8 @@
                   "required": [
                     "submission_id",
                     "routed",
-                    "records"
+                    "records",
+                    "fallback"
                   ],
                   "additionalProperties": false,
                   "properties": {
@@ -2149,6 +2155,10 @@
                     },
                     "records": {
                       "type": "integer"
+                    },
+                    "fallback": {
+                      "type": "boolean",
+                      "description": "True when no mapping rule routed the event and it was stored whole, as one record, in the ingest key's dataset_default (#280); 'routed' then holds that dataset's name instead of rule names. False when rules routed it. Present only on this route (no dataset segment)."
                     }
                   }
                 }
@@ -2641,7 +2651,7 @@
             "name": "dataset",
             "in": "path",
             "required": true,
-            "description": "Dataset name. Its presence switches routing to identity: the whole payload is stored as one record in this dataset and the project's mapping rules are NOT consulted. The name is used as given (no validation, no lookup). The key's dataset_default plays no part in routing, here or without a dataset segment.",
+            "description": "Dataset name. Its presence switches routing to identity: the whole payload is stored as one record in this dataset and the project's mapping rules are NOT consulted. The name is used as given (no validation, no lookup). The key's dataset_default is not used here: it is the fallback only when the path names no dataset.",
             "schema": {
               "type": "string"
             }
@@ -11606,7 +11616,7 @@
                     "type": "string",
                     "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$",
                     "default": "default",
-                    "description": "A label stored on the key, listed with it and carried over on rotation. Ingest does not route by it: on POST /v1/ingest/{ingest_key} with no dataset segment only the project's mapping rules run, and an event no rule matches is kept as a submission with no record (201, routed: [], records: 0). To write to a dataset directly, name it in the path: POST /v1/ingest/{ingest_key}/{dataset}. Must be a valid dataset name; a non-string value is stored as default. Fixed at creation."
+                    "description": "Where POST /v1/ingest/{ingest_key} (no dataset segment) stores an event none of the project's mapping rules routes: the whole payload (the identity mapping) as one record in this dataset, fanned out to destinations, the live stream, AI triggers and workflows like any other record, and charged the same single quota event. The 201 then answers routed: [\"<this dataset>\"], records: 1, fallback: true. A dataset named in the path (POST /v1/ingest/{ingest_key}/{dataset}) is written directly and endpoint URLs never use it. Must be a valid dataset name; a non-string value is stored as default. Listed with the key, carried over on rotation, and fixed at creation (#280)."
                   },
                   "require_signature": {
                     "type": "boolean",
@@ -28399,7 +28409,7 @@
                         },
                         "status": {
                           "type": "string",
-                          "description": "Stripe subscription status as last seen by the webhook, e.g. active, past_due, unpaid, incomplete, paused, canceled."
+                          "description": "Stripe subscription status as last seen by the webhook, e.g. active, trialing, past_due, unpaid, incomplete, paused, canceled. `trialing` is the paid plan in Stripe's trial: the card is first charged at current_period_end."
                         },
                         "plan": {
                           "type": "string",
@@ -28441,7 +28451,7 @@
                         },
                         "team": {
                           "type": "string",
-                          "example": "19.99"
+                          "example": "39.00"
                         }
                       },
                       "description": "Display only, overridable from platform_settings. What Stripe charges is fixed by the price ids."
@@ -28520,12 +28530,13 @@
       "post": {
         "operationId": "createBillingCheckoutSession",
         "summary": "Start a new subscription via Stripe Checkout",
+        "description": "Owner only. Starts a Stripe Checkout session for a NEW subscription; a workspace with a live one (active, trialing, past_due, unpaid, paused) is refused with 409. A workspace on a Hookie trial that checks out the plan it is trying keeps the rest of the trial: with at least 48 hours and ten minutes left, the session carries `subscription_data[trial_end]` = the trial's end (unix seconds, rounded down, so never later), the subscription starts in Stripe's trial, and the card is first charged when the trial ends. Stripe refuses a trial end less than 48 hours out, so closer than that, for any other plan, or with no trial, billing starts today.",
         "tags": [
           "Billing"
         ],
         "responses": {
           "200": {
-            "description": "Checkout session created. Redirect the browser to `checkout_url`. Success/cancel return to {APP_ORIGIN}/settings/billing?status=success|cancel. The plan only changes when the signed Stripe webhook confirms the subscription.",
+            "description": "Checkout session created. Redirect the browser to `checkout_url`. Success/cancel return to {APP_ORIGIN}/?checkout=success|cancel#/settings/billing. The plan only changes when the signed Stripe webhook confirms the subscription.",
             "content": {
               "application/json": {
                 "schema": {
@@ -28705,7 +28716,7 @@
                         },
                         "status": {
                           "type": "string",
-                          "description": "Stripe subscription status."
+                          "description": "Stripe subscription status. `trialing` is the paid plan in Stripe's trial, first charged at renews_at."
                         },
                         "plan": {
                           "type": [
@@ -28744,7 +28755,7 @@
                             "string",
                             "null"
                           ],
-                          "description": "When it next renews; null once it is cancelling."
+                          "description": "When it next renews, or, while trialing, when the card is first charged; null once it is cancelling."
                         },
                         "ends_at": {
                           "type": [

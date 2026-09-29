@@ -11,7 +11,7 @@ Routing decides which dataset an event lands in, and which fields its record has
 | An endpoint URL, `/{workspace}/{project}/{webhook}` | The endpoint's own | The endpoint's criteria and mappings |
 | `/v1/webhooks/{ingest_key}/{slug}` | That endpoint's own | That endpoint's criteria and mappings |
 | `/v1/ingest/{ingest_key}/{dataset}` | The one in the path | Stored whole |
-| `/v1/ingest/{ingest_key}` | Chosen by the project's **rules** | Each matching rule's mappings |
+| `/v1/ingest/{ingest_key}` | Chosen by the project's **rules**; the key's default dataset when none matches | Each matching rule's mappings; stored whole when none matches |
 
 <Warning>
   **Rules run on exactly one shape: `POST /v1/ingest/{ingest_key}` with no dataset in the path.** An endpoint URL never consults them, so adding a rule and then posting to an endpoint changes nothing. Rules are for a sender that cannot say where each event belongs.
@@ -22,7 +22,7 @@ Routing decides which dataset an event lands in, and which fields its record has
 A rule has a name, a dataset, conditions, mappings and a status. For an event sent with an ingest key and no dataset, every enabled rule in the key's project is tried:
 
 - **Every rule that matches writes its own record**, so one event can land in several datasets. Rules are not first-match.
-- **When none matches, no record is written.** The answer says `"routed": []`, and the submission is kept as **Pending (no rule matched yet)**, so an event nobody routed is never mistaken for one that never arrived.
+- **When no rule matches, the event is not lost.** It is stored whole in the ingest key's [default dataset](/endpoints-and-keys#ingest-keys), and the response says `fallback: true`. To see which events are falling through, open that dataset: anything there is a candidate for a new rule. Rules do not run on endpoint URLs, which apply the endpoint's own criteria and mappings.
 - **No conditions matches every event, and no mappings stores the payload whole.**
 
 For example, this event:
