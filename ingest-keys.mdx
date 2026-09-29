@@ -21,7 +21,7 @@ A key belongs to one project. Anyone holding it can send events into that projec
   <Step title="Create it">
     Choose **Create key** and give it the name of the sender that will use it. Optionally set:
 
-    - a **default dataset**, used when a request names none and no rule matches;
+    - a **default dataset**, a label stored with the key. Events are not routed to it: a request with no dataset in the path goes only where [rules](/concepts/rules-and-mappings) send it;
     - an **expiry**, after which the key is refused exactly as if it had been revoked;
     - **allowed source IPs**, one IP or CIDR range per line;
     - **require a signature**, which also mints a signing secret.
