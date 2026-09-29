@@ -111,7 +111,7 @@ HOOKIE_ALLOW_REMOTE=1 HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
 | 0 | ok | |
 | 1 | unexpected | Something the CLI did not anticipate. |
 | 2 | usage | A bad flag, a missing argument, a file that will not parse. |
-| 3 | auth | Nothing connected, or the connection was revoked. |
+| 3 | auth | Nothing connected, the connection was revoked, or it is not approved for what the command does. The message then names the scope it needs and links to **Settings → Connected agents**, where it is widened; the next command picks the change up, with no need to log in again. |
 | 4 | not found | |
 | 5 | validation | The server rejected the request. |
 | 6 | network | The request never got a verdict — unreachable, `429`, or `5xx`. |
@@ -121,7 +121,7 @@ HOOKIE_ALLOW_REMOTE=1 HOOKIE_TOKEN="$HOOKIE_CI_TOKEN" \
 ```bash
 if ! hookie deliveries search --status failed --since 1h --json > out.json; then
   case $? in
-    3) echo "reconnect: hookie login" >&2 ;;
+    3) echo "not connected, or not approved for this — see the message" >&2 ;;
     6) echo "transient — retrying" >&2; sleep 30; exec "$0" "$@" ;;
     *) exit $? ;;
   esac

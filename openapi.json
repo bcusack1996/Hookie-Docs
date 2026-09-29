@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. Whenever the URL names a dataset the payload is stored whole into it; project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management and the POST-bodied searches. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries and resumes the rest; no stored data is lost.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. Whenever the URL names a dataset the payload is stored whole into it; project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -129,6 +129,62 @@
           "reason": {
             "type": "string",
             "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "agent_scope_insufficient",
+              "insufficient_role",
+              "agent_not_permitted"
+            ],
+            "description": "Present on a 403 to an OAuth-connected agent. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 a workspace owner or admin has to change the role. `agent_not_permitted`: no connected agent may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret)."
+          },
+          "required_scope": {
+            "type": "string",
+            "enum": [
+              "hookie:read",
+              "hookie:write",
+              "hookie:manage"
+            ],
+            "description": "With `code`: the scope the refused call needs."
+          },
+          "granted_scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "With `code`: the scopes the agent's grant holds now."
+          },
+          "manage_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "With `code: \"agent_scope_insufficient\"` only: the console's Settings \u2192 Connected agents page, opened on this agent (`\u2026/#/settings/agents?client=<client_id>`), where its user widens the grant. The change applies on the agent's next request."
+          }
+        }
+      },
+      "DeliveryEnvelope": {
+        "type": "object",
+        "description": "The body of every outbound delivery. Always this envelope; the record's payload is under data. Verify signatures over the raw bytes as received, never a re-serialisation.",
+        "required": [
+          "id",
+          "dataset",
+          "received_at",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The record (event) id. The same on every retry and replay of it."
+          },
+          "dataset": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "description": "The record's payload, as routed."
           }
         }
       }
@@ -253,7 +309,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -272,6 +328,22 @@
                           "type": "string",
                           "format": "uri",
                           "description": "monthly-quota 429 only"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -582,7 +654,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -599,6 +671,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -929,7 +1017,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -948,6 +1036,22 @@
                           "type": "string",
                           "format": "uri",
                           "description": "quota 429 only"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -991,7 +1095,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key. It is looked up by its first 16 characters (key_prefix) among non-revoked keys and then compared constant-time against the stored SHA-256 hash.",
+            "description": "The plaintext ingest key. It is looked up by its full SHA-256 hash (#177), among keys that are neither revoked nor expired, and compared constant-time; key_prefix is only a display label.",
             "schema": {
               "type": "string"
             }
@@ -1236,7 +1340,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1253,6 +1357,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -1296,7 +1416,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison).",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -1542,7 +1662,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1559,6 +1679,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -1602,7 +1738,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison; revoked keys never match).",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -1855,7 +1991,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1872,6 +2008,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2172,7 +2324,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2189,6 +2341,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2257,7 +2425,7 @@
             "name": "ingest_key",
             "in": "path",
             "required": true,
-            "description": "The plaintext ingest key (prefix lookup + constant-time SHA-256 comparison). It authenticates the request; the tenant it belongs to scopes the webhook lookup.",
+            "description": "The plaintext ingest key (looked up by its full SHA-256 hash, #177; revoked and expired keys never match). It authenticates the request; the tenant it belongs to scopes the webhook lookup.",
             "schema": {
               "type": "string"
             }
@@ -2510,7 +2678,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota: {error: 'Monthly event quota exceeded', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. Only the quota case carries upgrade_url. Both limiters fail open if their backing service is unavailable.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. Monthly plan quota (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2527,6 +2695,22 @@
                         "upgrade_url": {
                           "type": "string",
                           "format": "uri"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "quota_exceeded"
+                          ],
+                          "description": "monthly-quota 429 only: quota_exceeded"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "reset_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "monthly-quota 429 only: when the quota resets, 00:00 UTC on the 1st of next month"
                         }
                       }
                     }
@@ -2842,13 +3026,13 @@
             }
           }
         },
-        "description": "Read-only live tail of every event fanned out in the key's PROJECT. It never exposes stored records or the admin API. An ingest key belongs to one project, and the stream it opens is pinned to that project: it cannot be widened by leaving project_id off, and naming a different project is a 403. Narrow further with dataset. GET only: any other method returns 405 {\"error\":\"Use GET\"}.",
+        "description": "Read-only live tail of every event fanned out in the key's PROJECT. It never exposes stored records or the admin API. An ingest key belongs to one project, and the stream it opens is pinned to that project: it cannot be widened by leaving project_id off, and naming a different project is a 403. Narrow further with dataset. GET only: any other method returns 405 {\"error\":\"Use GET\"}. If the workspace is suspended while a connection is open, the connection is closed: a WebSocket first receives {\"type\":\"workspace-suspended\",\"reason\":\"workspace_suspended\",\"error\":\"...\"} and then closes with code 1008 and reason `workspace_suspended`; an SSE stream receives a `workspace-suspended` event carrying the same object and ends. Reconnecting is refused with 403 until the workspace is reinstated.",
         "parameters": [
           {
             "name": "key",
             "in": "query",
             "required": false,
-            "description": "Ingest key as a query parameter, for browser EventSource clients that cannot set headers. Used only when no 'Authorization: Bearer <ingest key>' header is present; if neither is supplied the request is 401. Same key resolution as ingest (prefix lookup + constant-time SHA-256 comparison; revoked keys never match).",
+            "description": "Ingest key as a query parameter, for browser EventSource clients that cannot set headers. Used only when no 'Authorization: Bearer <ingest key>' header is present; if neither is supplied the request is 401. Same key resolution as ingest (looked up by its full SHA-256 hash, #177; revoked and expired keys never match).",
             "schema": {
               "type": "string"
             }
@@ -3284,7 +3468,7 @@
             }
           },
           "403": {
-            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token. Also `reason: \"workspace_suspended\"` when the workspace is suspended: the portal is read-only until it is reinstated, and nothing is changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3438,7 +3622,7 @@
             }
           },
           "403": {
-            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token. Also `reason: \"workspace_suspended\"` when the workspace is suspended: the portal is read-only until it is reinstated, and nothing is changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3575,7 +3759,7 @@
             }
           },
           "403": {
-            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token.",
+            "description": "`Missing X-Requested-With header` \u2014 a write made with the session cookie must carry `X-Requested-With: fetch`. Not required with a bearer token. Also `reason: \"workspace_suspended\"` when the workspace is suspended: the portal is read-only until it is reinstated, and nothing is changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4654,7 +4838,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - project creation is owner/admin only, so a developer is refused here even though it may write project resources; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role - project creation is owner/admin only, so a developer is refused here even though it may write project resources; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -4929,7 +5113,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - owner/admin only; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role - owner/admin only; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -5872,7 +6056,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6133,7 +6317,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6315,7 +6499,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6431,7 +6615,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6776,7 +6960,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7005,7 +7189,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7277,7 +7461,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7353,7 +7537,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7983,7 +8167,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8205,7 +8389,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8366,7 +8550,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8472,7 +8656,7 @@
                           },
                           "key_prefix": {
                             "type": "string",
-                            "description": "First 16 characters of the issued token."
+                            "description": "First 16 characters of the issued token: a display label only, since a key is authenticated by its full hash (#177)."
                           },
                           "dataset_default": {
                             "type": "string"
@@ -8680,7 +8864,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8815,7 +8999,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9002,7 +9186,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9281,7 +9465,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9413,7 +9597,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9576,7 +9760,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9674,7 +9858,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - owner or admin only (a developer is refused), and ALWAYS refused for an OAuth-connected agent whatever its scopes.",
+            "description": "Insufficient role - owner or admin only (a developer is refused), and ALWAYS refused for an OAuth-connected agent whatever its scopes. An agent is refused with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9744,7 +9928,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Rotated, returning the new plaintext secret (status 200, not 201). Sent with Cache-Control: no-store and audited as rotate_destination_secret. The secret it replaced keeps signing for 24 hours: until previous_secret_expires_at every delivery's Hookie-Signature carries two v1 values, the new secret's first (t=<unix>,v1=<new>,v1=<old>), so the receiver can be moved to the new secret at any point in the window. Rotating again inside a window replaces the older secret. End the window early with expire-previous-secret. No request body is read.",
+            "description": "Rotated, returning the new plaintext secret (status 200, not 201). Sent with Cache-Control: no-store and audited as rotate_destination_secret. The secret it replaced keeps signing for 24 hours: until previous_secret_expires_at every delivery's Hookie-Signature carries two v1 values, the new secret's first (t=<unix>,v1=<new>,v1=<old>), and its Standard Webhooks webhook-signature two space-separated entries in the same order (v1,<new> v1,<old>), so the receiver can be moved to the new secret at any point in the window. Rotating again inside a window replaces the older secret. End the window early with expire-previous-secret. No request body is read.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9779,7 +9963,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - owner or admin only, never an OAuth-connected agent; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role - owner or admin only, never an OAuth-connected agent; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. An agent is refused with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9899,7 +10083,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - owner or admin only, never an OAuth-connected agent; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header.",
+            "description": "Insufficient role - owner or admin only, never an OAuth-connected agent; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. An agent is refused with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10370,7 +10554,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -10656,7 +10840,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -10926,7 +11110,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12832,7 +13016,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role - only returned for format=csv, which requires the manage capability (owner or admin).",
+            "description": "Insufficient role - only returned for format=csv, which requires the manage capability (owner or admin). For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13221,7 +13405,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header` on a cookie session. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header` on a cookie session. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13369,7 +13553,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13484,7 +13668,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13585,7 +13769,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13832,7 +14016,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14029,7 +14213,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14143,7 +14327,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14405,7 +14589,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only (not developer), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only (not developer), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14705,7 +14889,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14851,7 +15035,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14956,7 +15140,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15223,7 +15407,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15388,19 +15572,20 @@
     "/admin/api/projects/{project_id}/ws-triggers/{ws_trigger_id}": {
       "patch": {
         "operationId": "updateWsTrigger",
-        "summary": "Enable or disable a WebSocket trigger",
+        "summary": "Edit, pause or resume a WebSocket trigger",
         "tags": [
           "WebSocket triggers"
         ],
         "responses": {
           "200": {
-            "description": "Updated; the WsListener DO is armed or stopped to match.",
+            "description": "Updated. The listener is reconnected, stopped or armed to match. The trigger as stored now, never its connection settings.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "ok"
+                    "ok",
+                    "ws_trigger"
                   ],
                   "properties": {
                     "ok": {
@@ -15408,6 +15593,83 @@
                       "enum": [
                         true
                       ]
+                    },
+                    "ws_trigger": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "conditions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "op": {
+                                "type": "string",
+                                "enum": [
+                                  "equals",
+                                  "not_equals",
+                                  "contains",
+                                  "exists",
+                                  "gt",
+                                  "lt"
+                                ]
+                              },
+                              "value": {}
+                            },
+                            "description": "Stored in the full {path, op, value} form."
+                          }
+                        },
+                        "mappings": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "dataset": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "connected",
+                            "connecting",
+                            "disconnected",
+                            "error"
+                          ]
+                        },
+                        "last_event_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }
@@ -15415,7 +15677,7 @@
             }
           },
           "400": {
-            "description": "`Only 'enabled' is supported for PATCH in this phase`.",
+            "description": "`Nothing to change: send any of name, enabled, url, headers, subprotocols, connect_message, conditions, dataset`, `enabled must be true or false`, `name is required (1-80 chars)`, `conditions: \u2026` (the #165 validation), `dataset: \u2026`, `url must be a ws:// or wss:// URL`, or `url moves this trigger to another host: send headers and connect_message with it (null for none). \u2026`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15435,7 +15697,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15455,7 +15717,7 @@
             }
           },
           "500": {
-            "description": "`Internal error`.",
+            "description": "`This trigger's stored connection settings could not be read`, or `Internal error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15489,13 +15751,84 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "enabled"
-                ],
+                "minProperties": 1,
+                "additionalProperties": true,
                 "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
                   "enabled": {
                     "type": "boolean",
                     "description": "true arms the listener socket; false tears it down."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Must start with ws:// or wss://. To a different host, send headers and connect_message too when the trigger has them stored."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "default": {},
+                    "description": "Connection headers. Encrypted; never returned."
+                  },
+                  "subprotocols": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "connect_message": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Sent once on connect (e.g. a subscribe frame)."
+                  },
+                  "conditions": {
+                    "type": "array",
+                    "default": [],
+                    "description": "Frame filter; an empty array matches every frame. Validated on save (#165) and stored in the full {path, op, value} form.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path"
+                      ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Dot path. The empty path is rejected."
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "equals",
+                            "not_equals",
+                            "contains",
+                            "exists",
+                            "gt",
+                            "lt"
+                          ]
+                        },
+                        "value": {
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                        }
+                      }
+                    }
+                  },
+                  "dataset": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "null or empty routes each frame by the project's rules. Validated as a dataset name."
                   }
                 }
               }
@@ -15509,7 +15842,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Change any of name, enabled, url, headers, subprotocols, connect_message, conditions and dataset (#177); each is checked as create checks it, conditions in the one dialect (#165). A change to the connection, the conditions or the dataset reconnects the listener, which reads them when it connects; a rename alone leaves the socket open. enabled false closes the socket and true opens it. The connection settings stay encrypted and are never returned. Moving url to a different host is refused unless the request also sends each stored headers / connect_message (null for none): credentials nobody can read back are never carried to a new host unseen."
       },
       "delete": {
         "operationId": "deleteWsTrigger",
@@ -15550,7 +15884,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15649,7 +15983,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 owner or admin only, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15913,7 +16247,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -16094,7 +16428,7 @@
                             "output_dataset": {
                               "type": "string",
                               "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,62}$",
-                              "description": "Optional dataset to also write the AI result into."
+                              "description": "Optional dataset to also write the AI result into, as a record {output, workflow_id, instance_id} carrying the entry event's hop. The record goes through the shared fan-out like any other event, with a fan-out outbox row behind it (#177, FLOW-6): the project's destinations whose filter admits the dataset (under the monthly delivery allowance), the live stream and matching AI triggers. It never starts or resumes a workflow, not even one entered on this dataset, so a workflow cannot feed itself."
                             }
                           }
                         },
@@ -16590,7 +16924,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -16764,7 +17098,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17442,7 +17776,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17575,7 +17909,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17819,7 +18153,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -18111,7 +18445,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -18218,6 +18552,159 @@
           }
         ]
       },
+      "patch": {
+        "operationId": "patchAiAgent",
+        "summary": "Change an AI agent (only the fields sent)",
+        "tags": [
+          "AI agents"
+        ],
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`body must be an object`, or the createAiAgent validation messages, applied to the agent as it will be after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Agent not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Any subset of the create body. Fields left out keep their current values \u2014 unlike PUT, which replaces the whole agent and resets what it omits. `memory_dataset: null` stops storing replies; `active: false` retires it. The MCP tool update_ai_agent uses this.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "model": {
+                    "type": "string",
+                    "default": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+                  },
+                  "system_prompt": {
+                    "type": "string",
+                    "maxLength": 8000
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "memory_dataset": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "default": 1024
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
       "delete": {
         "operationId": "deleteAiAgent",
         "summary": "Deactivate an AI agent",
@@ -18257,7 +18744,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -18684,7 +19171,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -18949,7 +19436,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19087,7 +19574,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19353,7 +19840,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (write capability required), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19478,7 +19965,8 @@
                   "type": "object",
                   "required": [
                     "agents",
-                    "available_scopes"
+                    "available_scopes",
+                    "available_levels"
                   ],
                   "properties": {
                     "agents": {
@@ -19492,7 +19980,8 @@
                           "scopes",
                           "connected_at",
                           "last_used_at",
-                          "revoked_at"
+                          "revoked_at",
+                          "level"
                         ],
                         "properties": {
                           "id": {
@@ -19520,7 +20009,7 @@
                                 "hookie:manage"
                               ]
                             },
-                            "description": "A newly seen agent starts read-only; the user widens it here."
+                            "description": "Every scope up to the grant's level (a grant is a ladder, so `hookie:manage` is stored with read and write). A newly seen agent starts read-only; the user widens it here."
                           },
                           "connected_at": {
                             "type": "string"
@@ -19533,6 +20022,19 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "level": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "read",
+                              "write",
+                              "manage",
+                              null
+                            ],
+                            "description": "The rung the grant reaches \u2014 read < write < manage \u2014 or null when it holds no Hookie scope. A higher rung includes the lower ones."
                           }
                         }
                       }
@@ -19546,6 +20048,17 @@
                         "hookie:read",
                         "hookie:write",
                         "hookie:manage"
+                      ]
+                    },
+                    "available_levels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "read",
+                        "write",
+                        "manage"
                       ]
                     }
                   }
@@ -19564,7 +20077,7 @@
             }
           },
           "403": {
-            "description": "`Connected agents are managed by the account owner in the console` \u2014 the caller is itself an OAuth agent. An agent can never list, widen or revoke grants, including its own.",
+            "description": "`Managing connected agents is not available to connected agents at any scope\u2026` with `code: \"agent_not_permitted\"` \u2014 the caller is itself an OAuth agent. An agent can never list, widen or revoke grants, including its own.",
             "content": {
               "application/json": {
                 "schema": {
@@ -19607,7 +20120,8 @@
                   "type": "object",
                   "required": [
                     "ok",
-                    "scopes"
+                    "scopes",
+                    "level"
                   ],
                   "properties": {
                     "ok": {
@@ -19621,7 +20135,20 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "The sanitized scopes now stored."
+                      "description": "The scopes now stored: every scope up to the level."
+                    },
+                    "level": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "read",
+                        "write",
+                        "manage",
+                        null
+                      ],
+                      "description": "The rung the grant reaches \u2014 read < write < manage \u2014 or null when it holds no Hookie scope. A higher rung includes the lower ones."
                     }
                   }
                 }
@@ -19629,7 +20156,7 @@
             }
           },
           "400": {
-            "description": "`scopes must be an array`, or `scopes must be a subset of: hookie:read, hookie:write, hookie:manage`.",
+            "description": "`level must be one of: read, write, manage`, `Send level (read, write or manage), or scopes as an array`, or `scopes must be a subset of: hookie:read, hookie:write, hookie:manage`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -19649,7 +20176,7 @@
             }
           },
           "403": {
-            "description": "`Connected agents are managed by the account owner in the console` (caller is an agent), or `Missing X-Requested-With header`.",
+            "description": "`Managing connected agents is not available to connected agents at any scope\u2026` with `code: \"agent_not_permitted\"` (caller is an agent), or `Missing X-Requested-With header`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -19696,10 +20223,16 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "scopes"
-                ],
                 "properties": {
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "write",
+                      "manage"
+                    ],
+                    "description": "The rung to grant. Takes precedence over `scopes`."
+                  },
                   "scopes": {
                     "type": "array",
                     "items": {
@@ -19710,8 +20243,11 @@
                         "hookie:manage"
                       ]
                     },
-                    "description": "Full replacement. Any unknown scope is REJECTED rather than silently dropped. An empty array leaves the agent with no Hookie scope, so its next admin-API request fails. hookie:manage clips to at most the `admin` role \u2014 billing is out of reach at every scope."
+                    "description": "Read by its highest scope. Accepted for existing callers."
                   }
+                },
+                "example": {
+                  "level": "write"
                 }
               }
             }
@@ -19721,7 +20257,8 @@
           {
             "session": []
           }
-        ]
+        ],
+        "description": "Set the grant to one rung of the ladder read < write < manage. Send `level` (what the console sends), or `scopes` \u2014 a list is read by its HIGHEST scope and stored as the ladder up to it, so `[\"hookie:manage\"]` stores all three. An empty `scopes` list leaves the agent connected with no access; to cut it off, revoke it."
       },
       "delete": {
         "operationId": "revokeConnectedAgent",
@@ -19762,7 +20299,7 @@
             }
           },
           "403": {
-            "description": "`Connected agents are managed by the account owner in the console` (caller is an agent), or `Missing X-Requested-With header`.",
+            "description": "`Managing connected agents is not available to connected agents at any scope\u2026` with `code: \"agent_not_permitted\"` (caller is an agent), or `Missing X-Requested-With header`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -20001,7 +20538,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability (owner/admin) required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 manage capability (owner/admin) required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20164,7 +20701,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20318,7 +20855,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20433,7 +20970,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` \u2014 manage capability required, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20550,7 +21087,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20659,7 +21196,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`Insufficient role` (owners and admins only: the manage capability), or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20752,7 +21289,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role` (owners and admins only).",
+            "description": "`Insufficient role` (owners and admins only). For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20969,7 +21506,7 @@
             }
           },
           "403": {
-            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Team plan is coming soon` (TEAM_PLAN_SELF_SERVE is false in this build, so plan=team always fails here), or `Missing X-Requested-With header`.",
+            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Team plan is coming soon` (TEAM_PLAN_SELF_SERVE is false in this build, so plan=team always fails here), or `Missing X-Requested-With header`. An agent \u2014 at any scope \u2014 is refused first, with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21381,7 +21918,37 @@
             }
           },
           "429": {
-            "description": "Too many requests for this key."
+            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "retry_after": {
+                          "type": "integer",
+                          "enum": [
+                            10
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -21529,7 +22096,37 @@
             "description": "No such dataset \u2014 or one this project does not expose; the two are deliberately indistinguishable."
           },
           "429": {
-            "description": "Too many requests for this key."
+            "description": "The key's burst limit (the ingest limiter: 100 requests per 10 seconds per key): {error: 'Too many requests for this key \u2014 slow down and retry', retry_after: 10}, with a Retry-After: 10 response header, the same value (#177). Fails open if the limiter is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "retry_after": {
+                          "type": "integer",
+                          "enum": [
+                            10
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 10. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -22980,7 +23577,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -23168,7 +23765,7 @@
             }
           },
           "403": {
-            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -23216,6 +23813,126 @@
             "bearerAuth": []
           }
         ]
+      }
+    }
+  },
+  "webhooks": {
+    "delivery": {
+      "post": {
+        "operationId": "delivery",
+        "summary": "An outbound delivery to a destination",
+        "tags": [
+          "Delivery"
+        ],
+        "description": "What Hookie POSTs to a destination URL for each routed record. Delivery is at-least-once and unordered: dedupe on Hookie-Event-Id (the same value as Idempotency-Key). Redirects are never followed. Every request is signed TWICE over one timestamp, so a receiver can verify whichever it prefers: Hookie-Signature (Stripe-style, t=<unix>,v1=<hex>) and the Standard Webhooks headers webhook-id / webhook-timestamp / webhook-signature, which any Standard Webhooks library verifies unchanged. For 24 hours after a signing-secret rotation (until the destination's previous_secret_expires_at) each header carries two signatures, the new secret's first: two v1= values in Hookie-Signature and two space-separated v1,<base64> entries in webhook-signature. Accept the request if ANY signature matches a secret you hold, and reject a timestamp more than five minutes from now. The two schemes derive DIFFERENT HMAC keys from the same whsec_ signing secret: Hookie-Signature is keyed with the UTF-8 bytes of the whole secret string, whsec_ included; webhook-signature is keyed, as the Standard Webhooks spec says, with the base64-decoded bytes of what follows whsec_. Hookie's secrets are whsec_ + 48 hex characters, which is valid base64 (hex digits are base64 characters and 48 is a multiple of 4) and decodes to 36 bytes, so any Standard Webhooks library accepts the secret exactly as shown.",
+        "parameters": [
+          {
+            "name": "Hookie-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<lowercase hex HMAC-SHA256 of \"<t>.<raw body>\">, keyed with the UTF-8 bytes of the whole signing secret (whsec_ included). During a rotation overlap: t=<unix>,v1=<new>,v1=<previous>. Unchanged since before the Standard Webhooks headers were added.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "t=1790000000,v1=5f2b8c0d6e1a4b3c2d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c"
+          },
+          {
+            "name": "webhook-id",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks message id: the delivery id (the same value as Hookie-Delivery-Id). Every retry of a delivery repeats it; a replay is a new delivery and carries a new one.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "4c7b2a9e-1f3d-4e5a-8b6c-0d9e8f7a6b5c"
+          },
+          {
+            "name": "webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks timestamp: unix seconds, the same value as Hookie-Signature's t.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "example": "1790000000"
+          },
+          {
+            "name": "webhook-signature",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks signature: v1,<base64 HMAC-SHA256 of \"<webhook-id>.<webhook-timestamp>.<raw body>\">, keyed with the base64-decoded bytes after whsec_ (for a Hookie secret, 36 bytes). During a rotation overlap two entries, space-separated, new first: v1,<new> v1,<previous>. Omitted, with webhook-id and webhook-timestamp, only for a secret that is not valid base64, which Hookie never mints.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+          },
+          {
+            "name": "Hookie-Event-Id",
+            "in": "header",
+            "required": true,
+            "description": "The record id: the same on every retry and replay. Dedupe on this.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "rec_9d3f2a10"
+          },
+          {
+            "name": "Hookie-Delivery-Id",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id (the same value as webhook-id).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "4c7b2a9e-1f3d-4e5a-8b6c-0d9e8f7a6b5c"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "The record id, for receivers that dedupe on this header.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "rec_9d3f2a10"
+          },
+          {
+            "name": "Hookie-Hop",
+            "in": "header",
+            "required": true,
+            "description": "How many times this event has passed through Hookie, plus one. Hookie refuses an event whose hop has reached 8 (508); a relay that forwards into Hookie should pass it on.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Delivered."
+          },
+          "3XX": {
+            "description": "Not followed: a failed attempt that is not retried; the delivery's error names the Location."
+          },
+          "4XX": {
+            "description": "Refused: not retried, except 404, 408, 409, 425 and 429, which are. A 429 Retry-After is honoured."
+          },
+          "5XX": {
+            "description": "Retried with backoff (about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h; eight attempts). A 503 Retry-After is honoured."
+          }
+        }
       }
     }
   }
