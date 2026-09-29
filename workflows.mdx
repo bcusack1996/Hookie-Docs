@@ -75,7 +75,7 @@ That gives you two shapes that work, and it is worth picking one deliberately:
 - **Ask for the bare value**: "reply with the number only" with `"output_key": "score"`, then branch on `{ "path": "score", "op": "gt", "value": 7 }`. That is the example above.
 - **Ask for an object**: "reply with JSON: score and reason" with `"output_key": "ai"`, then branch on `{ "path": "ai.score", "op": "gt", "value": 7 }`. Conditions take dotted paths, so the reason travels with the score and both are visible in the instance context.
 
-What does _not_ work is asking for JSON and then branching on the `output_key` itself: `path: "score"` would resolve to the whole object, and a numeric comparison against an object is false. That one is still accepted, because the path resolves; it is the _value_ that cannot compare. The instance context is shown in full in the run's details — check there first when a branch always goes the same way.
+What does _not_ work is asking for JSON and then branching on the `output_key` itself: `path: "score"` would resolve to the whole object, and a numeric comparison against an object is false. That one is still accepted, because the path resolves; it is the _value_ that cannot compare. The instance context is shown in the run's details, so check there first when a branch always goes the same way. Secret-looking values (credential-named keys, `Bearer …`/`Basic …` values and URL passwords) are shown as `[redacted]` there, in the step samples, over MCP and in the workspace export. The run itself always uses the real values.
 
 `output_dataset` is unaffected by any of this: it always records the model's reply as the text it actually wrote, so the audit trail is what was said, not what was inferred from it.
 
