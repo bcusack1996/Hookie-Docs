@@ -42,6 +42,8 @@ You only need to verify one of them. `Hookie-Signature` is unchanged, so an exis
 | Signature encoding | lowercase hex | base64 |
 | During a rotation | `t=<unix>,v1=<new>,v1=<previous>` | `v1,<new> v1,<previous>` (space-separated) |
 
+If the destination has a body template (see [Destination options](/destinations)), both signatures cover the templated body as sent, not the envelope. Verification is the same.
+
 Both are computed from the **same** signing secret, but each derives its HMAC key
 the way its own scheme says, so the keys differ. Hookie's secrets are `whsec_`
 followed by 48 hexadecimal characters. Hex digits are all base64 characters and

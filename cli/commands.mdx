@@ -45,6 +45,31 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 ## Generated commands
 
+### ai-agents
+
+Named model configurations a workflow's `agent_call` step runs by id. `update` changes only the flags you pass.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie ai-agents list` | `—` | This project's AI agents: named model configurations (model, system prompt, memory dataset, reply cap) that a workflow's agent_call step runs by id. |
+| `hookie ai-agents get` | `--agent-id*` | One AI agent in full, including its system prompt. |
+| `hookie ai-agents create` | `--name* --system-prompt --model --memory-dataset --max-tokens --active` | Create an AI agent: a named model configuration that workflows invoke with an agent_call step ({type:"agent_call", agent_id}). |
+| `hookie ai-agents update` | `--agent-id* --name --system-prompt --model --memory-dataset --max-tokens --active` | Change an AI agent in place. |
+| `hookie ai-agents delete` | `--agent-id*` | Retire an AI agent: it is set inactive, so a workflow step that names it fails until it is reactivated with update_ai_agent active:true. |
+
+### cron-triggers
+
+Owner/admin in the console, so a connected agent needs `hookie:manage`. `--payload` is JSON; `{{now}}` in it becomes the fire time.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie cron-triggers list` | `—` | This project's cron triggers: schedule, time zone, payload template, dataset, and the last and next run. |
+| `hookie cron-triggers preview` | `--schedule* --timezone` | The next five times a cron schedule would fire, before anything is saved — or the reason it cannot be stored. |
+| `hookie cron-triggers create` | `--name* --schedule* --timezone --payload --dataset` | Create a cron trigger: on its schedule it emits `payload` as an event, filed into `dataset` if given or routed by the project's rules if not, and fanned out like any other event. |
+| `hookie cron-triggers update` | `--cron-trigger-id* --enabled --name --schedule --timezone --payload --dataset` | Change a cron trigger in place: pause or resume it, rename it, or change its schedule, time zone, payload or dataset. |
+| `hookie cron-triggers test` | `--cron-trigger-id*` | Fire a cron trigger once, now. |
+| `hookie cron-triggers delete` ⚠️ | `--cron-trigger-id*` | Delete a cron trigger. |
+
 ### datasets
 
 | Command | Flags | |
@@ -79,6 +104,7 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist. Pass at least one. |
 | `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
 | `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
+| `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of a webhook endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
 
 ### events
 
@@ -95,6 +121,26 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | `hookie keys update` | `--key-id* --name --expires-at --ip-allowlist` | Rename a key, or set or clear its expiry or IP allowlist. |
 | `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Issue a replacement key; the old one keeps working for the overlap (default 24 hours). Returns the new key once; `--reveal` prints it. |
 | `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |
+
+### portal-tokens
+
+Customer links to the project's portal. `create` returns the token once; `--reveal` prints it.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie portal-tokens list` | `--portal-id*` | The access links issued for a customer portal: customer_id, token_prefix, expires_at, revoked_at. |
+| `hookie portal-tokens create` | `--portal-id* --customer-id* --expires-in-days` | Issue a customer an access link to the portal. |
+| `hookie portal-tokens revoke` ⚠️ | `--portal-id* --token-id*` | Revoke a customer's portal link. |
+
+### portals
+
+The project's one customer portal. `update` creates it the first time.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie portals get` | `—` | This project's customer portal, or null if it has none: its id, name, the datasets it exposes (event_types) and whether it is enabled. |
+| `hookie portals update` | `--name --event-types --enabled` | Create this project's customer portal, or change it: its name, the datasets it exposes, and whether it is enabled. |
+| `hookie portals delete` | `--portal-id*` | Switch this project's customer portal off: every customer link stops working. |
 
 ### projects
 
@@ -121,9 +167,15 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 ### sources
 
+Database sources: Hookie polls a Postgres table and files each new row as a record. `--config` is JSON, `{"url":"postgres://…","table":"public.orders"}` or `@source.json`; it holds the database credentials, is encrypted at rest and is never printed back.
+
 | Command | Flags | |
 | --- | --- | --- |
-| `hookie sources list` | `—` | This project's source connectors, with their last run and last error. |
+| `hookie sources list` | `—` | This project's source connectors (polled databases and HTTP endpoints), with their last run and last error. |
+| `hookie sources create` | `--name* --type --config* --dataset* --cursor-column --poll-interval` | Connect a database source: Hookie polls a Postgres table and files each new row into `dataset` as a record, which then fans out to destinations, triggers and workflows like any event. |
+| `hookie sources update` | `--source-id* --enabled*` | Pause or resume a database source. |
+| `hookie sources test` | `--source-id*` | Check that a database source can connect and read its table, without storing anything. |
+| `hookie sources delete` ⚠️ | `--source-id*` | Delete a database source. |
 
 ### submissions
 
@@ -133,9 +185,14 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 ### triggers
 
+AI triggers.
+
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie triggers list` | `—` | This project's AI triggers — what each one matches and what it does when it fires. |
+| `hookie triggers create` | `--name* --dataset* --conditions --instructions* --output-dataset --model --max-tokens` | Create an AI trigger: every record that lands in `dataset` and meets `conditions` runs the model with `instructions` over it, and the reply is stored as a record in `output_dataset`. |
+| `hookie triggers update` | `--trigger-id* --enabled*` | Enable or disable an AI trigger. |
+| `hookie triggers delete` ⚠️ | `--trigger-id*` | Delete an AI trigger. |
 
 ### views
 
@@ -162,6 +219,18 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie workspace get` | `—` | The current workspace: its slug, id, your role and plan. |
+
+### ws-triggers
+
+Owner/admin in the console, so a connected agent needs `hookie:manage`. `--headers` may carry the socket's credential; it is encrypted and never printed back.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie ws-triggers list` | `—` | This project's WebSocket triggers: name, conditions, mappings, dataset, connection status and last error. |
+| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules. |
+| `hookie ws-triggers update` | `--ws-trigger-id* --enabled*` | Connect or disconnect a WebSocket trigger. |
+| `hookie ws-triggers test` | `--ws-trigger-id*` | Open a short-lived connection with a WebSocket trigger's settings and return the first frames, without storing anything. |
+| `hookie ws-triggers delete` ⚠️ | `--ws-trigger-id*` | Delete a WebSocket trigger. |
 
 ## Two that are narrower than they look
 

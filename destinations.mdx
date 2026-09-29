@@ -1,0 +1,91 @@
+---
+title: "Destination options"
+description: "Send custom headers, authentication and your own JSON body to a destination, and know when one keeps failing."
+icon: "send"
+---
+
+A destination sends every matching event to an HTTPS URL, signed and retried. By default the body is Hookie's envelope, `{id, dataset, received_at, data}`. Each destination can also carry its own headers, a credential and a body template, so you can send straight to services such as Slack, Datadog or an email API without a relay in between.
+
+Set these on the destination's tile under **Request options**, or when you create it. **From preset** fills them in for Slack, Datadog and email.
+
+## Custom headers
+
+Add up to 20 headers. Mark a header **Secret** when its value is a credential: it is stored encrypted and is never shown again, in the console, the API or the audit log. To keep a saved secret header while you edit others, leave its value blank.
+
+Hookie sets some headers itself, and you cannot override them:
+
+- `Hookie-*`, `X-Hookie-*` and `webhook-*`
+- `Content-Type`, `Content-Length`, `Host`, `User-Agent` and `Idempotency-Key`
+- hop-by-hop headers such as `Connection`, `Transfer-Encoding` and `Upgrade`
+
+## Authentication
+
+Choose one:
+
+| Type | What is sent |
+|------|--------------|
+| **Bearer token** | `Authorization: Bearer <token>` |
+| **Basic** | `Authorization: Basic <base64 of username:password>` |
+| **API key in a header** | `<the header you name>: <key>`, for example `DD-API-KEY` |
+
+The credential is stored encrypted and is never returned. The destination shows only the type, and for an API key, the header name. To change the header without re-entering the key, leave the key blank.
+
+## Body
+
+| Body | What is sent |
+|------|--------------|
+| **Hookie envelope** (default) | `{"id", "dataset", "received_at", "data"}` |
+| **JSON template** | Your JSON, with `{{path}}` placeholders filled from the envelope |
+| **Field mappings** | A flat object, one `key = path` per line, built the way routing rules build a record |
+
+A placeholder is a dotted path into the envelope: `{{dataset}}`, `{{id}}`, `{{received_at}}`, `{{data.customer.email}}`. `{{data}}` alone is the whole payload.
+
+```json
+{
+  "text": "Order {{data.order_id}} paid by {{data.customer.email}}",
+  "amount": "{{data.total}}",
+  "raw": "{{data}}"
+}
+```
+
+A string that is exactly one placeholder keeps the value's type, so `"{{data.total}}"` sends a number. A placeholder inside a longer string becomes text, and a missing value becomes an empty string.
+
+Templates are data, never code. A placeholder is a path lookup, and nothing is evaluated.
+
+<Note>
+The body is always JSON, and `Hookie-Signature` is computed over the body exactly as sent. Verify a templated body the same way as the envelope (see [Verify signatures](/signatures)).
+</Note>
+
+## When a destination keeps failing
+
+A delivery goes **dead** when its retries run out, or at once when your receiver refuses it with a 4xx that is never retried, such as 400, 401 or 403. Retrying deliveries do not count.
+
+1. At the first dead delivery, the destination is flagged as **failing**, with the last error, on its tile and on **Home**.
+2. After **10 dead deliveries in a row over at least an hour**, Hookie switches the destination off. The reason is shown on its tile and on Home, and the audit log records `destination_auto_disabled`.
+3. While it is off, new deliveries are **held**, not lost. Click **Re-enable** on Home or on the tile to send them and start the count again.
+
+A single delivery that arrives ends a failing streak at any point.
+
+### Alert webhook
+
+Set an **Alert URL** on the destination to be told when Hookie switches it off. Hookie POSTs one notice to it:
+
+```json
+{
+  "type": "destination.disabled",
+  "occurred_at": "2026-09-29T12:00:00.000Z",
+  "destination": { "id": "…", "name": "Datadog events", "url": "https://api.datadoghq.com/api/v1/events", "project_id": "…" },
+  "reason": "Disabled automatically: …",
+  "consecutive_dead": 10,
+  "failing_since": "2026-09-29T10:41:07.000Z",
+  "last_failure": "HTTP 403 (not retried: the receiver refused the request)"
+}
+```
+
+The notice carries `Hookie-Signature`, signed with the destination's own signing secret, and `Hookie-Alert: destination.disabled`. It is sent once and is not retried. The alert URL must be a public `https` address.
+
+Hookie does not send email alerts.
+
+## API
+
+`POST` and `PATCH /admin/api/projects/{pid}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state. `GET /admin/api/dashboard/summary` lists failing destinations in `failing_destinations`. See the [API reference](/api-reference).
