@@ -284,7 +284,7 @@ A WebSocket trigger holds a connection to a feed open and turns every frame that
 
 **Mappings** reshape each matching frame the way a rule's mappings do: each `{ "path": "data.p", "key": "price" }` picks a field out of the frame into a key of the event. With no mappings, the frame is kept as it arrived. The raw submission always keeps the frame exactly as received; the mapped event is what is filed into the trigger's dataset, or handed to the project's rules when the trigger names no dataset, and what `default` keeps when none of them matches. A mapping key must be a plain identifier (a letter, then letters, digits or underscores); anything else is refused with `400` when you create the trigger, rather than saved and then dropping every frame. Set mappings over the API (`POST /admin/api/projects/{project_id}/ws-triggers`), with a connected agent's `create_ws_trigger`, or with `hookie ws-triggers create --mappings`.
 
-- **Edit** changes the name, URL, connect message, conditions or dataset, each checked as it is when you create the trigger. A new URL, connect message, set of conditions or dataset reconnects the socket; a new name does not. Over the API, `PATCH /admin/api/projects/{project_id}/ws-triggers/{id}` also takes `headers` and `subprotocols`.
+- **Edit** changes the name, URL, connect message, conditions or dataset, each checked as it is when you create the trigger. A new URL, connect message, set of conditions or dataset reconnects the socket; a new name does not. Over the API, `PATCH /admin/api/projects/{project_id}/ws-triggers/{id}` also takes `headers` and `subprotocols`, and a connected agent's `update_ws_trigger` takes every one of those fields. A trigger keeps the `mappings` it was created with; to change them, create a new trigger.
 - The URL, headers and connect message are stored encrypted and never shown again, so the Edit form leaves the URL blank: leave it blank to keep the current connection. A new URL is saved with the connect message you enter, and none if you leave it blank.
 - Moving the URL to a **different host** is refused unless the request also sends each stored connection header and connect message (`null` for none). They often carry the feed's credentials, and Hookie will not pass them to a new host that nobody chose to give them to.
 
@@ -297,7 +297,7 @@ An event that no rule matches is not dropped: it is stored whole, as one record,
 If the event cannot be stored in `default`, it is not fanned out, and its raw submission is kept and marked **Routing failed**. The usual cause is an empty payload such as `{}`, which has no fields to store. The error reads `no rule stored the event, and storing it in "default" failed: record has no fields`:
 
 - A cron trigger shows it as its last error, and a test fire (`POST /admin/api/projects/{project_id}/cron-triggers/{id}/test`, or `hookie cron-triggers test`) answers `500` with it.
-- A WebSocket trigger does not show it. Look for the frame's submission under **Routing failed** on the **Observability** tab.
+- A WebSocket trigger shows it under its status on the trigger list, and in the `last_error` field of `GET /admin/api/projects/{project_id}/ws-triggers`. The next frame that is stored clears it. A feed that fails on every frame updates the error at most every few seconds, not once per frame. The frame's submission is also under **Routing failed** on the **Observability** tab.
 
 Give the payload at least one field, for example `{"tick": "{{now}}"}`, or set a dataset.
 

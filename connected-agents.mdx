@@ -172,7 +172,7 @@ Available with `hookie:manage` — the routes the console keeps to owners and ad
 | --- | --- |
 | `create_project` | A new project. |
 | `create_cron_trigger · update_cron_trigger · test_cron_trigger · delete_cron_trigger` | Cron triggers: a payload emitted on a schedule (five cron fields, at least 5 minutes apart, in an IANA time zone). Update changes any field; test fires it once, now, as a real event. |
-| `create_ws_trigger · update_ws_trigger · test_ws_trigger · delete_ws_trigger` | WebSocket triggers: an outbound connection whose matching frames become events, optionally reshaped by `mappings` the way a rule's are. Headers are encrypted and never returned. Update connects or disconnects; test returns the first frames without storing anything. |
+| `create_ws_trigger · update_ws_trigger · test_ws_trigger · delete_ws_trigger` | WebSocket triggers: an outbound connection whose matching frames become events, optionally reshaped by `mappings` the way a rule's are. Headers are encrypted and never returned. Update changes any of `name`, `enabled`, `url`, `headers`, `subprotocols`, `connect_message`, `conditions` and `dataset` in place, keeping the trigger's id, status and last error (send `null` to clear headers, subprotocols, connect message or dataset; `mappings` cannot be changed in place). Test returns the first frames without storing anything. |
 
 There is no `create_dataset`, because a dataset is not something you create. A dataset is a name records carry: it exists the moment the first record is routed into it, and the console has no way to make an empty one either. Name it in a rule, an endpoint, or a workflow's `entry_dataset` and it appears.
 
