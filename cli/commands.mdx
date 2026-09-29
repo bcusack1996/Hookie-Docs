@@ -13,8 +13,12 @@ Which is also why this page is worth trusting: it is produced from that catalog 
 ```bash
 hookie <group> <verb> [flags]
 hookie <group>                 # means <group> list
-hookie <group> <verb> --help   # the flags, their types, and which are required
+hookie <group> --help          # the group's commands
+hookie <group> <verb> --help   # usage, the flags with their types and which are required, and an example
+hookie help <group> <verb>     # the same
 ```
+
+Every command has its own help, the hand-written ones included: `hookie replay --help` shows `--since`, `--failed`, `--destination` and `--limit` with an example, and `hookie login --help` shows `--scope`, `--no-open`, `--name` and `--reregister`.
 
 - `*` marks a **required** flag.
 - ⚠️ marks a command that **asks before acting**. That gate reads the tool's own annotation, never the word "delete": `hookie workflows delete` only deactivates and an update undoes it, while `hookie keys revoke` destroys a credential and has no "delete" in its name.
@@ -71,8 +75,9 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie endpoints list` | `—` | A project's webhook endpoints. |
-| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled` | Create a webhook endpoint. |
-| `hookie endpoints update` | `--webhook-id* --enabled*` | Enable or disable a webhook endpoint. |
+| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled --ip-allowlist` | Create a webhook endpoint. |
+| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist. Pass at least one. |
+| `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
 | `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
 
 ### events
@@ -86,7 +91,9 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie keys list` | `—` | This project's ingest keys, metadata only — never the full token. |
-| `hookie keys create` | `--name* --dataset-default --require-signature` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. |
+| `hookie keys create` | `--name* --dataset-default --require-signature --expires-at --ip-allowlist` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. |
+| `hookie keys update` | `--key-id* --name --expires-at --ip-allowlist` | Rename a key, or set or clear its expiry or IP allowlist. |
+| `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Issue a replacement key; the old one keeps working for the overlap (default 24 hours). Returns the new key once; `--reveal` prints it. |
 | `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |
 
 ### projects

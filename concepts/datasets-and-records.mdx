@@ -42,7 +42,9 @@ Connected agents use the same views through `list_record_views`, `create_record_
 
 ## Find the raw body
 
-The project's **Observability** tab searches submissions, records, deliveries, AI runs and AI calls over a time range, the last 24 hours by default. Paste any ID into **Trace an id** to see its whole chain: the submission, the records made from it, and every delivery of those records.
+The project's **Observability** tab searches submissions, records, deliveries, AI runs and AI calls over a time range, the last 24 hours by default. Widen it with **Time range**, down to a custom window to the minute. Each kind of result has its own filters, such as a delivery's status, destination, response code and latency, or an event's dataset.
+
+Paste any ID into **Trace an id** to see its whole chain: the submission, the records made from it, and every delivery of those records. That includes the `Hookie-Delivery-Id` your receiver logged. The filters are kept in the page address, so you can share a search as a link.
 
 ## How long records are kept
 

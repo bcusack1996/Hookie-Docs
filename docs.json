@@ -24,6 +24,7 @@
         "pages": [
           "concepts/projects",
           "concepts/endpoints",
+          "ingest-keys",
           "concepts/datasets-and-records",
           "concepts/rules-and-mappings",
           "concepts/destinations-and-deliveries",
