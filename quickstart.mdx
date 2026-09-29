@@ -189,7 +189,7 @@ curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
   -d '{"order":1042,"total":59.9}'
 ```
 
-With a dataset at the end of the path, as here, the payload is stored whole in that dataset. Leave the dataset out and the project's **rules** decide where it goes, and in what shape.
+With a dataset at the end of the path, as here, the payload is stored whole in that dataset. Leave the dataset out and the project's **rules** decide where it goes, and in what shape. An event no rule matches is stored whole in the key's default dataset (`default` unless you chose another when you created the key), and the response says `fallback: true`.
 
 <Warning>
   Rules run only on `POST /v1/ingest/{ingest_key}` with no dataset in the path. An endpoint URL always writes to the endpoint's own dataset and never consults rules, so adding a rule and then posting to an endpoint URL changes nothing.

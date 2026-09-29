@@ -39,7 +39,7 @@ Hookie is a webhook platform: it gives you a URL to receive events, somewhere st
   <Step title="It's captured, then routed">
     The raw body is stored as a **submission** exactly as it arrived, before anything reshapes it, so "no rule matched" is always distinguishable from "the event never arrived."
 
-    Addressed requests store the payload whole into the dataset the URL names. A keyed request with no dataset in the path is the one shape that consults **rules**: each enabled rule tests its conditions against the payload and, where they hold, maps fields out into a **record**. Rules are not first-match: one event can land in several datasets at once.
+    Addressed requests store the payload whole into the dataset the URL names. A keyed request with no dataset in the path is the one shape that consults **rules**: each enabled rule tests its conditions against the payload and, where they hold, maps fields out into a **record**. Rules are not first-match: one event can land in several datasets at once. An event no rule matches is stored whole in the key's default dataset rather than dropped.
   </Step>
   <Step title="It fans out">
     A new record triggers every matching **destination** (an outbound webhook, signed HMAC-SHA256, retried with backoff), pushes onto the **live stream** for anyone tailing it, and starts any **workflow** whose trigger it satisfies.

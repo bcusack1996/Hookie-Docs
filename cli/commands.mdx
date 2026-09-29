@@ -130,7 +130,7 @@ Deliveries held because the workspace used its monthly delivery allowance. `hook
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie keys list` | `—` | This project's ingest keys, metadata only — never the full token. |
-| `hookie keys create` | `--name* --dataset-default --require-signature --expires-at --ip-allowlist` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. |
+| `hookie keys create` | `--name* --dataset-default --require-signature --expires-at --ip-allowlist` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. `--dataset-default` names the dataset an event sent with no dataset in the URL is stored in when no rule matches it (`default` if left out). |
 | `hookie keys update` | `--key-id* --name --expires-at --ip-allowlist` | Rename a key, or set or clear its expiry or IP allowlist. |
 | `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Issue a replacement key; the old one keeps working for the overlap (default 24 hours). Returns the new key once; `--reveal` prints it. |
 | `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |

@@ -56,10 +56,10 @@ The path decides what happens to an event sent with a key:
 | Request | Result |
 | --- | --- |
 | `POST /v1/ingest/{ingest_key}/{dataset}` | The payload is stored whole in that dataset. |
-| `POST /v1/ingest/{ingest_key}` | Every enabled rule in the project is tried, and each one that matches writes its own record. |
+| `POST /v1/ingest/{ingest_key}` | Every enabled rule in the project is tried, and each one that matches writes its own record. When none matches, the payload is stored whole in the key's default dataset. |
 | `POST /v1/webhooks/{ingest_key}/{slug}` | The event goes through the project's endpoint with that readable slug, or `{slug}-v{version}` for one version. |
 
-A key also stores a **Default dataset**, shown in its list, but routing does not use it: a request that names no dataset goes to the rules, and when none matches, no record is written. The submission is still kept.
+**Default dataset.** Every ingest key has a default dataset (`default` unless you choose one when you create the key). When you send to `POST /v1/ingest/{key}` without a dataset in the URL, the project's rules route the event. If none of them matches, Hookie stores the whole payload as one record in the key's default dataset rather than dropping it. That record is delivered, streamed and handed to AI triggers and workflows like any other, and the request counts as one event, the same as a rule-routed one. The response tells you which happened: `fallback: true` with `routed: ["<default dataset>"]` when the default dataset caught it, and `fallback: false` with the names of the matching rules otherwise. Naming a dataset in the URL (`/v1/ingest/{key}/{dataset}`) writes straight to it and never uses the default. Endpoint URLs always write to the endpoint's own dataset. The default dataset is fixed when the key is created and is carried over when you rotate it.
 
 ## Before anything is stored
 

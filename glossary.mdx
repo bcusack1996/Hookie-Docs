@@ -30,6 +30,10 @@ The conditions an endpoint applies to every event it receives. An event that fai
 
 A named collection of records in a project, such as `orders`. It exists from the moment the first record is filed under its name. See [Datasets and records](/datasets-and-records#datasets).
 
+### Default dataset
+
+The dataset an ingest key stores an event in when it is sent with no dataset in the URL and none of the project's rules matches it: the whole payload, as one record, with `fallback: true` in the response. It is `default` unless you choose another when you create the key. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys).
+
 ### Delivery
 
 One record sent to one destination as a signed `POST`, retried until it arrives or runs out of attempts. Each one counts once against the monthly delivery allowance. See [Destinations and deliveries](/destinations-and-deliveries#deliveries).
@@ -52,7 +56,7 @@ What happens to a record's deliveries once the month's delivery allowance is use
 
 ### Ingest key
 
-A credential (`ik_live_…`) that your own servers send events into one project with. It is the only way to route events with rules and to tail the live stream. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys).
+A credential (`ik_live_…`) that your own servers send events into one project with. It is the only way to route events with rules and to tail the live stream. An event its rules do not match lands in its default dataset. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys).
 
 ### Mapping
 
@@ -76,7 +80,7 @@ Sending a delivery that did not arrive again, as a new delivery with the same ev
 
 ### Rule
 
-A project's routing rule, which decides the dataset and shape of an event sent with an ingest key and no dataset in the path. Every rule that matches writes its own record. See [Rules and mappings](/rules-and-mappings#rules).
+A project's routing rule, which decides the dataset and shape of an event sent with an ingest key and no dataset in the path. Every rule that matches writes its own record; when none matches, the key's default dataset stores the event whole. See [Rules and mappings](/rules-and-mappings#rules).
 
 ### Run
 
@@ -108,6 +112,7 @@ The console and these docs use the names above. The API and the MCP tools keep s
 | Project | `projects` | `list_projects`, `create_project` |
 | Endpoint | `webhooks`, `webhook_id`, `webhook_slug` | `create_webhook`, `list_webhooks`, `update_webhook` |
 | Ingest key | `ingest-keys` | `create_ingest_key`, `rotate_ingest_key` |
+| Default dataset | `dataset_default` | on `create_ingest_key` |
 | Dataset | `datasets`, `dataset` | `list_datasets` |
 | Record | `records`, `search/events`, `event_id` | `query_records`, `get_record`, `search_events` |
 | Submission | `submissions`, `submission_id` | `search_submissions` |
