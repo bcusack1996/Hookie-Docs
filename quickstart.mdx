@@ -74,21 +74,44 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
   ```
 - Everything else is still parsed as JSON regardless of its `Content-Type`, which is what most webhook providers send. A body that is not JSON but is sent as text, such as `text/plain`, XML, CSV or NDJSON, is stored as `{ "body": "<the text>", "content_type": "text/plain" }`. See the [API reference](/api-reference#ingest).
 
+### Send visitors to a thank-you page
+
+Because the browser navigates to the endpoint on submit, a visitor would land on Hookie's JSON response. Give the endpoint a **redirect URL** instead: open **Endpoints**, choose **Edit…** in its menu, and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
+
+### Submit with fetch()
+
+To keep the visitor on your page, submit with `fetch()`. A browser only lets a page read the answer from an origin that allows it, so add your site under **Allowed browser origins** in the same form: one origin per line, such as `https://example.com`, or `*` for any page. Nothing is allowed by default. For an allowed origin the endpoint answers the `OPTIONS` preflight that a JSON body triggers, and every response carries `Access-Control-Allow-Origin`, so your page can show the error on a `429` too.
+
+```js
+const res = await fetch("https://app.hookie.ai/your-workspace/contact/aBcXyz…", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, message }),
+});
+if (res.ok) showThanks();
+```
+
 <Tip>
-  Because the browser navigates to the endpoint on submit, the visitor lands on Hookie's JSON response. For a polished flow, submit with `fetch` and a `FormData` body (that is also a form encoding, so it needs no preflight), then show your own thank-you state.
+  A `FormData` body needs no preflight, because it is a form encoding. Without an allowed origin the submission is still stored, but your page cannot read the answer, and `fetch()` rejects with "Failed to fetch".
 </Tip>
 
 ## 3. See it in the console
 
 Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
 
-The **Observability** tab searches the last 24 hours by default; widen it with **Time range**, down to a custom window to the minute. Each entity has its own filters (a delivery's status, destination, response code and latency, an event's dataset, a submission's routing status), and **Trace an id** takes any record, submission, delivery or AI run id, such as the `Hookie-Delivery-Id` your receiver logged, straight to its chain. The filters are kept in the page address, so a view like "failed deliveries to Billing between 14:00 and 14:30" can be shared as a link.
+Open a record, or trace a submission, to see the **request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
+
+When a provider says Hookie returned an error, choose **Activity** in the endpoint's menu. It lists what the endpoint received and what it refused over the last 7 days, and why each request was refused (IP allowlist, rate limit, quota, disabled endpoint, content type, signature and more). Refused requests never count against your quota.
+
+The **Observability** tab searches the last 24 hours by default; widen it with **Time range**, down to a custom window to the minute. Each entity has its own filters (a delivery's status, destination, response code and latency, an event's dataset, a submission's routing status), and **Trace an id** takes any record, submission, delivery, AI run or workflow run id, such as the `Hookie-Delivery-Id` your receiver logged, straight to its chain: the raw body, each record's payload, each delivery's destination and error, and each workflow run with every step's status. Switch on **Live** to watch events arrive as you send them. The filters are kept in the page address, so a view like "failed deliveries to Billing between 14:00 and 14:30" can be shared as a link.
 
 To test the wiring end to end, use **Send a test event** in an endpoint's menu. It posts to the endpoint's real URL, then follows that event for up to 30 seconds and says what happened: delivered, failed (with the answer and whether it will be retried), held because a destination is disabled, still sending, or, only when your destinations' dataset filters confirm it, that no enabled destination accepts the dataset.
 
 ## Safe retries
 
-Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate, and it never counts twice against your quota:
+A retry returns the original submission (`200`, with `"idempotent": true`) instead of creating a duplicate, and it never counts twice against your quota. Hookie recognises the delivery ids that webhook providers already send and keep across their retries, so Stripe, GitHub, Shopify, GitLab, Twilio, Linear, Twitch, Atlassian, Slack, Svix and every [Standard Webhooks](https://www.standardwebhooks.com) sender are deduplicated with nothing to configure. `deduplicated_by` in the answer says which id matched. Duplicates are tracked per endpoint, so two endpoints never collide.
+
+From your own code, send an `Idempotency-Key`:
 
 ```bash
 curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \

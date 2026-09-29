@@ -41,6 +41,7 @@
           "broadcast-logs",
           "connected-agents",
           "data-api",
+          "data-deletion",
           "api-reference"
         ]
       },

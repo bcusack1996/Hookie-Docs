@@ -82,7 +82,8 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie deliveries list` | `—` | Recent outbound deliveries for a project — status, response code, destination. |
-| `hookie deliveries get` | `--delivery-id*` | One delivery in full, including the stored request and response body. |
+| `hookie deliveries get` | `--delivery-id*` | One delivery in full: its latest response body and every attempt it made. |
+| `hookie deliveries metrics` | `--window --destination-id` | Delivery health per destination: success rate, p50/p95/p99 latency, failed attempts by class, and a time series. |
 | `hookie deliveries search` | `--status --destination-id --response-code --min-latency-ms --since --until --limit --offset` | Search deliveries with filters and paging. |
 | `hookie deliveries replay` | `--delivery-id*` | Re-queue a past delivery to its destination. |
 
@@ -100,8 +101,9 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie endpoints list` | `—` | A project's webhook endpoints. |
-| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled --ip-allowlist` | Create a webhook endpoint. |
-| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist. Pass at least one. |
+| `hookie endpoints activity` | `--webhook-id* --kind --limit --offset` | One endpoint's received and refused requests over the last 7 days, and why each was refused. |
+| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret` | Create a webhook endpoint. |
+| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist, form redirect, allowed browser origins or URL verification. Pass at least one. |
 | `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
 | `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
 | `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of a webhook endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
