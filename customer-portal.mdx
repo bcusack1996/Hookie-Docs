@@ -41,13 +41,43 @@ The **customer portal** is an embeddable, token-authed surface your _end custome
 Everything is scoped to the customer's token: your workspace, the project, the portal and their customer ID.
 
 - **See what they will receive.** Each exposed dataset is listed with an **example payload**: the envelope Hookie sends, around the shape of that dataset's latest record with every value replaced (strings become `"<string>"`, numbers `0`, booleans `false`). A portal's customers share its datasets, so a real value from another customer's event never appears, only field names.
-- **Verify signatures.** A guide to checking the `Hookie-Signature` header, with Node.js code, including during a secret rotation, when any `v1` value that matches is valid. See [Verify signatures](/signatures).
+- **Verify signatures.** A guide to checking either signature every delivery carries (see [Verifying deliveries](#verifying-deliveries) below).
 - **Manage their endpoints.** Add one for chosen event types (HTTPS only, within the exposed datasets), edit its name, URL and event types, pause and resume it, and delete it. The event types must be a non-empty subset of what the portal exposes; an empty list is refused rather than read as "all".
 - **Manage signing secrets.** Show an endpoint's signing secret again, and **rotate** it. The old secret keeps signing alongside the new one for 24 hours so their receiver can move over, and they can end that overlap early.
 - **Inspect deliveries.** The delivery log shows the destination, status, response code, error, the next retry and a preview of the first 300 characters of what their endpoint answered. Open a delivery for its full response, endpoint URL and content type.
 - **Replay a delivery.** A replay is a new delivery, charged to **your** monthly delivery allowance like a replay from the console. It is refused, not held, when the allowance is used up.
 
 Every change a customer makes, and every time they reveal a signing secret, is recorded in **Settings → Audit log** with `portal|{customer_id}` as the actor.
+
+## Verifying deliveries
+
+The portal's **Example payloads** section ends with a verification guide. Every delivery is signed twice with the endpoint's signing secret (`whsec_…`), both over the same timestamp, so your customers can check either signature.
+
+### Option 1: Hookie-Signature
+
+The `Hookie-Signature` header looks like `t=<unix seconds>,v1=<hex HMAC-SHA256>`. Compute an HMAC-SHA256 of `<t>.<raw request body>`, using the whole `whsec_…` secret as the key. Accept the request when any `v1` matches and `t` is recent. During a secret rotation the header carries one `v1` for each live secret, for 24 hours. The portal shows a Node.js snippet, and [Verify signatures](/signatures) has more languages.
+
+### Option 2: Standard Webhooks
+
+Every delivery also carries the [Standard Webhooks](https://www.standardwebhooks.com) headers `webhook-id`, `webhook-timestamp` and `webhook-signature`. Rather than writing the check themselves, your customers can use an [official `standardwebhooks` library](https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries). There are libraries for JavaScript, Python, Go, Ruby, PHP, Java, Rust, C# and more.
+
+Pass the `whsec_` signing secret to the library **exactly as shown**. Don't strip the prefix or base64-decode it; the library does both.
+
+```js
+import { Webhook } from "standardwebhooks";
+
+const wh = new Webhook(secret); // the whsec_… secret, as is
+const event = wh.verify(rawBody, {
+  "webhook-id": req.headers["webhook-id"],
+  "webhook-timestamp": req.headers["webhook-timestamp"],
+  "webhook-signature": req.headers["webhook-signature"],
+});
+```
+
+- **Signature format.** `webhook-signature` is `v1,<base64 HMAC-SHA256>` over `<webhook-id>.<webhook-timestamp>.<raw request body>`. During a rotation it carries one space-separated `v1,` value for each live secret.
+- **Retries.** `webhook-id` is the delivery id, so a retry repeats it. To ignore an event you've already processed, deduplicate on `Hookie-Event-Id`.
+
+`GET /portal/api/examples` returns both schemes: `signature` for Hookie-Signature, and `standard_webhooks` for the Standard Webhooks set.
 
 ## Branding
 
@@ -134,7 +164,7 @@ POST   /portal/api/session                                   # trade the token f
 DELETE /portal/api/session                                   # sign out (clears the cookie)
 GET    /portal/api/me                                        # portal name + branding, customer name, event types
 GET    /portal/api/event-types                               # datasets the portal exposes
-GET    /portal/api/examples                                  # a redacted example per dataset + the signature scheme
+GET    /portal/api/examples                                  # a redacted example per dataset + both signature schemes
 GET    /portal/api/destinations                              # the customer's own destinations
 POST   /portal/api/destinations                              # create one (https URL; signing secret shown once)
 PATCH  /portal/api/destinations/{id}                         # name, url, dataset_filter and/or enabled
