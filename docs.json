@@ -33,6 +33,7 @@
         "icon": "book-open",
         "pages": [
           "signatures",
+          "endpoint-verification",
           "destinations",
           "ingest-keys",
           "streaming",

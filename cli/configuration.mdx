@@ -51,7 +51,7 @@ Each kind is matched to what the project has by the field in the **Identity** co
 | `triggers` (AI) | `name` | `enabled` | `match`, `action_type`, `config`: delete and recreate |
 | `cron_triggers` | `name` | `enabled`, `schedule`, `timezone`, `payload`, `dataset` | — |
 
-`version`, `project` and `not_exported`, which `hookie export` writes, are accepted too. **Any other top-level key is an error** that names it, because `endpoint:` for `endpoints:` would otherwise be a file that "applies" and does nothing. Sources, WebSocket triggers, ingest keys and portals are not part of the file: they hold credentials.
+`version`, `project` and `not_exported`, which `hookie export` writes, are accepted too. **Any other top-level key is an error** that names it, because `endpoint:` for `endpoints:` would otherwise be a file that "applies" and does nothing. Sources, WebSocket triggers, ingest keys and portals are not part of the file: they hold credentials. Neither is an endpoint's [signature verification](/endpoint-verification), which holds the provider's secret: set it with `hookie endpoints update --verification`, and it is left alone by `apply`.
 
 ## What apply will and will not do
 

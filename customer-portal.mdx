@@ -111,6 +111,19 @@ Either way they stop receiving events. If you issue them a new token later, thei
 
 In **Connections**, a customer's destination carries a **Portal customer · {name}** tag, so it never reads as one of your own. `GET /admin/api/projects/{pid}/destinations` returns `portal_id`, `customer_id` and `customer_name` for them.
 
+## Remove a portal
+
+Switching a portal off is reversible: its tokens stop working and it delivers nothing, but everything comes back when you switch it on. To be done with a portal for good, open **Settings → Customer portal → Remove portal** and type the portal's name to confirm. Removing it:
+
+- revokes every access link at once;
+- cancels the deliveries still waiting to go to its customers' destinations (queued, retrying or paused), and sends those destinations nothing more;
+- keeps the destinations and their delivery history, and deletes nothing;
+- is recorded in **Settings → Audit log** as `remove_portal`, with how many tokens, destinations and deliveries it cut off.
+
+It cannot be undone. The project can then have a new portal, with a new link. Removing a portal needs the developer role or above, and is refused while the workspace is suspended.
+
+From the API it is `DELETE /admin/api/projects/{pid}/portal` with `{"confirm": "<the portal's name>"}`. The name must match exactly, so a stray `DELETE` cannot remove a portal; without it the answer is `400`. A project with no portal, or one already removed, answers `404`. To switch a portal off instead, which you can undo, update it with `enabled: false` (or `hookie portals delete`, which only switches it off).
+
 ## Portal API
 
 Everything the portal UI does is also available as a small token-authed API:

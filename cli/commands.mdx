@@ -93,8 +93,8 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie destinations list` | `—` | A project's outbound destinations. |
-| `hookie destinations create` | `--name* --url* --dataset-filter` | Create an outbound destination. |
-| `hookie destinations update` | `--destination-id* --enabled --dataset-filter` | Enable/disable a destination, or change which datasets it receives. |
+| `hookie destinations create` | `--name* --url* --dataset-filter --headers --auth --transform --alert-url` | Create an outbound destination, optionally with custom headers, authentication, a body template and an alert URL (see [Destination options](/destinations)). |
+| `hookie destinations update` | `--destination-id* --enabled --dataset-filter --timeout-seconds --max-per-second --max-concurrency --headers --auth --transform --alert-url` | Enable or disable a destination (enabling one Hookie switched off for failing clears its failure streak and sends what it held), change which datasets it receives, set its headers, authentication, body template or alert URL, or set its delivery limits: a request timeout, a maximum send rate and a concurrency cap (`null` restores the default: 10 s, unlimited, unlimited). |
 | `hookie destinations delete` ⚠️ | `--destination-id*` | Delete a destination. |
 
 ### endpoints
@@ -103,9 +103,10 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | --- | --- | --- |
 | `hookie endpoints list` | `—` | A project's webhook endpoints. |
 | `hookie endpoints activity` | `--webhook-id* --kind --limit --offset` | One endpoint's received and refused requests over the last 7 days, and why each was refused. |
-| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret` | Create a webhook endpoint. |
-| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist, form redirect, allowed browser origins or URL verification. Pass at least one. |
+| `hookie endpoints create` | `--name* --slug* --dataset* --criteria --mappings --enabled --ip-allowlist --verification --redirect-url --cors-origins --handshake --handshake-secret` | Create a webhook endpoint. `--verification` turns on [provider signature verification](/endpoint-verification). |
+| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret --verification` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist, form redirect, allowed browser origins, URL verification or provider signature verification. Pass at least one. |
 | `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
+| `hookie endpoints rotate-secret` | `--webhook-id* --secret* --overlap-hours` | Replace the provider signing secret an endpoint verifies with, when the provider rolls it; the old secret keeps verifying for the overlap (default 24 hours, 0 ends it at once). |
 | `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
 | `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of a webhook endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
 
@@ -114,6 +115,15 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie events search` | `--q --dataset --since --until --limit --offset` | Search stored records across datasets, with a free-text term, a dataset filter, a time window and paging. |
+
+### held-deliveries
+
+Deliveries held because the workspace used its monthly delivery allowance. `hookie held_deliveries` still works as an alias.
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie held-deliveries list` | `—` | Events whose deliveries are held because the workspace used its monthly delivery allowance, oldest first, with the allowance used this month. Held deliveries are not lost. |
+| `hookie held-deliveries release` | `—` | Send held deliveries, oldest first, while the monthly delivery allowance covers them (after the 1st UTC or an upgrade). Stops at the first event it cannot fully cover. |
 
 ### keys
 
@@ -167,6 +177,7 @@ The same document `hookie export` writes, as JSON. `import` takes it with `--con
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie records get` | `--record-id*` | One record in full, including fields no view selected. |
+| `hookie records delete` ⚠️ | `--record-id*` | Permanently delete one stored record and every copy of it: its raw submission, its deliveries (replays included) and their response bodies, held deliveries, the workflow runs it started, and AI trigger output derived from it. Cannot be undone; see [Delete, export and close](/data-deletion). |
 
 ### rules
 
@@ -179,12 +190,12 @@ The same document `hookie export` writes, as JSON. `import` takes it with `--con
 
 ### sources
 
-Database sources: Hookie polls a Postgres table and files each new row as a record. `--config` is JSON, `{"url":"postgres://…","table":"public.orders"}` or `@source.json`; it holds the database credentials, is encrypted at rest and is never printed back.
+Database sources: Hookie polls a Postgres table and files each new row as a record. `--config` is JSON, `{"url":"postgres://…","table":"public.orders"}` or `@source.json`; it holds the database credentials, is encrypted at rest and is never printed back. `--cursor-column` is required: a column that only grows, such as an id or `created_at`, so each poll takes only new rows.
 
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie sources list` | `—` | This project's source connectors (polled databases and HTTP endpoints), with their last run and last error. |
-| `hookie sources create` | `--name* --type --config* --dataset* --cursor-column --poll-interval` | Connect a database source: Hookie polls a Postgres table and files each new row into `dataset` as a record, which then fans out to destinations, triggers and workflows like any event. |
+| `hookie sources create` | `--name* --type --config* --dataset* --cursor-column* --poll-interval` | Connect a database source: Hookie polls a Postgres table and files each new row into `dataset` as a record, which then fans out to destinations, triggers and workflows like any event. |
 | `hookie sources update` | `--source-id* --enabled*` | Pause or resume a database source. |
 | `hookie sources test` | `--source-id*` | Check that a database source can connect and read its table, without storing anything. |
 | `hookie sources delete` ⚠️ | `--source-id*` | Delete a database source. |
@@ -225,6 +236,8 @@ AI triggers.
 | `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow. |
 | `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | **Replace** a workflow's definition. |
 | `hookie workflows delete` | `--workflow-id*` | **Deactivate** a workflow. An update with `--active` turns it back on. |
+| `hookie workflows cancel` | `--instance-id*` | Cancel a running or waiting workflow instance. A finished one answers `409`. |
+| `hookie workflows retry` | `--instance-id*` | Retry a failed, timed-out or (Cloudflare engine) cancelled workflow instance. |
 
 ### workspace
 

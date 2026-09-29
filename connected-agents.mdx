@@ -134,7 +134,8 @@ Available with `hookie:write`:
 
 | Tool | What it does |
 | --- | --- |
-| `create_webhook · update_webhook · delete_webhook` | Endpoints. Update changes enabled, name, dataset, the IP allowlist, the form redirect URL, the allowed browser origins and the URL verification it answers. |
+| `create_webhook · update_webhook · delete_webhook` | Endpoints. Update changes enabled, name, dataset, the IP allowlist, the form redirect URL, the allowed browser origins, the URL verification it answers and its [provider signature verification](/endpoint-verification). The tool tells the agent to ask you for the provider's signing secret rather than invent one; it is never returned. |
+| `rotate_webhook_verification_secret` | Replace the provider signing secret an endpoint verifies with, keeping the old one verifying for `overlap_hours` (default 24; 0 ends it at once). Neither secret is returned. |
 | `create_webhook_version` | A new version of an endpoint with its own URL, criteria, mappings or dataset; the old version keeps working. `slug` is the endpoint's `base_slug`. Change or retire a version with `update_webhook` / `delete_webhook` on its id. |
 | `rotate_webhook` | A new URL for an endpoint, with the old one kept for an overlap. The response carries the new URL, which is a credential. |
 | `create_rule · update_rule · delete_rule` | Mapping rules. Update changes any field — name, enabled, dataset, conditions or mappings — and sends only what changes. Conditions take all ten [operators](/workflows#conditions). |
