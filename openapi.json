@@ -131,6 +131,32 @@
             "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used."
           }
         }
+      },
+      "DeliveryEnvelope": {
+        "type": "object",
+        "description": "The body of every outbound delivery. Always this envelope; the record's payload is under data. Verify signatures over the raw bytes as received, never a re-serialisation.",
+        "required": [
+          "id",
+          "dataset",
+          "received_at",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The record (event) id. The same on every retry and replay of it."
+          },
+          "dataset": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "description": "The record's payload, as routed."
+          }
+        }
       }
     }
   },
@@ -9744,7 +9770,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Rotated, returning the new plaintext secret (status 200, not 201). Sent with Cache-Control: no-store and audited as rotate_destination_secret. The secret it replaced keeps signing for 24 hours: until previous_secret_expires_at every delivery's Hookie-Signature carries two v1 values, the new secret's first (t=<unix>,v1=<new>,v1=<old>), so the receiver can be moved to the new secret at any point in the window. Rotating again inside a window replaces the older secret. End the window early with expire-previous-secret. No request body is read.",
+            "description": "Rotated, returning the new plaintext secret (status 200, not 201). Sent with Cache-Control: no-store and audited as rotate_destination_secret. The secret it replaced keeps signing for 24 hours: until previous_secret_expires_at every delivery's Hookie-Signature carries two v1 values, the new secret's first (t=<unix>,v1=<new>,v1=<old>), and its Standard Webhooks webhook-signature two space-separated entries in the same order (v1,<new> v1,<old>), so the receiver can be moved to the new secret at any point in the window. Rotating again inside a window replaces the older secret. End the window early with expire-previous-secret. No request body is read.",
             "content": {
               "application/json": {
                 "schema": {
@@ -23216,6 +23242,126 @@
             "bearerAuth": []
           }
         ]
+      }
+    }
+  },
+  "webhooks": {
+    "delivery": {
+      "post": {
+        "operationId": "delivery",
+        "summary": "An outbound delivery to a destination",
+        "tags": [
+          "Delivery"
+        ],
+        "description": "What Hookie POSTs to a destination URL for each routed record. Delivery is at-least-once and unordered: dedupe on Hookie-Event-Id (the same value as Idempotency-Key). Redirects are never followed. Every request is signed TWICE over one timestamp, so a receiver can verify whichever it prefers: Hookie-Signature (Stripe-style, t=<unix>,v1=<hex>) and the Standard Webhooks headers webhook-id / webhook-timestamp / webhook-signature, which any Standard Webhooks library verifies unchanged. For 24 hours after a signing-secret rotation (until the destination's previous_secret_expires_at) each header carries two signatures, the new secret's first: two v1= values in Hookie-Signature and two space-separated v1,<base64> entries in webhook-signature. Accept the request if ANY signature matches a secret you hold, and reject a timestamp more than five minutes from now. The two schemes derive DIFFERENT HMAC keys from the same whsec_ signing secret: Hookie-Signature is keyed with the UTF-8 bytes of the whole secret string, whsec_ included; webhook-signature is keyed, as the Standard Webhooks spec says, with the base64-decoded bytes of what follows whsec_. Hookie's secrets are whsec_ + 48 hex characters, which is valid base64 (hex digits are base64 characters and 48 is a multiple of 4) and decodes to 36 bytes, so any Standard Webhooks library accepts the secret exactly as shown.",
+        "parameters": [
+          {
+            "name": "Hookie-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<lowercase hex HMAC-SHA256 of \"<t>.<raw body>\">, keyed with the UTF-8 bytes of the whole signing secret (whsec_ included). During a rotation overlap: t=<unix>,v1=<new>,v1=<previous>. Unchanged since before the Standard Webhooks headers were added.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "t=1790000000,v1=5f2b8c0d6e1a4b3c2d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c"
+          },
+          {
+            "name": "webhook-id",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks message id: the delivery id (the same value as Hookie-Delivery-Id). Every retry of a delivery repeats it; a replay is a new delivery and carries a new one.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "4c7b2a9e-1f3d-4e5a-8b6c-0d9e8f7a6b5c"
+          },
+          {
+            "name": "webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks timestamp: unix seconds, the same value as Hookie-Signature's t.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "example": "1790000000"
+          },
+          {
+            "name": "webhook-signature",
+            "in": "header",
+            "required": true,
+            "description": "Standard Webhooks signature: v1,<base64 HMAC-SHA256 of \"<webhook-id>.<webhook-timestamp>.<raw body>\">, keyed with the base64-decoded bytes after whsec_ (for a Hookie secret, 36 bytes). During a rotation overlap two entries, space-separated, new first: v1,<new> v1,<previous>. Omitted, with webhook-id and webhook-timestamp, only for a secret that is not valid base64, which Hookie never mints.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+          },
+          {
+            "name": "Hookie-Event-Id",
+            "in": "header",
+            "required": true,
+            "description": "The record id: the same on every retry and replay. Dedupe on this.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "rec_9d3f2a10"
+          },
+          {
+            "name": "Hookie-Delivery-Id",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id (the same value as webhook-id).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "4c7b2a9e-1f3d-4e5a-8b6c-0d9e8f7a6b5c"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "The record id, for receivers that dedupe on this header.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "rec_9d3f2a10"
+          },
+          {
+            "name": "Hookie-Hop",
+            "in": "header",
+            "required": true,
+            "description": "How many times this event has passed through Hookie, plus one. Hookie refuses an event whose hop has reached 8 (508); a relay that forwards into Hookie should pass it on.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Delivered."
+          },
+          "3XX": {
+            "description": "Not followed: a failed attempt that is not retried; the delivery's error names the Location."
+          },
+          "4XX": {
+            "description": "Refused: not retried, except 404, 408, 409, 425 and 429, which are. A 429 Retry-After is honoured."
+          },
+          "5XX": {
+            "description": "Retried with backoff (about 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h; eight attempts). A 503 Retry-After is honoured."
+          }
+        }
       }
     }
   }
