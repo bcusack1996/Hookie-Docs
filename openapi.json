@@ -7678,7 +7678,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: PATCH /admin/api/submissions/{id}. Write role required. There is no GET-one-submission route: the dispatcher sends ANY method on submissions/{id} to this handler, so a GET on it falls through to the 400 above.",
+        "description": "Top-level alias: PATCH /admin/api/submissions/{id}. Write role required. PATCH is the only method on this path: there is no GET-one-submission route, and any other method answers 405 with `Allow: PATCH` (#277).",
         "parameters": [
           {
             "name": "project_id",
