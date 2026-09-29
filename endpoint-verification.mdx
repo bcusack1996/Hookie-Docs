@@ -81,7 +81,7 @@ A generic HMAC sender:
 - **Replace the secret at once**: send a new `secret` in the `PATCH`. The old one stops verifying immediately. To keep it working while your provider switches over, [rotate](#rotating-the-secret) instead.
 - **Turn verification off**: send `{"scheme": "none"}`. The stored secret is deleted.
 
-Any change to `verification` in a `PATCH` also ends a rotation's overlap. A new [version](/api-reference) of an endpoint starts with its parent's verification. Project [export and import](/api-reference#export-import-and-clone-a-project) do not carry verification: an imported endpoint starts with `none`, so turn it on again in the target project.
+Any change to `verification` in a `PATCH` also ends a rotation's overlap. A new [version](/api-reference) of an endpoint starts with its parent's verification. Project [export, import and clone](/api-reference#export-import-and-clone-a-project) carry an endpoint's verification as its scheme and settings, never the secret. The copy is created with that scheme and **no secret**, so it refuses every request with `401` until you set one (the endpoint's **Edit** → **Verification**, or `PATCH` with `{"verification": {"scheme": "…", "secret": "…"}}`). It never starts out weaker than the endpoint it was copied from. The import or clone response lists these endpoints under `needs_verification_secret`, and `hookie apply` says the same for each one it creates. To create an endpoint this way yourself, send `"without_secret": true` in place of `secret` on create.
 
 The Stripe, GitHub and Shopify source presets (`GET /admin/api/source-presets`) name their scheme in `verification_scheme`.
 
