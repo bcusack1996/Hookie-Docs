@@ -45,13 +45,15 @@ Each kind is matched to what the project has by the field in the **Identity** co
 | `ai_agents` | `name` | the whole agent: `active`, `model`, `system_prompt`, `tools`, `memory_dataset`, `max_tokens` | — |
 | `record_views` | `dataset` + `name` | `columns`, `sort_key`, `sort_dir`, `is_default` | — |
 | `rules` | `name` | `dataset`, `enabled`, `conditions`, `mappings` | — |
-| `endpoints` | `slug` | `name`, `dataset`, `enabled`, `ip_allowlist` | `criteria`, `mappings`: publish a new version of the endpoint |
-| `destinations` | `name` | `enabled`, `dataset_filter`, `timeout_seconds`, `max_per_second`, `max_concurrency` | `url`: create a new destination |
+| `endpoints` | `slug` | `name`, `dataset`, `enabled`, `ip_allowlist`, `verification` (same scheme, or `none`) | `criteria`, `mappings`: publish a new version of the endpoint; `verification` with another scheme: set it with its secret |
+| `destinations` | `name` | `name`, `url`, `enabled`, `dataset_filter`, `timeout_seconds`, `max_per_second`, `max_concurrency` | — |
 | `workflows` | `name` | the whole definition: `slug`, `active`, `entry_dataset`, `entry_conditions`, `steps` | — |
 | `triggers` (AI) | `name` | `enabled` | `match`, `action_type`, `config`: delete and recreate |
 | `cron_triggers` | `name` | `enabled`, `schedule`, `timezone`, `payload`, `dataset` | — |
 
-`version`, `project` and `not_exported`, which `hookie export` writes, are accepted too. **Any other top-level key is an error** that names it, because `endpoint:` for `endpoints:` would otherwise be a file that "applies" and does nothing. Sources, WebSocket triggers, ingest keys and portals are not part of the file: they hold credentials. Neither is an endpoint's [signature verification](/endpoint-verification), which holds the provider's secret: set it with `hookie endpoints update --verification`, and it is left alone by `apply`.
+A destination's `url` and `name` change in place, so it keeps its id, signing secret and delivery history. An entry under a name the project does not have is taken as a rename of the one destination the file no longer names that has the same URL, and `--prune` leaves it alone. If you change the name and the URL together, that is a create, so rename in one run and move in the next.
+
+`version`, `project` and `not_exported`, which `hookie export` writes, are accepted too. **Any other top-level key is an error** that names it, because `endpoint:` for `endpoints:` would otherwise be a file that "applies" and does nothing. Sources, WebSocket triggers, ingest keys and portals are not part of the file: they hold credentials. An endpoint's [signature verification](/endpoint-verification) is in the file as its scheme and settings (`verification: {"scheme": "stripe", "tolerance_seconds": 600}`), never its secret. `apply` never sends or prints a secret, and it refuses a file that holds `verification.secret`. A new endpoint with a verifying scheme is created without a secret and refuses every request until you set one; `apply` says so. The same scheme with other settings changes in place and keeps the secret it holds. A different verifying scheme is reported with `!`, because it needs that provider's secret: set it with `hookie endpoints update --verification`.
 
 ## What apply will and will not do
 

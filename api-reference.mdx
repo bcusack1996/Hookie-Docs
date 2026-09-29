@@ -127,7 +127,7 @@ POST /admin/api/projects/{pid}/clone                # {name}: a new project with
 
 The document is the same `hookie.yml` shape the CLI reads, so `hookie export` writes it and `hookie apply` applies it (see [Configuration](/cli/configuration)). Connected agents have `export_project_config` and `import_project_config`.
 
-**What is in it:** endpoints (the newest version of each, with its criteria, mappings, dataset and IP allowlist, but not its [signature verification](/endpoint-verification), so an imported endpoint starts with none), rules, destinations (name, URL, dataset filter and delivery limits), AI agents, workflows, AI triggers, cron triggers and record views.
+**What is in it:** endpoints (the newest version of each, with its criteria, mappings, dataset, IP allowlist and [signature verification](/endpoint-verification) scheme and settings, never the secret; an imported or cloned verifying endpoint refuses every request until you set its secret, and the response lists it under `needs_verification_secret`), rules, destinations (name, URL, dataset filter and delivery limits), AI agents, workflows, AI triggers, cron triggers and record views.
 
 **What is never in it:**
 
