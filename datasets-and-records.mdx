@@ -1,0 +1,64 @@
+---
+title: "Datasets and records"
+description: "What Hookie keeps for each event: the raw submission, the records routing makes from it, the datasets they are filed in, and how long each is kept."
+icon: "table"
+---
+
+For every event it accepts, Hookie keeps two things: the **submission**, which is the request exactly as it arrived, and the **records** that routing made from it, each filed in a **dataset**. The two are kept apart on purpose. The submission is the evidence that something arrived; a record is what you meant to keep, in the shape you gave it.
+
+## Submissions
+
+A submission is the body as it arrived, stored before anything reshapes it, together with the request it came in: the method, the headers, the query string, the content type and the source IP. Credentials are never kept: `Authorization`, `Cookie`, and any header or query parameter named like a key, token, secret, password or session is stored as `[redacted]`. Two kinds of body are stored in a normalised form: a multipart form keeps its fields, with each file as a `{filename, type, size}` descriptor and its bytes discarded, and a text body that is not JSON is kept as `{ "body": "…", "content_type": "…" }`.
+
+The `201` answer to a request names its submission as `submission_id`. Each submission counts once against your monthly event quota, however many records it makes. A refused request, or a duplicate Hookie recognised, does not count.
+
+A submission's routing status tells "nothing matched" apart from "never arrived". Filter by it on the **Observability** tab, under **Submissions**:
+
+| Status | Meaning |
+| --- | --- |
+| **Routed** | At least one record was written. |
+| **Pending (no rule matched yet)** | No record was written: no rule matched, or the endpoint's criteria turned the event away. |
+| **Routing failed** | Routing hit an error. The submission itself is safe. |
+
+## Records
+
+A record is one routed event in a dataset: a JSON object holding the mapped fields, or the whole payload when nothing mapped it. A payload that is not an object, such as a bare array, is stored as `{ "value": … }`. Every record has an id, the time it was received and where it came from, listed as `_id`, `_received_at` and `_source` beside its fields.
+
+One submission can make no record, one, or several, because every rule that matches writes its own. Records, not submissions, are what fan out. Each new record is:
+
+- delivered to every enabled destination in its project whose dataset filter admits it;
+- published on the project's live stream;
+- offered to the project's AI triggers and workflows.
+
+A record's id is the `Hookie-Event-Id` on every delivery of it.
+
+Records also come from cron and WebSocket triggers, database sources, a workflow's `emit_event` step and an AI trigger's output. They fan out the same way, except that a record a workflow or an AI trigger wrote never starts a workflow, and an AI trigger's output never fires an AI trigger, so neither can loop. Events from cron and WebSocket triggers and database sources count against the monthly event quota like ingested ones.
+
+## Datasets
+
+A dataset is a name that records are filed under, such as `orders`. There is no step to create one: it appears on the project's **Datasets** tab the moment the first record is routed into it, whether from an endpoint, an ingest key's path, a rule, a trigger or a workflow. A dataset name starts with a letter and uses only letters, digits and underscores, up to 63 characters. A dataset belongs to its project: an `orders` dataset in two projects is two datasets.
+
+The **Datasets** tab lists each dataset with its number of records and when the last one arrived. Open one to page through its records, 25, 50 or 100 at a time, and save views that pick the fields to show, rename them, and set how the records sort. The eye icon on a row (**Open record**) shows a record whole, with the **Request** it arrived in. **Export CSV** and **Export XLSX** export the whole dataset, not just the page; an XLSX file stops at a spreadsheet's 1,048,575 rows, and a CSV has no limit.
+
+Outside the console, read records with:
+
+- `GET /admin/api/projects/{pid}/datasets/{name}`, which pages by cursor (see [Reading a whole dataset](/api-reference#reading-a-whole-dataset));
+- `search/events`, for filtered searches with a time window;
+- the `query_records` and `get_record` tools of a [connected agent](/connected-agents);
+- the read-only [Data API](/data-api), for tools outside Hookie.
+
+## Retention
+
+Event data is kept for your plan's retention window, then deleted automatically:
+
+| Plan | Retention |
+| --- | --- |
+| Free | 7 days |
+| Pro | 30 days |
+| Team | 90 days |
+
+The window covers records, submissions, deliveries and their attempts, held deliveries, the refused-request log, workflow runs, AI trigger runs and the AI call log. A cleanup runs every five minutes and deletes what has aged past the window, counted from when it was received or created. A delivery that is still queued, retrying or paused is kept until it finishes. The audit log has its own, longer window: the longer of your plan's retention and one year.
+
+After a downgrade, the new plan's shorter window applies from the next cleanup, so data older than it is deleted then. A delivery whose record has been pruned cannot be replayed.
+
+To delete data sooner, one record or a whole dataset, or to export everything, see [Delete, export and close](/data-deletion).

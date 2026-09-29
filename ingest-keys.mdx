@@ -6,7 +6,7 @@ icon: "key"
 
 An **ingest key** (`ik_live_…`) is the credential for a server. An endpoint URL is what you paste into a provider's dashboard; a key is what your own code sends with, and it is the only way to use three things:
 
-- **Rules.** `POST /v1/ingest/{key}` with no dataset in the path runs the project's [mapping rules](/quickstart#route-with-rules).
+- **Rules.** `POST /v1/ingest/{key}` with no dataset in the path runs the project's [mapping rules](/rules-and-mappings).
 - **The live stream.** `GET /v1/stream` authenticates with a key and tails that key's project. See [Live streaming](/streaming).
 - **Hookie's own inbound signature.** A key can require every request to carry an `X-Hookie-Signature` (`t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` with the key's signing secret). See [request headers](/api-reference#request-headers). To check a *provider's* signature (Stripe, GitHub and others), use [endpoint signature verification](/endpoint-verification) instead.
 
@@ -21,7 +21,7 @@ A key belongs to one project. Anyone holding it can send events into that projec
   <Step title="Create it">
     Choose **Create key** and give it the name of the sender that will use it. Optionally set:
 
-    - a **default dataset**, used when a request names none and no rule matches;
+    - a **default dataset**, which is stored and shown in the list. Routing does not use it: a request that names no dataset goes to the project's rules, and when none matches, no record is written;
     - an **expiry**, after which the key is refused exactly as if it had been revoked;
     - **allowed source IPs**, one IP or CIDR range per line;
     - **require a signature**, which also mints a signing secret.

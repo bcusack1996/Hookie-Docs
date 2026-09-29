@@ -60,4 +60,4 @@ The **Data API** gives tools outside Hookie (a BI dashboard, a spreadsheet, a ni
 | **Matched on the whole key** | A key is looked up by the SHA-256 hash of the whole token, never by its visible prefix, and a revoked key is excluded in the same lookup. Two keys that happen to share a prefix each work, and neither can stand in for the other. |
 | **Revocable at once** | Revoke a key in Settings and its next request is a `401`. |
 | **Stops with the workspace** | While the workspace is suspended, every request answers `403` with `"reason": "workspace_suspended"`. |
-| **Rate-limited** | Each key has the same burst limit as an ingest key (100 requests per 10 seconds); over it, `429` with a `Retry-After: 10` header and `retry_after: 10` in the body. Wait that long, then retry. |
+| **Rate-limited** | Each key has the same burst limit as an ingest key: about 100 requests per 10 seconds, a best-effort guard counted separately at each Cloudflare location, so a short burst can get through above it. Over it, `429` with a `Retry-After: 10` header and `retry_after: 10` in the body. Wait that long, then retry. |

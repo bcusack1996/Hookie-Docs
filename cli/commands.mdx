@@ -101,14 +101,14 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 
 | Command | Flags | |
 | --- | --- | --- |
-| `hookie endpoints list` | `—` | A project's webhook endpoints. |
+| `hookie endpoints list` | `—` | A project's endpoints. |
 | `hookie endpoints activity` | `--webhook-id* --kind --limit --offset` | One endpoint's received and refused requests over the last 7 days, and why each was refused. |
-| `hookie endpoints create` | `--name* --slug --dataset --criteria --mappings --enabled --ip-allowlist --verification --redirect-url --cors-origins --handshake --handshake-secret` | Create a webhook endpoint. `--slug` and `--dataset` are optional: the slug is made from the name, and the dataset is the name as an identifier, or `default`. `--verification` turns on [provider signature verification](/endpoint-verification). |
+| `hookie endpoints create` | `--name* --slug --dataset --criteria --mappings --enabled --ip-allowlist --verification --redirect-url --cors-origins --handshake --handshake-secret` | Create an endpoint. `--slug` and `--dataset` are optional: the slug is made from the name, and the dataset is the name as an identifier, or `default`. `--verification` turns on [provider signature verification](/endpoint-verification). |
 | `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret --verification` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist, form redirect, allowed browser origins, URL verification or provider signature verification. Pass at least one. |
 | `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
 | `hookie endpoints rotate-secret` | `--webhook-id* --secret* --overlap-hours` | Replace the provider signing secret an endpoint verifies with, when the provider rolls it; the old secret keeps verifying for the overlap (default 24 hours, 0 ends it at once). |
-| `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete a webhook endpoint. |
-| `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of a webhook endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
+| `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete an endpoint. |
+| `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of an endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
 
 ### events
 

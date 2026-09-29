@@ -112,7 +112,7 @@ claude mcp add --transport http hookie https://app.hookie.ai/mcp \
 
 ## Rate limits
 
-Each credential may make **100 requests every 10 seconds** to `/admin/api` and `/mcp` combined. Each API key, each connected agent and each person signed in to the console is counted separately, so one runaway script cannot lock out the rest of your team.
+Each credential may make **about 100 requests every 10 seconds** to `/admin/api` and `/mcp` combined. The limit is a best-effort burst guard, not an exact count: each Cloudflare location counts separately, so a short burst can get through above it. Each API key, each connected agent and each person signed in to the console is counted separately, so one runaway script cannot lock out the rest of your team.
 
 Over the limit, the request is refused with `429` and a `Retry-After: 10` header. On `/admin/api` the body is:
 

@@ -1,0 +1,127 @@
+---
+title: "Glossary"
+description: "What each Hookie term means, in a sentence or two, with the names the API and the MCP tools use for the same thing."
+icon: "book"
+---
+
+## Terms
+
+### AI trigger
+
+A project setting that runs a model with your instructions on each record that lands in a dataset and meets its conditions. The reply is stored as a record in the trigger's output dataset. See [AI triggers](/workflows#ai-triggers).
+
+### API key
+
+A workspace credential (`hk_…`) that lets a CI job, script or backend call the admin API and `/mcp` as the person who created it, held to the key's role. See [Roles, API keys and connected agents](/roles-and-agents#api-keys).
+
+### Attempt
+
+One try at sending a delivery. A delivery gets up to eight over about 27 hours, and each failed attempt is kept with its status code, latency and error. See [Attempts and retries](/destinations-and-deliveries#attempts-and-retries).
+
+### Connected agent
+
+A coding agent, such as Claude Code or Cursor, that signed in to Hookie's MCP server over OAuth and acts as you, within the access you grant it in **Settings → Connected agents**. See [Connected agents](/connected-agents).
+
+### Criteria
+
+The conditions an endpoint applies to every event it receives. An event that fails them is kept as a submission but makes no record. See [Criteria on endpoints](/rules-and-mappings#criteria-on-endpoints).
+
+### Dataset
+
+A named collection of records in a project, such as `orders`. It exists from the moment the first record is filed under its name. See [Datasets and records](/datasets-and-records#datasets).
+
+### Delivery
+
+One record sent to one destination as a signed `POST`, retried until it arrives or runs out of attempts. Each one counts once against the monthly delivery allowance. See [Destinations and deliveries](/destinations-and-deliveries#deliveries).
+
+### Destination
+
+An https URL that a project sends its records to, optionally only those of some datasets, with every request signed with the destination's secret. See [Destinations and deliveries](/destinations-and-deliveries).
+
+### Endpoint
+
+A public URL, `https://app.hookie.ai/{workspace}/{project}/{webhook}`, whose random last segment is its credential. What is posted to it is stored in the endpoint's dataset. See [Endpoints and ingest keys](/endpoints-and-keys#endpoints).
+
+### Event
+
+Anything sent to Hookie. Where the API names an event, as in `Hookie-Event-Id`, `event_id` or `search/events`, it means a record.
+
+### Hold
+
+What happens to a record's deliveries once the month's delivery allowance is used up: they are neither sent nor lost, and **Send held deliveries** sends them once there is room. See [The delivery allowance and holds](/destinations-and-deliveries#the-delivery-allowance-and-holds).
+
+### Ingest key
+
+A credential (`ik_live_…`) that your own servers send events into one project with. It is the only way to route events with rules and to tail the live stream. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys).
+
+### Mapping
+
+A `{path, key}` pair that copies one field of an event into the stored record under a key you choose. With no mappings, the whole payload is stored. See [Mappings](/rules-and-mappings#mappings).
+
+### Portal
+
+The customer portal: a page you embed in your own app, where your customers add the destinations your events are sent to and inspect and replay their deliveries. Each customer gets in with a token you issue. See [Customer portal](/customer-portal).
+
+### Project
+
+The unit everything else belongs to: endpoints, keys, datasets, rules, destinations, triggers and workflows. Every workspace starts with one called Default. See [Projects](/projects).
+
+### Record
+
+One routed event, stored as a JSON object in a dataset. Records are what fan out to destinations, the live stream, AI triggers and workflows. See [Records](/datasets-and-records#records).
+
+### Replay
+
+Sending a delivery that did not arrive again, as a new delivery with the same event id. It counts against the delivery allowance. See [Replay](/destinations-and-deliveries#replay).
+
+### Rule
+
+A project's routing rule, which decides the dataset and shape of an event sent with an ingest key and no dataset in the path. Every rule that matches writes its own record. See [Rules and mappings](/rules-and-mappings#rules).
+
+### Run
+
+One execution of a workflow, started by one matching record; the API calls it a workflow instance. An AI trigger's execution is also called a run. See [Instances & observability](/workflows#instances-%26-observability).
+
+### Source
+
+A database source: a PostgreSQL table that Hookie polls on a schedule and files new rows from into a dataset, as events. Sources need the Pro or Team plan. See [Limits and plans](/limits-and-plans#per-plan).
+
+### Submission
+
+The request exactly as it arrived, with its method, headers and source IP, stored before any routing. One submission makes no record, one or several, and counts once against the monthly event quota. See [Submissions](/datasets-and-records#submissions).
+
+### Workflow
+
+A multi-step process in a project that starts when a record lands in its entry dataset, and runs steps such as AI calls, HTTP calls, branches and waits. See [Workflows & AI agents](/workflows).
+
+### Workspace
+
+Your account. It holds the projects, the plan and billing, API keys, connected agents and the audit log, and its slug is the first segment of every endpoint URL. See [Projects](/projects).
+
+## One thing, three names
+
+The console and these docs use the names above. The API and the MCP tools keep some older names for the same things:
+
+| Name | In the API | MCP tools |
+| --- | --- | --- |
+| Workspace | `workspace`, `me` | `get_workspace` |
+| Project | `projects` | `list_projects`, `create_project` |
+| Endpoint | `webhooks`, `webhook_id`, `webhook_slug` | `create_webhook`, `list_webhooks`, `update_webhook` |
+| Ingest key | `ingest-keys` | `create_ingest_key`, `rotate_ingest_key` |
+| Dataset | `datasets`, `dataset` | `list_datasets` |
+| Record | `records`, `search/events`, `event_id` | `query_records`, `get_record`, `search_events` |
+| Submission | `submissions`, `submission_id` | `search_submissions` |
+| Rule | `rules` | `create_rule`, `update_rule` |
+| Criteria and mappings | `criteria`, `mappings` | on `create_webhook` and `create_rule` |
+| Destination | `destinations` | `create_destination`, `update_destination` |
+| Delivery and attempts | `deliveries`, `attempts` | `list_deliveries`, `get_delivery` |
+| Hold | `deliveries/held` | `list_held_deliveries`, `release_held_deliveries` |
+| Replay | `deliveries/{id}/replay`, `deliveries/replay` | `replay_delivery`, `replay_deliveries` |
+| Workflow and run | `workflows`, `workflow-instances` | `create_workflow`, `list_workflow_runs` |
+| AI trigger | `triggers` | `create_trigger` |
+| Source | `sources` | `create_source` |
+| Portal | `portal`, `portals` | `update_portal`, `create_portal_token` |
+| Connected agent | `agents` | none |
+| API key | `api-keys` | none |
+
+In prose, "webhook" means the HTTP request a provider sends, or one Hookie sends; the URL Hookie gives you to receive them is an **endpoint**.

@@ -1,53 +1,119 @@
 ---
 title: "Quickstart"
-description: "Get from zero to a routed event in three steps."
+description: "Create a project, send a test event, find its record, and watch a signed delivery reach a URL of yours."
 icon:
   name: "shipping-fast"
   style: "regular"
   library: "fontawesome"
 ---
 
-## 1. Create a project & endpoint
+This walks one event all the way through Hookie: into an endpoint, into a dataset as a record, and out to a destination as a signed delivery. Everything here works on the Free plan.
 
-[Sign in](https://app.hookie.ai/#/signin) with an emailed 6-digit code or GitHub. There is no password; the first sign-in creates a free workspace. Then click **Create Project**. The new project opens on its **Endpoints** tab, with a starter endpoint marked **new**; use it, or choose **Add endpoint**. Hookie generates a high-entropy webhook URL. The URL itself is the secret, so anyone who has it can send events:
+## 1. Create a project
+
+[Create an account](https://app.hookie.ai/#/signup) with **Email me a code** (a 6-digit code, valid for 10 minutes) or **Continue with GitHub**. There is no password. Your first sign-in creates your workspace, with an empty project called **Default**.
+
+Open **Projects** in the side navigation and choose **Create a project**. Give it a name, such as `Orders`, leave **Start with** on **Webhook — one endpoint, ready to receive events**, and choose **Create**.
+
+The project opens on its **Endpoints** tab. Hookie has made one endpoint for you, named after the project (`Orders webhook`), tagged **new**, and storing what it receives in the dataset `default`.
+
+<Tip>
+  Rather use the Default project? Open it, choose **Add endpoint** on its **Endpoints** tab, and give the endpoint a name and a dataset. Until your workspace has an endpoint, an event and a destination, **Home** shows a **Get started** checklist that links to each step below. Each step is ticked off from what the workspace really holds, not from what you clicked.
+</Tip>
+
+## 2. Copy the endpoint URL
+
+The endpoint's card shows its public URL, with a copy button:
 
 ```http
 https://app.hookie.ai/{workspace}/{project}/{webhook}
 ```
 
-The **Overview** tab shows the full URL with a copy button and a ready-to-paste curl example. Each endpoint's card also has **Send test event**, **View records** and **Show curl**, so you can try it without leaving the tab.
+The last segment is a long random value that Hookie generates, and it is the endpoint's only credential: anyone who has the URL can send events to it. Paste it into a provider's webhook settings, a form's `action`, or your own code. If it leaks, **Rotate URL…** in the card's menu gives the endpoint a new URL and keeps the old one working for an overlap you choose.
 
-<Tip>
-  Until your workspace has an endpoint, an event and a destination, **Home** shows a **Get started** checklist: create an endpoint, send a test event, see it arrive, add a destination. Each step is ticked off from what your workspace actually has, not from what you clicked.
-</Tip>
+**Show curl** on the card gives you a ready-to-paste command, and so does the project's **Overview** tab, under **Send events to this project**.
 
-## 2. Send an event
+## 3. Send a test event
 
-POST any JSON to your endpoint URL. The whole payload is stored into the endpoint's dataset:
+Choose **Send test event** on the endpoint's card. It is a button under the URL, next to **View records** and **Show curl**, not an item in the card's menu. Owners, admins and developers see it, and it is disabled while the endpoint is disabled.
+
+The dialog holds a sample JSON payload under **Event payload (JSON)**. Edit it if you like, then choose **Send test event**. The dialog posts to the endpoint's real URL, so the event is stored, routed and fanned out exactly like one from a provider, and it counts against your monthly event quota like one. It then shows three stages:
+
+- **Sending**, then **Waiting for acknowledgement**, with the status and the time taken, such as `201 · 143 ms`.
+- **Fan-out to destinations**, which follows the event for up to 30 seconds. With no destination yet, it says the event was stored and that no enabled destination accepts its dataset, and it offers **Add a destination to forward events**.
+
+**Follow this event in Observability** opens the event's whole chain.
+
+You can send the same kind of event from a terminal:
 
 ```bash
-curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
-  -H "Content-Type: application/json" \
+curl -X POST 'https://app.hookie.ai/your-workspace/orders-x7k2qa/aBcXyz…' \
+  -H 'Content-Type: application/json' \
   -d '{"order":1042,"email":"ada@example.com","total":59.9}'
 ```
-
-You'll get back the submission ID and where it routed:
 
 ```http
 201 Created
 {
   "submission_id": "9d3f…",
-  "routed": ["orders"],
+  "routed": ["default"],
   "records": 1
 }
 ```
 
-## Or point an HTML form straight at it
+`submission_id` names the raw body Hookie stored, and `routed` lists the datasets the event landed in.
 
-An endpoint accepts what a browser actually posts, so a plain form needs no JavaScript and no backend of your own. Set `action` to your endpoint URL and you are done:
+## 4. See the record
+
+Choose **See the record in default** in the dialog, or **View records** on the endpoint's card. Both open the endpoint's dataset on the project's **Datasets** tab, newest record first.
+
+Open a record with its eye icon (**Open record**) to see all of it, and the **Request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
+
+A record is what Hookie routed into a dataset. The body exactly as it arrived is kept as well, as a **submission**: find it on the **Observability** tab under **Submissions**. **Export CSV** and **Export XLSX** on the dataset export all of it, not just the page you see. See [Datasets and records](/datasets-and-records).
+
+## 5. Add a destination
+
+A **destination** is an https URL of yours that Hookie sends each new record to, signed. For this step, any https URL that answers with a `2xx` status will do, such as a request inspector or a route on your own server.
+
+Open the project's **Connections** tab. Under **Destinations · outbound**, choose **Add destination** and fill in:
+
+- **Name**, such as `My server`;
+- **URL**, which must be `https`;
+- **Dataset filter (optional)**: leave it empty to receive every dataset.
+
+Choose **Create**. Hookie shows the destination's signing secret (`whsec_…`) under **Signing secret — shown once**. Copy it: your receiver uses it to check that a request came from Hookie. Owners and admins can see it again later with **Reveal secret** on the destination's tile.
+
+The Free plan runs one destination. See [Limits and plans](/limits-and-plans).
+
+## 6. Watch the delivery arrive
+
+Go back to the **Endpoints** tab and choose **Send test event** again. This time **Fan-out to destinations** ends with `Delivered to My server (200).` If your URL refused the request or could not be reached, the dialog says so, and whether Hookie will try again.
+
+Now open the project's **Deliveries** tab. Each row is one **delivery**: one event sent to one destination.
+
+| Column | Shows |
+| --- | --- |
+| **Status** | `queued`, `delivered`, `retrying` (with the next attempt's time), `failed`, `dead`, `paused` or `cancelled`. |
+| **Destination** · **Dataset** | Where it went, and the dataset of the record it carried. |
+| **Response** | Your URL's status code and how long it took to answer. |
+| **Attempts** | Attempts made, out of eight: `1/8` when the first try arrived. |
+
+The eye icon (**Details**) lists every attempt and the latest response body your URL sent back. A delivery that failed for good has a **Replay** button.
+
+Every delivery is signed twice with the destination's secret: as `Hookie-Signature`, and as the [Standard Webhooks](https://www.standardwebhooks.com) headers. It also carries `Hookie-Event-Id`, which stays the same on every retry and replay of that event. [Verify the signature](/signatures) before you trust a request, and dedupe on the event id, because delivery is at-least-once. [Destinations and deliveries](/destinations-and-deliveries) covers retries, holds and replays.
+
+## Trace an event later
+
+The **Observability** tab searches **Events**, **Submissions**, **Deliveries**, **AI runs** and **AI calls** over the last 24 hours by default. Widen it with **Time range**, down to a custom window to the minute. Each kind has its own filters, such as a delivery's status, destination and response code, or a submission's routing status. **Trace an id** takes any record, submission, delivery, AI run or workflow run id, such as the `Hookie-Delivery-Id` your receiver logged, and shows the chain it belongs to. Switch on **Live** to watch events arrive as you send them. The filters are kept in the page address, so a search can be shared as a link.
+
+When a provider says Hookie returned an error, choose **Activity** in the endpoint's menu. It lists what the endpoint received and refused over the last 7 days, and why each request was refused: IP allowlist, rate limit, quota, disabled endpoint, content type, signature and more. Refused requests never count against your quota.
+
+## Point an HTML form at it
+
+An endpoint accepts what a browser actually posts, so a plain form needs no JavaScript and no backend of your own. Set `action` to your endpoint URL:
 
 ```html
-<form action="https://app.hookie.ai/your-workspace/contact/aBcXyz…" method="post">
+<form action="https://app.hookie.ai/your-workspace/contact-3kq8zt/aBcXyz…" method="post">
   <input name="name" required>
   <input name="email" type="email" required>
   <textarea name="message"></textarea>
@@ -55,7 +121,7 @@ An endpoint accepts what a browser actually posts, so a plain form needs no Java
 </form>
 ```
 
-The fields arrive as an ordinary record, stored whole into the endpoint's dataset:
+The fields arrive as an ordinary record, stored whole in the endpoint's dataset:
 
 ```json
 {
@@ -68,8 +134,9 @@ The fields arrive as an ordinary record, stored whole into the endpoint's datase
 Both form encodings work: `application/x-www-form-urlencoded` and `multipart/form-data`. A few details worth knowing:
 
 - A field that repeats (checkboxes, a multi-select) becomes an **array** rather than losing all but one value.
-- Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` and does not become a nested object, so a mapping rule sees exactly what the form sent.
-- A **file** part is recorded as a descriptor and its bytes are discarded, in the record **and** in the raw submission kept under Observability. Hookie stores records, not blobs, so you get proof something was attached without the contents:
+- Field names are kept **verbatim and flat**. A field called `user.email` stays the key `user.email` and does not become a nested object, so a mapping sees exactly what the form sent.
+- Every form value arrives as **text**. `gt`, `gte`, `lt` and `lte` still compare a field such as `amount=150` as the number 150. In workflows and triggers `equals` and `in` compare exactly, so match `"150"` there, not `150`; rules and endpoint criteria compare as text, so either works.
+- A **file** part is recorded as a descriptor and its bytes are discarded, in the record **and** in the raw submission. Hookie stores records, not files, so you get proof something was attached without the contents:
   ```json
   {
     "email": "grace@example.com",
@@ -80,14 +147,14 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
 
 ### Send visitors to a thank-you page
 
-Because the browser navigates to the endpoint on submit, a visitor would land on Hookie's JSON response. Give the endpoint a **redirect URL** instead: open **Endpoints**, choose **Edit…** in its menu, and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
+Because the browser navigates to the endpoint on submit, a visitor would land on Hookie's JSON response. Give the endpoint a redirect URL instead: on the **Endpoints** tab, choose **Edit…** in the endpoint's menu and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
 
 ### Submit with fetch()
 
 To keep the visitor on your page, submit with `fetch()`. A browser only lets a page read the answer from an origin that allows it, so add your site under **Allowed browser origins** in the same form: one origin per line, such as `https://example.com`, or `*` for any page. Nothing is allowed by default. For an allowed origin the endpoint answers the `OPTIONS` preflight that a JSON body triggers, and every response carries `Access-Control-Allow-Origin`, so your page can show the error on a `429` too.
 
 ```js
-const res = await fetch("https://app.hookie.ai/your-workspace/contact/aBcXyz…", {
+const res = await fetch("https://app.hookie.ai/your-workspace/contact-3kq8zt/aBcXyz…", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ email, message }),
@@ -99,18 +166,6 @@ if (res.ok) showThanks();
   A `FormData` body needs no preflight, because it is a form encoding. Without an allowed origin the submission is still stored, but your page cannot read the answer, and `fetch()` rejects with "Failed to fetch".
 </Tip>
 
-## 3. See it in the console
-
-Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. **Export CSV** and **Export XLSX** on a dataset export all of it, not just the page you see, with progress and a **Cancel export** button; if an export fails part-way, **Resume export** carries on from where it stopped. An XLSX file stops at a spreadsheet's 1,048,575 rows and says so; a CSV has no limit. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
-
-Open a record, or trace a submission, to see the **request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
-
-When a provider says Hookie returned an error, choose **Activity** in the endpoint's menu. It lists what the endpoint received and what it refused over the last 7 days, and why each request was refused (IP allowlist, rate limit, quota, disabled endpoint, content type, signature and more). Refused requests never count against your quota.
-
-The **Observability** tab searches the last 24 hours by default; widen it with **Time range**, down to a custom window to the minute. Each entity has its own filters (a delivery's status, destination, response code and latency, an event's dataset, a submission's routing status), and **Trace an id** takes any record, submission, delivery, AI run or workflow run id, such as the `Hookie-Delivery-Id` your receiver logged, straight to its chain: the raw body, each record's payload, each delivery's destination and error, and each workflow run with every step's status. Switch on **Live** to watch events arrive as you send them. The filters are kept in the page address, so a view like "failed deliveries to Billing between 14:00 and 14:30" can be shared as a link.
-
-To test the wiring end to end, use **Send a test event** in an endpoint's menu. It posts to the endpoint's real URL, then follows that event for up to 30 seconds and says what happened: delivered, failed (with the answer and whether it will be retried), held because a destination is disabled, still sending, or, only when your destinations' dataset filters confirm it, that no enabled destination accepts the dataset.
-
 ## Safe retries
 
 A retry returns the original submission (`200`, with `"idempotent": true`) instead of creating a duplicate, and it never counts twice against your quota. Hookie recognises the delivery ids that webhook providers already send and keep across their retries, so Stripe, GitHub, Shopify, GitLab, Twilio, Linear, Twitch, Atlassian, Slack, Svix and every [Standard Webhooks](https://www.standardwebhooks.com) sender are deduplicated with nothing to configure. `deduplicated_by` in the answer says which id matched. Duplicates are tracked per endpoint, so two endpoints never collide.
@@ -118,15 +173,15 @@ A retry returns the original submission (`200`, with `"idempotent": true`) inste
 From your own code, send an `Idempotency-Key`:
 
 ```bash
-curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
+curl -X POST 'https://app.hookie.ai/your-workspace/orders-x7k2qa/aBcXyz…' \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: order-1042" \
   -d '{"order":1042,"total":59.9}'
 ```
 
-## Prefer a key?
+## Send from your own servers
 
-Machine-to-machine senders can also use an **ingest key** (`ik_live_…`). Create one in the project's **Ingest keys** tab: it is stored hashed and shown once, and it can carry an expiry and an IP allowlist. See [Ingest keys](/ingest-keys) for rotating and revoking them.
+A server can send with an **ingest key** (`ik_live_…`) instead of an endpoint URL. Create one on the project's **Ingest keys** tab: it is shown once, stored hashed, and can carry an expiry and an IP allowlist.
 
 ```bash
 curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
@@ -134,28 +189,18 @@ curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
   -d '{"order":1042,"total":59.9}'
 ```
 
-## Route with rules
+With a dataset at the end of the path, as here, the payload is stored whole in that dataset. Leave the dataset out and the project's **rules** decide where it goes, and in what shape.
 
 <Warning>
-  Everything above routes by _address_: the URL names the dataset (the endpoint's own; a trailing `/{dataset}` may repeat it, and naming any other dataset is refused with `403`), and the payload is stored whole. There is nothing to decide, so **rules are not consulted on any of those requests.** Adding a rule and then posting to an endpoint URL is the one thing that looks like it should work and doesn't.
+  Rules run only on `POST /v1/ingest/{ingest_key}` with no dataset in the path. An endpoint URL always writes to the endpoint's own dataset and never consults rules, so adding a rule and then posting to an endpoint URL changes nothing.
 </Warning>
 
-Rules are for the case where the sender _can't_ say where an event belongs, such as one stream carrying several kinds of event. They are evaluated by exactly one shape: an ingest key with **no dataset in the path**.
-
-```bash
-curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx' \
-  -H "Content-Type: application/json" \
-  -d '{"type":"refund","order":1042,"total":59.9}'
-```
-
-Every enabled rule in the project is then tried against that payload. A rule's _conditions_ test paths in the payload, all of which must hold: `type` equals `refund`, `total` at least `50`, `country` in a list, or a bounded regular expression. They use the same ten operators as every other condition in Hookie (see [Conditions](/workflows#conditions)); in a rule, `equals`, `not_equals` and `in` compare as text, so `5` and `"5"` match. Its _mappings_ pick fields out into a record of your own shape. Leave conditions empty to match everything, and mappings empty to store the payload whole.
-
-Build rules on the project's **Rules** tab. The rule editor has a row per condition, with an operator picker and a value field that fits the operator, rows for mappings, a dataset picker and a **Status** switch. **Test against a sample event** runs the rule over a payload, prefilled from the latest submission when it parses, and shows whether it matched and the record it would write, without storing anything. Each rule's menu has **Edit**, **Duplicate**, **Enable** or **Disable**, and **Delete**. Over the API, `PATCH /admin/api/projects/{pid}/rules/{id}` changes any field, validated as a create is, and `POST /admin/api/projects/{pid}/rules/test` with `{conditions, mappings, payload}` answers `{matched, record}` and writes nothing.
-
-Rules are not first-match: every rule that matches writes its own record, so one event can land in several datasets at once. If none match, the response comes back with `"routed": []` and the raw submission is still captured. Find it under **Observability → Submissions**, which is how you tell "no rule matched" from "the event never arrived".
+See [Endpoints and ingest keys](/endpoints-and-keys) and [Rules and mappings](/rules-and-mappings).
 
 ## Next
 
-- [Verify outbound signatures](/signatures) on your receiving endpoint.
+- Read the **Concepts** pages, starting with [Projects](/projects), to see how the pieces fit together.
+- [Verify signatures](/signatures) on your receiver.
 - [Tail the live stream](/streaming) over SSE or WebSocket.
-- [Browse the API reference.](/api-reference)
+- [Browse the API reference](/api-reference).
+- Look up any term in the [Glossary](/glossary).

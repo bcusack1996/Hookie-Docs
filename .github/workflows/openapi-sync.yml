@@ -1,0 +1,86 @@
+# Keeps this repository's openapi.json identical to the spec hookie.ai publishes
+# (hookie-ai #203, DOC-4).
+#
+# https://hookie.ai/openapi.json is served by the marketing site, which is
+# deployed from the hookie-ai repository's `main` branch at each production
+# release. Its source there is docs/openapi.json; the marketing site serves a
+# byte-identical copy of it. So this job fails:
+#   - on a pull request or a push that edits openapi.json by hand, or syncs it
+#     from a hookie-ai commit that has not been released yet;
+#   - on the daily run after a hookie-ai release, until these docs catch up.
+#
+# The fix is always the same: copy hookie-ai's docs/openapi.json, at `main`
+# (the commit production runs), over openapi.json here.
+#
+# No secrets: the spec is public.
+
+name: OpenAPI sync
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openapi-sync:
+    name: openapi.json matches hookie.ai
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PUBLISHED_URL: https://hookie.ai/openapi.json
+      FIX: >-
+        Copy docs/openapi.json from the hookie-ai repository at main
+        (https://github.com/bcusack1996/hookie-ai/blob/main/docs/openapi.json)
+        over openapi.json in this repository, and commit it.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the published spec
+        run: |
+          if ! curl --fail --silent --show-error --location \
+              --retry 3 --retry-delay 10 --retry-all-errors --max-time 60 \
+              -H 'Cache-Control: no-cache' \
+              -o "$RUNNER_TEMP/published.json" "$PUBLISHED_URL"; then
+            echo "::error title=Could not download the published spec::$PUBLISHED_URL did not answer. This is not a sync failure: re-run the job."
+            exit 1
+          fi
+          if ! jq empty "$RUNNER_TEMP/published.json" 2>/dev/null; then
+            echo "::error title=The published spec is not JSON::$PUBLISHED_URL answered with something that is not JSON. Check the marketing site's deploy, then re-run the job."
+            exit 1
+          fi
+
+      - name: Compare with openapi.json
+        run: |
+          published="$RUNNER_TEMP/published.json"
+          if cmp --silent openapi.json "$published"; then
+            echo "openapi.json matches $PUBLISHED_URL (sha256 $(sha256sum openapi.json | cut -c1-16))."
+            exit 0
+          fi
+
+          echo "::error file=openapi.json,title=openapi.json is out of sync::openapi.json differs from $PUBLISHED_URL. Fix: $FIX"
+          {
+            echo "## openapi.json is out of sync"
+            echo
+            echo "This repository's \`openapi.json\` differs from $PUBLISHED_URL."
+            echo
+            echo "**Fix:** $FIX"
+            echo
+            echo "| Copy | sha256 |"
+            echo "| --- | --- |"
+            echo "| This repository | \`$(sha256sum openapi.json | cut -d' ' -f1)\` |"
+            echo "| hookie.ai | \`$(sha256sum "$published" | cut -d' ' -f1)\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Paths only in this repository (<) or only on hookie.ai (>):"
+          paths_diff=$(diff <(jq -r '.paths | keys[]' openapi.json | sort) <(jq -r '.paths | keys[]' "$published" | sort) || true)
+          echo "${paths_diff:-(none)}"
+          echo
+          echo "First differences, with keys sorted (lines cut at 240 characters):"
+          diff <(jq -S . openapi.json) <(jq -S . "$published") | head -n 60 | cut -c1-240 || true
+          exit 1

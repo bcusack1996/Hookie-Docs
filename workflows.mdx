@@ -96,8 +96,8 @@ The second line is shorthand for the first. Every condition in a list must hold,
 | `not_equals` | a string, number, boolean or `null` | does not equal the value. A missing field counts as not equal. |
 | `contains` | a string | is text that contains the value. |
 | `exists` | none | is present and not `null`. |
-| `gt` · `gte` | a number | is a number greater than · at least the value. |
-| `lt` · `lte` | a number | is a number less than · at most the value. |
+| `gt` · `gte` | a number | is a number, or text that is one (such as `"150"`), greater than · at least the value. |
+| `lt` · `lte` | a number | is a number, or text that is one (such as `"99.5"`), less than · at most the value. |
 | `in` | a list of 1 to 100 strings, numbers, booleans or `null` | equals one of the values. |
 | `regex` | a pattern | is text the pattern matches. See [Regular expressions](#regular-expressions). |
 
@@ -108,7 +108,7 @@ The second line is shorthand for the first. Every condition in a list must hold,
 ```
 
 - **Where equality is exact, and where it is text.** In workflows and triggers, `equals`, `not_equals` and `in` compare exactly, type included: `5` and `"5"` are different values. In rules and endpoint criteria they compare as text, as rules always have, so `5` and `"5"` are equal.
-- **Numbers stay numbers.** `gt`, `gte`, `lt` and `lte` match only a field that is a number. A feed that sends a price as text (`"60000"`) never matches one.
+- **Numbers sent as text still compare.** `gt`, `gte`, `lt` and `lte` match a field that is a number, and a field that is text spelling a plain decimal number: an optional `+` or `-`, digits, and an optional fraction, with spaces around it ignored. So an HTML form's `"150"` is 150, and a feed that sends a price as `"60000"` matches `{ "path": "price", "op": "gt", "value": 50000 }`. Any other text never matches, including hex (`"0x10"`), exponents (`"1e3"`), thousands separators (`"1,000"`) and empty text. The value you compare against must still be a number. `equals`, `not_equals` and `in` do not change: in workflows and triggers `"150"` still does not equal `150`.
 - **Text stays text.** `contains` and `regex` match only a field that is a string.
 
 A condition that could never match is refused when you save it, with a `400` that names the condition, rather than stored and silently never matching. That covers an unknown operator, a condition missing its value, both the shorthand and `op`/`value` at once (such as `{"path": "status", "op": "equals", "equals": "paid"}`), a key Hookie does not know, a numeric operator against anything but a number, `contains` or `regex` against anything but a string, an `in` without a list of 1 to 100 plain values, and a pattern outside the bounds below.
@@ -254,7 +254,7 @@ A run's context starts as a copy of the record that started it, so run history i
 
 ## Start triggers
 
-A workflow starts when a record lands in its entry dataset. Besides webhooks, two kinds of trigger land records on their own. Both are under **Start triggers** on the Workflows tab, and owners and admins can create them.
+A workflow starts when a record lands in its entry dataset. Besides events sent to an endpoint or with an ingest key, two kinds of trigger land records on their own. Both are under **Start triggers** on the Workflows tab, and owners and admins can create them.
 
 ### Cron triggers
 
@@ -267,7 +267,7 @@ A cron trigger lands one record on a schedule: a 5-field cron expression (`minut
 
 ### WebSocket triggers
 
-A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt`, `gte`, `lt` and `lte` compare numbers, so a feed that sends prices as text (`"60000"`) never matches one.
+A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt`, `gte`, `lt` and `lte` compare numbers, and a price the feed sends as text (`"60000"`) counts as one. See [Conditions](#conditions) for exactly which text counts.
 
 **Mappings** reshape each matching frame the way a rule's mappings do: each `{ "path": "data.p", "key": "price" }` picks a field out of the frame into a key of the event. With no mappings, the frame is kept as it arrived. The raw submission always keeps the frame exactly as received; the mapped event is what is filed into the trigger's dataset, or handed to the project's rules when the trigger names no dataset. A mapping key must be a plain identifier (a letter, then letters, digits or underscores); anything else is refused with `400` when you create the trigger, rather than saved and then dropping every frame. Set mappings over the API (`POST /admin/api/projects/{pid}/ws-triggers`), with a connected agent's `create_ws_trigger`, or with `hookie ws-triggers create --mappings`.
 

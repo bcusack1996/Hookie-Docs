@@ -1,0 +1,79 @@
+---
+title: "Endpoints and ingest keys"
+description: "The two ways events get into a project: a public endpoint URL whose last segment is its credential, and an ingest key your own servers send with."
+icon: "inbox"
+---
+
+Every event enters a project through one of two credentials:
+
+- An **endpoint** is a public URL whose last segment, a long random value, is its credential, so the URL is all a sender needs. Paste it into a provider's dashboard or a form's `action`.
+- An **ingest key** (`ik_live_…`) is a secret your own servers send with. It is the only way to route events with rules, and to tail the live stream.
+
+| | Endpoint URL | Ingest key |
+| --- | --- | --- |
+| Address | `/{workspace}/{project}/{webhook}` | `/v1/ingest/{ingest_key}`, optionally followed by `/{dataset}` |
+| Where events land | Always the endpoint's own dataset | The dataset in the path, or wherever the project's rules send them |
+| Reshaped by | The endpoint's own [criteria and mappings](#criteria-and-mappings) | The project's [rules](/rules-and-mappings), when the path names no dataset |
+| In a browser | Forms, a thank-you redirect, and allowed origins for `fetch()` | Never answers CORS: keep keys on servers |
+| Signatures | [Verifies a provider's signature](/endpoint-verification) | Can require Hookie's own `X-Hookie-Signature` |
+
+Both addresses are on `https://app.hookie.ai`. The API calls endpoints `webhooks`.
+
+## Endpoints
+
+Create one on a project's **Endpoints** tab with **Add endpoint**: a **Name**, a **Dataset** (made from the name when left empty), and optionally the **Signature verification** its provider uses. Hookie generates the URL. A project holds at most 10 endpoints, on every plan.
+
+- **The URL is the credential.** Its last segment is about 140 bits of randomness, returned by the API as `webhook_slug`. The readable `slug` an endpoint can be given over the API is only a label, and never appears in the URL.
+- **It writes only to its own dataset.** A trailing `/{dataset}` naming any other is refused with `403`, so a URL in a web page cannot write elsewhere in the project. **Edit…** points the endpoint at another dataset from then on.
+- **Disabled, it answers `503`**, which providers retry, rather than the `404` of a URL that does not exist. Nothing is stored meanwhile.
+- **Rotate URL…** gives the same endpoint a new URL. The old one keeps working through the overlap you choose (a day by default, at most 30 days).
+- **Slug changes do not break it.** A renamed project keeps its slug, and a workspace's former slugs keep working.
+
+## Criteria and mappings
+
+An endpoint can carry **criteria**, conditions every event must meet, and **mappings**, which pick fields into the record's shape. They apply on the endpoint's URL and on `/v1/webhooks/{ingest_key}/{slug}`. An event that fails the criteria is kept as a submission but makes no record. No criteria accepts every event, and no mappings stores the payload whole.
+
+Criteria use the same [operators as rules](/rules-and-mappings#conditions); an endpoint takes up to 10 criteria and 50 mappings. Set them when you create the endpoint: `criteria` and `mappings` on `POST /admin/api/projects/{pid}/webhooks`, the `create_webhook` MCP tool, or `hookie endpoints create`. The console's **Add endpoint** creates an endpoint with neither.
+
+## Versions
+
+`PATCH` refuses an endpoint's criteria and mappings, because they decide what it has already stored. To change them, publish a new **version**:
+
+```bash
+curl -X POST "https://app.hookie.ai/admin/api/projects/$PROJECT/webhooks/$ENDPOINT/versions" \
+  -H "Authorization: Bearer $HOOKIE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Orders (paid only)","dataset":"orders","criteria":[{"path":"status","equals":"paid"}]}'
+```
+
+A version is a new endpoint with the same readable slug, the next version number (`1.1`, `1.2`, or `2` with `"major": true`) and a URL of its own. The old version keeps its URL and keeps working, so senders move over when they are ready. A new version verifies the same provider signature, but starts without the IP allowlist, form redirect, allowed origins and URL verification: set those with **Edit…**. Each version has its own card and counts toward the 10 endpoints. Agents use `create_webhook_version`, and the CLI `hookie endpoints version`.
+
+## Ingest keys
+
+Create keys on a project's **Ingest keys** tab with **Create key**. The key is shown once; Hookie keeps only its SHA-256 hash. A key can carry an expiry, an IP allowlist and a signature requirement, and can be rotated with an overlap or revoked: see [Ingest keys](/ingest-keys).
+
+The path decides what happens to an event sent with a key:
+
+| Request | Result |
+| --- | --- |
+| `POST /v1/ingest/{ingest_key}/{dataset}` | The payload is stored whole in that dataset. |
+| `POST /v1/ingest/{ingest_key}` | Every enabled rule in the project is tried, and each one that matches writes its own record. |
+| `POST /v1/webhooks/{ingest_key}/{slug}` | The event goes through the project's endpoint with that readable slug, or `{slug}-v{version}` for one version. |
+
+A key also stores a **Default dataset**, shown in its list, but routing does not use it: a request that names no dataset goes to the rules, and when none matches, no record is written. The submission is still kept.
+
+## Before anything is stored
+
+Every request passes these checks first. A refusal stores nothing and never counts against your quota:
+
+| Check | Refused with |
+| --- | --- |
+| An unknown URL or key; a disabled endpoint | `404`; `503` |
+| The IP allowlists of the endpoint or key, the project and the workspace | `403` |
+| A suspended workspace | `403` |
+| The [burst limit](/limits-and-plans#the-burst-limit) | `429` |
+| The body: at most 1,000,000 bytes, in a format Hookie reads, with a field | `413`; `400` or `415`; `422` |
+| The endpoint's provider signature, or the key's `X-Hookie-Signature` | `401` |
+| The loop guard: 8 passes through Hookie | `508` |
+| The monthly event quota | `429` |
+
+A repeated `Idempotency-Key`, or a provider's delivery id seen before, returns the original submission with `200` and is not counted again. An endpoint's refusals are listed under **Activity** in its menu.
