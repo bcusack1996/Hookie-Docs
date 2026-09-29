@@ -19957,7 +19957,7 @@
                       "string",
                       "null"
                     ],
-                    "description": "Optional identity dataset. When absent the fired payload is routed through the project's mapping rules instead."
+                    "description": "Optional identity dataset: every run is stored in it as one record. When absent, each run is routed through the project's mapping rules, and a run none of them matches is stored whole, as one record, in the dataset `default` (#284) rather than kept as a submission with no record."
                   },
                   "timezone": {
                     "type": "string",
@@ -20408,7 +20408,8 @@
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "As on create. null or empty routes each run through the project's mapping rules, with `default` for a run none of them matches (#284)."
                   }
                 }
               }
@@ -20540,7 +20541,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Fired. A real submission + record is written and the full fan-out (deliveries, live stream, AI triggers, workflows) runs. `next_run_at` is NOT advanced.",
+            "description": "Fired. A real submission + record is written (for a trigger with no dataset, the records its rules write, or one record in `default` when no rule matches, #284) and the full fan-out (deliveries, live stream, AI triggers, workflows) runs. `next_run_at` is NOT advanced.",
             "content": {
               "application/json": {
                 "schema": {
@@ -20598,7 +20599,7 @@
             }
           },
           "500": {
-            "description": "`test fire failed: <reason>`, or `Internal error`.",
+            "description": "`test fire failed: <reason>`, or `Internal error`. For a trigger with no dataset whose run no rule stores, the reason is `no rule stored the event, and storing it in \"default\" failed: <why>` (e.g. `record has no fields` for an empty payload); the submission is kept, marked failed (#284).",
             "content": {
               "application/json": {
                 "schema": {
@@ -21063,13 +21064,14 @@
                       },
                       "additionalProperties": false
                     },
-                    "description": "Optional [{path,key}] field mappings, validated as a rule's are and applied to every matching frame the way a rule's are (#228): each picks a path out of the frame into a key of the event, which is what is filed into `dataset` or handed to the project's rules. The submission keeps the frame as it arrived. An empty array or null keeps the frame unchanged (identity)."
+                    "description": "Optional [{path,key}] field mappings, validated as a rule's are and applied to every matching frame the way a rule's are (#228): each picks a path out of the frame into a key of the event, which is what is filed into `dataset` or handed to the project's rules, and what `default` keeps when no rule matches (#284). The submission keeps the frame as it arrived. An empty array or null keeps the frame unchanged (identity)."
                   },
                   "dataset": {
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "Optional dataset every matching frame is stored in, as one record (after `mappings`). null or absent routes each frame through the project's mapping rules, and a frame none of them matches is stored whole, as one record, in the dataset `default` (#284) rather than kept as a submission with no record. Validated as a dataset name."
                   }
                 }
               }
@@ -21502,7 +21504,7 @@
                       "string",
                       "null"
                     ],
-                    "description": "null or empty routes each frame by the project's rules. Validated as a dataset name."
+                    "description": "null or empty routes each frame by the project's rules, with `default` for a frame none of them matches (#284). Validated as a dataset name."
                   }
                 }
               }

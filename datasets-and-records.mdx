@@ -17,14 +17,14 @@ A submission's routing status tells "nothing matched" apart from "never arrived"
 | Status | Meaning |
 | --- | --- |
 | **Routed** | At least one record was written. |
-| **Pending (no rule matched yet)** | No record was written: the endpoint's criteria turned the event away, or no rule matched an event from a cron or WebSocket trigger with no dataset. An event sent with an ingest key and no dataset does not end up here: when no rule matches it, it is stored in the key's [default dataset](/endpoints-and-keys#ingest-keys). |
-| **Routing failed** | Routing hit an error. The submission itself is safe. |
+| **Pending (no rule matched yet)** | No record was written: the endpoint's criteria turned the event away. An event sent with an ingest key and no dataset does not end up here: when no rule matches it, it is stored in the key's [default dataset](/endpoints-and-keys#ingest-keys). Nor does an event from a cron or WebSocket trigger with no dataset: when no rule matches it, it is stored in the `default` dataset (see [Triggers with no dataset](/workflows#triggers-with-no-dataset)). |
+| **Routing failed** | Routing hit an error. The submission itself is safe. This includes a trigger event that no rule matched and that could not be stored in `default` either, such as an empty `{}` payload. |
 
 ## Records
 
 A record is one routed event in a dataset: a JSON object holding the mapped fields, or the whole payload when nothing mapped it. A payload that is not an object, such as a bare array, is stored as `{ "value": … }`. Every record has an id, the time it was received and where it came from, listed as `_id`, `_received_at` and `_source` beside its fields.
 
-One submission can make no record, one, or several, because every rule that matches writes its own. On an ingest key with no dataset in the URL, an event no rule matches still makes one: the key's default dataset gets the whole payload. Records, not submissions, are what fan out. Each new record is:
+One submission can make no record, one, or several, because every rule that matches writes its own. On an ingest key with no dataset in the URL, an event no rule matches still makes one: the key's default dataset gets the whole payload. The same holds for a cron or WebSocket trigger with no dataset, whose unmatched events go to the `default` dataset. Records, not submissions, are what fan out. Each new record is:
 
 - delivered to every enabled destination in its project whose dataset filter admits it;
 - published on the project's live stream;

@@ -271,7 +271,7 @@ A workflow starts when a record lands in its entry dataset. Besides events sent 
 
 ### Cron triggers
 
-A cron trigger lands one record on a schedule: a 5-field cron expression (`minute hour day-of-month month day-of-week`) read in the trigger's **time zone**. `0 9 * * 1-5` in `America/New_York` fires at 09:00 New York time on weekdays, on both sides of a daylight-saving change. Give the zone as an IANA name. The console fills in your browser's zone, and the API defaults to `UTC`.
+A cron trigger fires its payload as an event on a schedule: a 5-field cron expression (`minute hour day-of-month month day-of-week`) read in the trigger's **time zone**. `0 9 * * 1-5` in `America/New_York` fires at 09:00 New York time on weekdays, on both sides of a daylight-saving change. Give the zone as an IANA name. The console fills in your browser's zone, and the API defaults to `UTC`.
 
 - The scheduler runs every 5 minutes, so a schedule whose firings are closer than that is refused. `*/5 * * * *` is the finest one accepted.
 - At a daylight-saving change, a local time that happens twice fires once, at its first occurrence. A local time the change skips (02:30 on the night clocks go from 02:00 to 03:00) fires just after the gap instead of being skipped.
@@ -280,13 +280,26 @@ A cron trigger lands one record on a schedule: a 5-field cron expression (`minut
 
 ### WebSocket triggers
 
-A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt`, `gte`, `lt` and `lte` compare numbers, and a price the feed sends as text (`"60000"`) counts as one. See [Conditions](#conditions) for exactly which text counts.
+A WebSocket trigger holds a connection to a feed open and turns every frame that matches its [conditions](#conditions) into an event. The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt`, `gte`, `lt` and `lte` compare numbers, and a price the feed sends as text (`"60000"`) counts as one. See [Conditions](#conditions) for exactly which text counts.
 
-**Mappings** reshape each matching frame the way a rule's mappings do: each `{ "path": "data.p", "key": "price" }` picks a field out of the frame into a key of the event. With no mappings, the frame is kept as it arrived. The raw submission always keeps the frame exactly as received; the mapped event is what is filed into the trigger's dataset, or handed to the project's rules when the trigger names no dataset. A mapping key must be a plain identifier (a letter, then letters, digits or underscores); anything else is refused with `400` when you create the trigger, rather than saved and then dropping every frame. Set mappings over the API (`POST /admin/api/projects/{project_id}/ws-triggers`), with a connected agent's `create_ws_trigger`, or with `hookie ws-triggers create --mappings`.
+**Mappings** reshape each matching frame the way a rule's mappings do: each `{ "path": "data.p", "key": "price" }` picks a field out of the frame into a key of the event. With no mappings, the frame is kept as it arrived. The raw submission always keeps the frame exactly as received; the mapped event is what is filed into the trigger's dataset, or handed to the project's rules when the trigger names no dataset, and what `default` keeps when none of them matches. A mapping key must be a plain identifier (a letter, then letters, digits or underscores); anything else is refused with `400` when you create the trigger, rather than saved and then dropping every frame. Set mappings over the API (`POST /admin/api/projects/{project_id}/ws-triggers`), with a connected agent's `create_ws_trigger`, or with `hookie ws-triggers create --mappings`.
 
 - **Edit** changes the name, URL, connect message, conditions or dataset, each checked as it is when you create the trigger. A new URL, connect message, set of conditions or dataset reconnects the socket; a new name does not. Over the API, `PATCH /admin/api/projects/{project_id}/ws-triggers/{id}` also takes `headers` and `subprotocols`.
 - The URL, headers and connect message are stored encrypted and never shown again, so the Edit form leaves the URL blank: leave it blank to keep the current connection. A new URL is saved with the connect message you enter, and none if you leave it blank.
 - Moving the URL to a **different host** is refused unless the request also sends each stored connection header and connect message (`null` for none). They often carry the feed's credentials, and Hookie will not pass them to a new host that nobody chose to give them to.
+
+### Triggers with no dataset
+
+The **Dataset** field on a cron or WebSocket trigger is optional. If you set it, every cron run or matching frame is stored there as one record. If you leave it blank, each event goes through your project's [rules](/rules-and-mappings#rules) instead, and every rule that matches writes its own record. The trigger lists show such a trigger's dataset as **rules, else default**.
+
+An event that no rule matches is not dropped: it is stored whole, as one record, in the **`default`** dataset. For a WebSocket trigger, "whole" means the event after the trigger's mappings. That record is delivered to destinations subscribed to `default`, starts AI triggers and workflows on `default`, and appears in the live stream, just like any other record. Each fire counts as one event against your monthly quota, however it is stored.
+
+If the event cannot be stored in `default`, it is not fanned out, and its raw submission is kept and marked **Routing failed**. The usual cause is an empty payload such as `{}`, which has no fields to store. The error reads `no rule stored the event, and storing it in "default" failed: record has no fields`:
+
+- A cron trigger shows it as its last error, and a test fire (`POST /admin/api/projects/{project_id}/cron-triggers/{id}/test`, or `hookie cron-triggers test`) answers `500` with it.
+- A WebSocket trigger does not show it. Look for the frame's submission under **Routing failed** on the **Observability** tab.
+
+Give the payload at least one field, for example `{"tick": "{{now}}"}`, or set a dataset.
 
 ### AI triggers
 

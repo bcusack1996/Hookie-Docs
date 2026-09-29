@@ -1,0 +1,33 @@
+---
+title: "Database sources"
+description: "Poll a PostgreSQL table on a schedule and store each new row as an event, counted once and never skipped because of an error."
+icon: "database"
+---
+
+A **database source** reads a PostgreSQL table on a schedule, for systems that will not call you. Each row that is new since the last poll is stored as an event: one record in the source's dataset, holding the row's columns as its fields. That record fans out like any other: to destinations, the live stream, AI triggers and workflows. Rules do not run on source rows.
+
+Sources need the Pro or Team plan. See [Limits and plans](/limits-and-plans#per-plan) for how many a workspace runs and how often each may poll.
+
+## Add a source
+
+On a project's **Connections** tab, under **Sources · inbound**, choose **Add source** and fill in:
+
+- **Name**.
+- **Connection URL**. It is stored encrypted and never shown again. Use a read-only login.
+- **Table**: a table or view, optionally schema-qualified.
+- **Cursor column**: a column whose values only increase, such as an id. Each poll reads the rows past the last value it saw, in cursor order, up to 200 rows a poll. Changing the cursor column or the table starts again from the first row.
+- **Dataset**: where each row is stored.
+- **Poll interval (seconds)**. An interval shorter than your plan allows is saved as the plan's minimum.
+
+The list shows each source's cursor column, interval, last poll and status. A source whose last poll failed shows an **error** tag with the error under it, and the error clears after the next successful poll. Owners, admins and developers can add and change sources.
+
+Over the API, sources live at `/admin/api/projects/{project_id}/sources`, and `POST …/sources/{source_id}/test` checks that the source can connect and read its table and cursor column, without storing anything. The CLI has the same as [`hookie sources`](/cli/commands#sources).
+
+## Quota and retries
+
+Each row Hookie reads from your table is stored whole: the event, its record in the source's dataset and its hand-off to your destinations are saved together, or not at all.
+
+- **A row is counted once, when it is stored.** It counts as one event against your monthly event quota at that moment. A row is identified by the source and the value of its cursor column, so a row that is read again is not stored twice and is not counted again.
+- **A row Hookie cannot store is not counted.** If a poll fails part-way, because of a brief database error or a row too large to store, Hookie keeps the rows it already stored and stops at the row that failed. The source shows the error as its last error, and the next poll starts again from that row, so no row is skipped because of an error. A row that fails every time holds the source at that row, with its error showing, until it can be stored.
+- **At the quota, the source waits.** Once the workspace reaches its monthly event quota, the poll stops at the first row it cannot count, and the source shows the refusal as its last error. The cursor does not move past rows that were not stored, so they are read once the quota resets or the plan is upgraded.
+- **Choose a cursor column with unique values.** Two rows with the same cursor value are treated as the same row: the second is skipped and not counted. Choose a column whose values are unique and always increasing, such as an id. With a timestamp, of two rows written in the same instant only one is stored.

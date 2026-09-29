@@ -50,6 +50,7 @@
           "signatures",
           "endpoint-verification",
           "destinations",
+          "database-sources",
           "ingest-keys",
           "streaming",
           "workflows",

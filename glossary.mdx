@@ -32,7 +32,7 @@ A named collection of records in a project, such as `orders`. It exists from the
 
 ### Default dataset
 
-The dataset an ingest key stores an event in when it is sent with no dataset in the URL and none of the project's rules matches it: the whole payload, as one record, with `fallback: true` in the response. It is `default` unless you choose another when you create the key. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys).
+The dataset an ingest key stores an event in when it is sent with no dataset in the URL and none of the project's rules matches it: the whole payload, as one record, with `fallback: true` in the response. It is `default` unless you choose another when you create the key. A cron or WebSocket trigger with no dataset stores an event no rule matches as one record in `default`. See [Endpoints and ingest keys](/endpoints-and-keys#ingest-keys) and [Triggers with no dataset](/workflows#triggers-with-no-dataset).
 
 ### Delivery
 
@@ -80,7 +80,7 @@ Sending a delivery that did not arrive again, as a new delivery with the same ev
 
 ### Rule
 
-A project's routing rule, which decides the dataset and shape of an event sent with an ingest key and no dataset in the path. Every rule that matches writes its own record; when none matches, the key's default dataset stores the event whole. See [Rules and mappings](/rules-and-mappings#rules).
+A project's routing rule, which decides the dataset and shape of an event sent with an ingest key and no dataset in the path, or fired by a cron or WebSocket trigger with no dataset. Every rule that matches writes its own record; when none matches, the event is stored whole in the key's default dataset, or in `default` for a trigger. See [Rules and mappings](/rules-and-mappings#rules).
 
 ### Run
 
@@ -88,7 +88,7 @@ One execution of a workflow, started by one matching record; the API calls it a 
 
 ### Source
 
-A database source: a PostgreSQL table that Hookie polls on a schedule and files new rows from into a dataset, as events. Sources need the Pro or Team plan. See [Limits and plans](/limits-and-plans#per-plan).
+A database source: a PostgreSQL table that Hookie polls on a schedule and files new rows from into a dataset, as events. Each row counts once against the event quota, when it is stored. Sources need the Pro or Team plan. See [Database sources](/database-sources) and [Limits and plans](/limits-and-plans#per-plan).
 
 ### Submission
 
