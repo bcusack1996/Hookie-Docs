@@ -133,7 +133,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used. `endpoint_disabled` (503): the endpoint is switched off; `handshake_failed`: a provider URL-verification challenge could not be answered (#193)."
+            "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used. `endpoint_disabled` (503): the endpoint is switched off; `handshake_failed`: a provider URL-verification challenge could not be answered (#193). `missing_header`, `bad_signature`, `stale_timestamp` (401): an endpoint's provider signature check failed; `scheme` names the check."
           },
           "code": {
             "type": "string",
@@ -164,6 +164,10 @@
             "type": "string",
             "format": "uri",
             "description": "With `code: \"agent_scope_insufficient\"` only: the console's Settings \u2192 Connected agents page, opened on this agent (`\u2026/#/settings/agents?client=<client_id>`), where its user widens the grant. The change applies on the agent's next request."
+          },
+          "scheme": {
+            "type": "string",
+            "description": "Present on a signature 401: the endpoint's verification scheme."
           }
         }
       },
@@ -190,6 +194,131 @@
           },
           "data": {
             "description": "The record's payload, as routed."
+          }
+        }
+      },
+      "EndpointVerificationInput": {
+        "type": "object",
+        "required": [
+          "scheme"
+        ],
+        "additionalProperties": false,
+        "description": "Provider signature verification (#210). Ingest checks the signature over the raw request bytes before idempotency, the quota and the store; a missing header, a forged signature or a stale timestamp answers 401 {reason, scheme} and is neither stored nor counted, and writes an ingest_signature_rejected audit row. Applies on the public path-form URL and on /v1/webhooks/{ingest_key}/{slug}. Settings that do not apply to the scheme are refused with 400.",
+        "properties": {
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "none",
+              "stripe",
+              "github",
+              "shopify",
+              "slack",
+              "standard_webhooks",
+              "hmac"
+            ],
+            "description": "none (default): no check. stripe: Stripe-Signature t=,v1= over `<t>.<body>`. github: X-Hub-Signature-256 sha256=<hex>. shopify: X-Shopify-Hmac-Sha256, base64. slack: X-Slack-Signature v0=<hex> over `v0:<X-Slack-Request-Timestamp>:<body>`. standard_webhooks: webhook-id / webhook-timestamp / webhook-signature (svix-* accepted too), secret whsec_<base64>. hmac: generic HMAC of the body in a configurable header."
+          },
+          "secret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "writeOnly": true,
+            "description": "The provider's signing secret. Stored AES-256-GCM encrypted and never returned by any response, audit row or log. Required when turning a scheme on; on PATCH it may be omitted to keep the secret held, under the same scheme only. A secret set here replaces the old one at once; use rotate-verification-secret for an overlap."
+          },
+          "header": {
+            "type": "string",
+            "default": "X-Signature",
+            "description": "hmac only: the header carrying the signature."
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "sha256",
+              "sha1"
+            ],
+            "default": "sha256",
+            "description": "hmac only."
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "hex",
+              "base64"
+            ],
+            "default": "hex",
+            "description": "hmac only."
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "hmac only: text before the digest, e.g. sha256=."
+          },
+          "tolerance_seconds": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 86400,
+            "default": 300,
+            "description": "stripe, slack and standard_webhooks only: how far the signed timestamp may sit from now."
+          }
+        },
+        "example": {
+          "scheme": "stripe",
+          "secret": "whsec_..."
+        }
+      },
+      "EndpointVerification": {
+        "type": "object",
+        "required": [
+          "scheme"
+        ],
+        "description": "An endpoint's signature verification as responses describe it: the scheme and its settings, never the secret.",
+        "properties": {
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "none",
+              "stripe",
+              "github",
+              "shopify",
+              "slack",
+              "standard_webhooks",
+              "hmac"
+            ]
+          },
+          "header": {
+            "type": "string"
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "sha256",
+              "sha1"
+            ]
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "hex",
+              "base64"
+            ]
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "tolerance_seconds": {
+            "type": "integer"
+          },
+          "has_secret": {
+            "type": "boolean",
+            "description": "Whether a secret is held. Absent when scheme is none."
+          },
+          "previous_secret_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "After a rotation, when the replaced secret stops verifying; null outside an overlap. Absent when scheme is none."
           }
         }
       },
@@ -770,6 +899,16 @@
           },
           "508": {
             "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The endpoint verifies its provider's signature (#210) and this request's is missing (reason missing_header), does not match the raw body under the endpoint's secret (bad_signature), or carries a timestamp outside the tolerance (stale_timestamp). The body names the header and the scheme; nothing is stored or counted and an ingest_signature_rejected audit row is written.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1383,6 +1522,16 @@
           },
           "508": {
             "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The endpoint verifies its provider's signature (#210) and this request's is missing (reason missing_header), does not match the raw body under the endpoint's secret (bad_signature), or carries a timestamp outside the tolerance (stale_timestamp). The body names the header and the scheme; nothing is stored or counted and an ingest_signature_rejected audit row is written.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3019,7 +3168,7 @@
             }
           },
           "401": {
-            "description": "Signature-required keys only: 'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3391,7 +3540,7 @@
             }
           },
           "401": {
-            "description": "'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Signature-required keys: 'Signature required' or 'Invalid signature' (X-Hookie-Signature). Endpoints with verification (#210): the provider's signature is missing, forged or stale; reason missing_header, bad_signature or stale_timestamp, with the scheme. Nothing is stored or counted. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{pid}/webhooks/{id}/activity.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8289,7 +8438,7 @@
         ],
         "responses": {
           "200": {
-            "description": "All webhook versions in the project, ordered by base_slug then version. slug is the high-entropy public URL credential used at app.hookie.ai/{workspace}/{project}/{slug}; base_slug plus version is the human identity. criteria, mappings and ip_allowlist are JSON-encoded strings as stored. After a rotation, previous_public_url is the replaced URL, still accepted until previous_url_expires_at; both are null outside an overlap.",
+            "description": "All webhook versions in the project, ordered by base_slug then version. slug is the high-entropy public URL credential used at app.hookie.ai/{workspace}/{project}/{slug}; base_slug plus version is the human identity. criteria, mappings and ip_allowlist are JSON-encoded strings as stored. After a rotation, previous_public_url is the replaced URL, still accepted until previous_url_expires_at; both are null outside an overlap. verification is the endpoint's signature check: scheme, settings, has_secret and previous_secret_expires_at, never the secret.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8364,7 +8513,8 @@
                             "enum": [
                               0,
                               1
-                            ]
+                            ],
+                            "description": "Legacy (0001): checks Hookie's own X-Hookie-Signature and is always 0; no route sets it. Provider signatures are `verification`."
                           },
                           "ip_allowlist": {
                             "type": [
@@ -8408,6 +8558,9 @@
                             ],
                             "format": "date-time",
                             "description": "When previous_public_url stops being accepted (404)."
+                          },
+                          "verification": {
+                            "$ref": "#/components/schemas/EndpointVerification"
                           },
                           "redirect_url": {
                             "type": [
@@ -8587,6 +8740,9 @@
                       "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
                       "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                     },
+                    "verification": {
+                      "$ref": "#/components/schemas/EndpointVerification"
+                    },
                     "webhook": {
                       "type": "object",
                       "required": [
@@ -8701,7 +8857,7 @@
             }
           },
           "400": {
-            "description": "Validation failure - name, slug pattern, dataset identifier, criteria or mappings, or ip_allowlist is not an array of valid IPs/CIDRs (at most 64).",
+            "description": "Validation failure - name, slug pattern, dataset identifier, criteria or mappings, or ip_allowlist is not an array of valid IPs/CIDRs (at most 64), or an invalid verification (unknown scheme, missing secret, a setting that does not apply to the scheme).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8764,7 +8920,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: POST /admin/api/webhooks. Write role required. The cap is checked before validation, so a full project returns 402 even for an invalid body.",
+        "description": "Top-level alias: POST /admin/api/webhooks. Write role required. The cap is checked before validation, so a full project returns 402 even for an invalid body. `verification` optionally makes the endpoint check its provider's signature (#210); the create response echoes the scheme, never the secret.",
         "parameters": [
           {
             "name": "pid",
@@ -8856,6 +9012,9 @@
                       "203.0.113.0/24",
                       "2001:db8::/32"
                     ]
+                  },
+                  "verification": {
+                    "$ref": "#/components/schemas/EndpointVerificationInput"
                   },
                   "redirect_url": {
                     "type": [
@@ -9034,7 +9193,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: POST /admin/api/webhooks/{id}/versions. Write role required.",
+        "description": "Top-level alias: POST /admin/api/webhooks/{id}/versions. Write role required. The new version carries the source version's signature verification (scheme, settings and secret).",
         "parameters": [
           {
             "name": "pid",
@@ -9339,11 +9498,11 @@
       },
       "patch": {
         "operationId": "updateWebhook",
-        "summary": "Change a webhook endpoint: enabled, name, dataset, IP allowlist, form redirect, CORS origins, URL verification",
+        "summary": "Change a webhook endpoint: enabled, name, dataset, IP allowlist, form redirect, CORS origins, URL verification, signature verification",
         "tags": [
           "Webhooks"
         ],
-        "description": "Top-level alias: PATCH /admin/api/webhooks/{id}. Write role required. Send at least one field; only those sent change, and the endpoint keeps its id and its URL. A new dataset applies to events from now on; records already stored keep the dataset they were filed under. The mirror mapping rule the legacy /v1/webhooks/{ingest_key}/{slug} route reads moves with name, dataset and enabled in the same batch. The URL is changed with POST .../rotate; criteria and mappings are not editable here (publish a new version). Audited as update_webhook with each change's from and to. Since #193 it also sets redirect_url, cors_origins, handshake and handshake_secret (see POST .../webhooks); the audit row records them, and for the secret only that one was set.",
+        "description": "Top-level alias: PATCH /admin/api/webhooks/{id}. Write role required. Send at least one field; only those sent change, and the endpoint keeps its id and its URL. A new dataset applies to events from now on; records already stored keep the dataset they were filed under. The mirror mapping rule the legacy /v1/webhooks/{ingest_key}/{slug} route reads moves with name, dataset and enabled in the same batch. The URL is changed with POST .../rotate; criteria and mappings are not editable here (publish a new version). Since #193 it also sets redirect_url, cors_origins, handshake and handshake_secret (see POST .../webhooks); the audit row records them, and for the secret only that one was set. `verification` sets, changes or removes provider signature verification (#210): omit its secret to keep the one held (same scheme only); a new secret replaces the old at once and ends any rotation overlap; {scheme: \"none\"} turns it off and deletes the secret. Audited as update_webhook with each change's from and to (for verification: the scheme and secret_changed, never the secret).",
         "parameters": [
           {
             "name": "pid",
@@ -9402,6 +9561,9 @@
                       "203.0.113.0/24",
                       "2001:db8::/32"
                     ]
+                  },
+                  "verification": {
+                    "$ref": "#/components/schemas/EndpointVerificationInput"
                   },
                   "redirect_url": {
                     "type": [
@@ -9484,6 +9646,9 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "verification": {
+                      "$ref": "#/components/schemas/EndpointVerification"
                     },
                     "redirect_url": {
                       "type": [
@@ -28382,7 +28547,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Static, read-only catalog compiled into the Worker. Currently: stripe, github.",
+            "description": "Static, read-only catalog compiled into the Worker. Currently: stripe, github, shopify.",
             "content": {
               "application/json": {
                 "schema": {
@@ -28401,6 +28566,7 @@
                           "name",
                           "description",
                           "recommended_rules",
+                          "verification_scheme",
                           "validation",
                           "docs"
                         ],
@@ -28409,7 +28575,8 @@
                             "type": "string",
                             "enum": [
                               "stripe",
-                              "github"
+                              "github",
+                              "shopify"
                             ]
                           },
                           "provider": {
@@ -28446,9 +28613,22 @@
                               }
                             }
                           },
+                          "verification_scheme": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "stripe",
+                              "github",
+                              "shopify",
+                              "slack",
+                              "standard_webhooks",
+                              "hmac"
+                            ],
+                            "description": "The endpoint verification scheme this provider signs with: pass it as verification.scheme, with the provider's secret, when creating the endpoint."
+                          },
                           "validation": {
                             "type": "string",
-                            "description": "Signature-verification guidance for the provider."
+                            "description": "How to turn on signature verification for this provider."
                           },
                           "docs": {
                             "type": "string"
@@ -30430,6 +30610,158 @@
           },
           {
             "apiKey": []
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{pid}/webhooks/{id}/rotate-verification-secret": {
+      "post": {
+        "operationId": "rotateWebhookVerificationSecret",
+        "summary": "Replace an endpoint's provider signing secret, with an overlap",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Top-level alias: POST /admin/api/webhooks/{id}/rotate-verification-secret. Write role required. For when the provider rolls its signing secret (#210). `secret` is the provider's NEW secret; the one it replaces keeps verifying until overlap_hours from now (default 24; 0 retires it at once), so events signed either way are accepted while the provider switches. Rotating again inside an overlap ends the older secret at once. Neither secret is returned or audited; audited as rotate_webhook_verification_secret with the scheme, overlap and deadline.",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "secret"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "secret": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "writeOnly": true,
+                    "description": "The provider's new signing secret. Never returned."
+                  },
+                  "overlap_hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 720,
+                    "default": 24,
+                    "description": "How long the OLD secret keeps verifying, in hours (at most 30 days). 0 ends it at once."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated. verification.previous_secret_expires_at is the old secret's deadline, or null when overlap_hours was 0.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "verification"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "verification": {
+                      "$ref": "#/components/schemas/EndpointVerification"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "secret missing or invalid for the scheme, or overlap_hours not a number from 0 to 720.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role (write capability required: owner, admin or developer), or a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The endpoint does not verify signatures (scheme none); set verification with PATCH first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
           }
         ]
       }
