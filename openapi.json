@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. Whenever the URL names a dataset the payload is stored whole into it; project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds).\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds).\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -223,7 +223,12 @@
             "minLength": 1,
             "maxLength": 512,
             "writeOnly": true,
-            "description": "The provider's signing secret. Stored AES-256-GCM encrypted and never returned by any response, audit row or log. Required when turning a scheme on; on PATCH it may be omitted to keep the secret held, under the same scheme only. A secret set here replaces the old one at once; use rotate-verification-secret for an overlap."
+            "description": "The provider's signing secret. Stored AES-256-GCM encrypted and never returned by any response, audit row or log. Required when turning a scheme on, unless a create sends without_secret: true; on PATCH it may be omitted to keep what is held (a secret, or none for an endpoint created without one), under the same scheme only. A secret set here replaces the old one at once; use rotate-verification-secret for an overlap."
+          },
+          "without_secret": {
+            "type": "boolean",
+            "const": true,
+            "description": "Create only (#238): make the endpoint verify this scheme with NO secret yet. It then refuses every request with 401 (reason bad_signature, \"This endpoint requires a signature but has no secret to check it with\") until a secret is set with PATCH, and responses say has_secret: false. This is how a configuration import, a clone and `hookie apply` recreate an endpoint's verification, since a secret is never exported. Refused with secret, with scheme none, and on PATCH."
           },
           "header": {
             "type": "string",
@@ -310,7 +315,7 @@
           },
           "has_secret": {
             "type": "boolean",
-            "description": "Whether a secret is held. Absent when scheme is none."
+            "description": "Whether a secret is held. Absent when scheme is none. false for an endpoint created with without_secret (for example by a configuration import or clone): it refuses every request with 401 until a secret is set."
           },
           "previous_secret_expires_at": {
             "type": [
@@ -359,7 +364,7 @@
       },
       "ProjectConfig": {
         "type": "object",
-        "description": "A project's configuration (DX-10, #201) \u2014 the hookie.yml shape, so `hookie apply` reads an export as it is. NOTHING SECRET IS IN IT: no endpoint URL (its slug is the credential), destination signing secret or ingest key. Sources, WebSocket triggers and portals hold encrypted credentials and are listed under not_exported instead. Identity per kind: an endpoint's slug, a record view's dataset + name, everything else's name.",
+        "description": "A project's configuration (DX-10, #201) \u2014 the hookie.yml shape, so `hookie apply` reads an export as it is. NOTHING SECRET IS IN IT: no endpoint URL (its slug is the credential), endpoint verification secret, destination signing secret or ingest key. Sources, WebSocket triggers and portals hold encrypted credentials and are listed under not_exported instead. Identity per kind: an endpoint's slug, a record view's dataset + name, everything else's name.",
         "properties": {
           "version": {
             "type": "integer",
@@ -376,7 +381,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "description": "{name, slug, dataset, enabled, criteria, mappings, ip_allowlist?} \u2014 one per endpoint, its newest version."
+              "description": "{name, slug, dataset, enabled, criteria, mappings, ip_allowlist?, verification} \u2014 one per endpoint, its newest version. verification (#238) is the endpoint's signature scheme and non-secret settings, {scheme, header?, algorithm?, encoding?, prefix?, tolerance_seconds?} ({scheme: \"none\"} when it does not verify); never the secret, the previous secret or has_secret. An import recreates a verifying scheme with no secret (without_secret: true), so the copy refuses every request with 401 until a secret is set, and lists it under needs_verification_secret. An entry without verification is created without it."
             }
           },
           "rules": {
@@ -454,7 +459,8 @@
           "ok",
           "created",
           "skipped",
-          "failed"
+          "failed",
+          "needs_verification_secret"
         ],
         "properties": {
           "ok": {
@@ -480,7 +486,7 @@
                 },
                 "note": {
                   "type": "string",
-                  "description": "Set when an endpoint's slug was taken in the workspace (slugs are unique per workspace) and it was created as slug-copy."
+                  "description": "Set when an endpoint's slug was taken in the workspace (slugs are unique per workspace) and it was created as slug-copy, and when an endpoint was created verifying a scheme with no secret (it refuses every request until one is set)."
                 }
               }
             }
@@ -514,6 +520,36 @@
                   "type": "string"
                 },
                 "error": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "needs_verification_secret": {
+            "type": "array",
+            "description": "Endpoints created verifying a provider's signature but holding NO secret (#238): the document carried the scheme and settings, never a secret. Each refuses every request with 401 until its secret is set (console Edit \u2192 Verification, or PATCH webhooks/{id} with verification {scheme, secret}). slug is the endpoint's slug as created (with any -copy suffix).",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "slug",
+                "scheme"
+              ],
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "scheme": {
                   "type": "string"
                 }
               }
@@ -729,7 +765,7 @@
             }
           },
           "201": {
-            "description": "Stored and routed. The payload is identity-routed into the webhook's configured dataset, so 'routed' holds exactly that dataset name. Routing errors after the submission row is written are swallowed (the raw submission is never lost), which surfaces as routed: [] and records: 0.",
+            "description": "Stored. The endpoint's own criteria and mappings apply (ING-1); project rules do not run on this URL. If the criteria are empty or match, the payload (mapped, or whole when the endpoint has no mappings) becomes one record in the endpoint's dataset and 'routed' holds that dataset name. If the criteria do not match, the submission is still stored and counted and the response is 201 with routed: [] and records: 0. Routing errors after the submission row is written are swallowed (the raw submission is never lost), which looks the same.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1356,7 +1392,7 @@
             }
           },
           "201": {
-            "description": "Stored and identity-routed into {dataset}; 'routed' holds that dataset name. A swallowed routing error surfaces as routed: [] and records: 0.",
+            "description": "Stored. {dataset} is the endpoint's own dataset, and the endpoint's own criteria and mappings apply as on the three-segment URL (ING-1); project rules do not run. A match (or empty criteria) makes one record and 'routed' holds that dataset name; a non-match, or a swallowed routing error, is routed: [] and records: 0 with the submission kept.",
             "content": {
               "application/json": {
                 "schema": {
@@ -32614,7 +32650,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). A resource whose identity already exists in the project is skipped, never overwritten. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
+        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
         "parameters": [
           {
             "name": "pid",
@@ -32714,7 +32750,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "A new project, of the same type, holding this project's configuration: an export imported into it (see importProjectConfig). No data is copied, no secret either \u2014 endpoints get new URLs, destinations new signing secrets, and the new project gets no seeded endpoint. Owner or admin (DX-10, #201).",
+        "description": "A new project, of the same type, holding this project's configuration: an export imported into it (see importProjectConfig). No data is copied, no secret either \u2014 endpoints get new URLs, destinations new signing secrets, an endpoint that verifies a provider's signature keeps its scheme and settings but not its secret (so it refuses every request with 401 until one is set; listed under import.needs_verification_secret), and the new project gets no seeded endpoint. Owner or admin (DX-10, #201).",
         "parameters": [
           {
             "name": "pid",
