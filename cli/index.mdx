@@ -8,7 +8,7 @@ icon: "terminal"
 The `hookie` CLI manages your Hookie account and its projects: everything the console and the [MCP tools](/connected-agents) can do, as commands. Use it from a terminal, a script, a CI job, or give it to an AI agent. Every command goes through your account in Hookie; nothing is received on, or forwarded to, the machine it runs on.
 
 - `--json` on every command and a real exit code when something fails, so a script or an agent can act on the result.
-- A `hookie.yml` you can review in a pull request, applied with `hookie apply`.
+- A `hookie.yml` you can review in a pull request: written from a project with `hookie export`, applied with `hookie apply`, and checked for drift with `hookie diff`.
 
 ```bash
 hookie login

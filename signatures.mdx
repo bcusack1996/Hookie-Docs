@@ -8,6 +8,10 @@ Every outbound delivery is signed with the destination's secret, a `whsec_`-pref
 
 You never have to write it down. The secret is encrypted at rest and masked in the console. The destination's **Reveal** button fetches it on demand for owners and admins only, and every reveal is written to your audit log. **Rotate** issues a new secret and shows it to you. The secret it replaces keeps signing for **24 hours**: every delivery in that window carries two signatures, one per secret, so your receiver keeps verifying while you update it (see [Rotating the secret](#rotating-the-secret)).
 
+<Tip>
+  This page is about the deliveries Hookie **sends**. To have an endpoint check the signature a provider such as Stripe, GitHub or Shopify puts on the requests it **receives**, see [Verify provider signatures](/endpoint-verification).
+</Tip>
+
 ## The headers
 
 Each delivery carries:

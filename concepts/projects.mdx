@@ -53,7 +53,7 @@ A project's slug is the second segment of every endpoint URL: `app.hookie.ai/{wo
 Under **Configuration** on a project's **Settings** tab:
 
 - **Export JSON** and **Export YAML** download the project's configuration: endpoints, rules, destinations, AI agents, workflows, AI and cron triggers, and record views. Secrets, endpoint URLs and keys are never exported, and sources, WebSocket triggers and the customer portal aren't included.
-- **Import configuration (JSON)** loads an export into the project. Imported endpoints get new URLs, and imported destinations get new signing secrets. Anything whose name already exists in the project is skipped, never overwritten. A YAML export is applied with `hookie apply` in the [CLI](/cli).
+- **Import configuration (JSON)** loads an export into the project. Imported endpoints get new URLs, and imported destinations get new signing secrets. Anything whose name already exists in the project is skipped, never overwritten. An endpoint that verifies its provider's signature is imported without the secret, so it refuses every request with `401` until you set the secret with **Edit…**. A YAML export is applied with `hookie apply` in the [CLI](/cli).
 - **Clone project** copies the configuration into a new project. Owners and admins only.
 
 Records, deliveries and other event data are not part of a configuration export. To download those, see [Delete, export and close](/data-deletion).

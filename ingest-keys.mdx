@@ -8,7 +8,7 @@ An **ingest key** (`ik_live_…`) is the credential for a server. An endpoint UR
 
 - **Rules.** `POST /v1/ingest/{key}` with no dataset in the path runs the project's [mapping rules](/quickstart#route-with-rules).
 - **The live stream.** `GET /v1/stream` authenticates with a key and tails that key's project. See [Live streaming](/streaming).
-- **Inbound signatures.** A key can require every request to carry an `X-Hookie-Signature` (`t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` with the key's signing secret). See [request headers](/api-reference#request-headers).
+- **Hookie's own inbound signature.** A key can require every request to carry an `X-Hookie-Signature` (`t=<unix>,v1=<hex>`, an HMAC-SHA256 over `<t>.<body>` with the key's signing secret). See [request headers](/api-reference#request-headers). To check a *provider's* signature (Stripe, GitHub and others), use [endpoint signature verification](/endpoint-verification) instead.
 
 A key belongs to one project. Anyone holding it can send events into that project and watch its events arrive, so treat it like a password.
 
