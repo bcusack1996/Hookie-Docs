@@ -56,7 +56,7 @@ GET    /portal/api/deliveries/{id}                           # one delivery in f
 POST   /portal/api/deliveries/{id}/replay                    # send it again
 ```
 
-A separate, token-authed surface for your _end customers_, scoped to one portal and customer. The token is not accepted in the query string, and each token may make 60 calls a minute. See [Customer portal](/customer-portal) for issuing tokens and embedding.
+A separate, token-authed surface for your _end customers_, scoped to one portal and customer. The token is not accepted in the query string, and each token may make about 60 calls a minute, a best-effort guard counted separately at each Cloudflare location. See [Customer portal](/customer-portal) for issuing tokens and embedding.
 
 ## Admin API
 

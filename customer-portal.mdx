@@ -177,13 +177,13 @@ GET    /portal/api/deliveries/{id}                           # one delivery in f
 POST   /portal/api/deliveries/{id}/replay                    # send it again
 ```
 
-`PUT` is accepted as well as `PATCH` on a destination. The token is not accepted in the query string (`?token=…`): a token there ends up in request logs. Each token can make 60 calls a minute; beyond that the API answers `429` with `Retry-After: 60`. Writes made with the session cookie, rather than a bearer token, must send `X-Requested-With: fetch`.
+`PUT` is accepted as well as `PATCH` on a destination. The token is not accepted in the query string (`?token=…`): a token there ends up in request logs. Each token can make about 60 calls a minute. That is a best-effort guard, not an exact count: each Cloudflare location counts separately, so a short burst can get through above it. Over it, the API answers `429` with `Retry-After: 60`. Writes made with the session cookie, rather than a bearer token, must send `X-Requested-With: fetch`.
 
 | Status | When |
 | --- | --- |
 | `402` | Turning on a destination that is paused because your workspace is over its plan's limit, or adding one past that limit. Only you can upgrade, so the customer is told to contact you. |
 | `409` | Replaying a delivery that is still being sent, whose destination is paused or deleted, or whose dataset the portal no longer exposes. Adding a destination to a portal that exposes no datasets. |
-| `429` | Over the token's 60 calls a minute, or a replay when your monthly delivery allowance is used up (`"reason": "delivery_allowance_exhausted"`). |
+| `429` | Over the token's limit of about 60 calls a minute, or a replay when your monthly delivery allowance is used up (`"reason": "delivery_allowance_exhausted"`). |
 
 <Note>
   Why one portal per project: a project is one customer's space. Two portals over the same project would show the same events to two audiences, so Hookie keeps it to one — creating a second is refused. Workspaces that had several portals in one project kept the most recently updated; the others were retired (tokens revoked, their destinations paused, nothing deleted), and each retirement is listed in **Settings → Audit log**.

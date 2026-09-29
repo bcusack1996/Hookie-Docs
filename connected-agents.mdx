@@ -63,7 +63,7 @@ Access is **one level of three**, and each includes the one before it. Choose it
 | --- | --- | --- |
 | Read only | `hookie:read` | Read the workspace: projects, datasets, records, endpoints, rules, destinations, deliveries, triggers and workflows. |
 | Read and write | `hookie:write` | Also create, change and delete endpoints, rules, destinations, workflows, sources, AI triggers, AI agents and the customer portal. Equivalent to the developer role. |
-| Administer | `hookie:manage` | Also projects, cron and WebSocket triggers, and workspace administration: members, SSO, IP allowlist and audit export. Equivalent to admin. |
+| Administer | `hookie:manage` | Also projects, cron and WebSocket triggers, and workspace administration: the IP allowlist and the audit export. Equivalent to admin. |
 
 An agent is never a principal of its own. It acts _as you_, and its authority is your workspace role narrowed to the scopes you granted; whichever is more restrictive wins. An agent granted `hookie:manage` by someone with the viewer role is still a viewer.
 
@@ -92,7 +92,7 @@ Over MCP the same sentence comes back as the tool's error, so the agent can hand
 
 Two refusals carry no link, because widening would not help:
 
-- `code: "insufficient_role"` — **your own role** does not allow the call. An agent can never do more than you, so a workspace owner or admin has to change your role.
+- `code: "insufficient_role"` — **your own role** does not allow the call, and an agent can never do more than you, so widening its access will not help. The error names your role and ends "a workspace owner or admin has to change your role first", but there is no way to change a role in the product yet: a workspace has its owner, who created it, and admins only where the Hookie team has set them up. If your role is too low, ask the workspace owner, who can make the call themselves.
 - `code: "agent_not_permitted"` — no agent may do this at any level: billing, platform administration, managing connected agents, and revealing or rotating a destination's signing secret.
 
 ## Revoke
