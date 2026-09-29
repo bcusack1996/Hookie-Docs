@@ -14,7 +14,7 @@ Events reach a project in one of two ways:
 | Looks like | `app.hookie.ai/{workspace}/{project}/{endpoint-slug}` | `app.hookie.ai/v1/ingest/{key}[/{dataset}]` |
 | The secret is | the endpoint slug in the URL | the key |
 | Stores into | the endpoint's own dataset | the dataset in the path, or wherever the project's [rules](/concepts/rules-and-mappings) send it |
-| Signature on each request | not available | optional, per key |
+| Signature on each request | optional: the provider's own (Stripe, GitHub, Shopify, Slack, Standard Webhooks, or a custom HMAC) | optional: Hookie's `X-Hookie-Signature` |
 | Reads the [live stream](/streaming) | no | yes |
 | Best for | Stripe, GitHub and other providers; HTML forms | your own services and scripts |
 
@@ -22,7 +22,7 @@ Events reach a project in one of two ways:
 
 ### Add an endpoint
 
-On a project's **Endpoints** tab, choose **Add endpoint**. Enter a **Name** and, optionally, a **Dataset**. The dataset defaults to the endpoint's name. Choose **Create**.
+On a project's **Endpoints** tab, choose **Add endpoint**. Enter a **Name** and, optionally, a **Dataset**. The dataset defaults to the endpoint's name. If your provider signs its requests, choose it under **Signature verification** now or later. Choose **Create**.
 
 Hookie generates a high-entropy **endpoint slug** and shows the full **Public URL** on the endpoint's card. That URL is the endpoint's credential: anyone who has it can post events, so treat it like a password. The readable name you typed is never part of the URL.
 
@@ -36,18 +36,50 @@ An endpoint can also carry its own **criteria** (conditions every event must mee
 
 ### Manage an endpoint
 
-Each endpoint's card has a menu (**⋮**) with these actions:
+Under its URL, each endpoint's card has **Send test event**, which posts a payload to the real URL and follows the event for up to 30 seconds; **View records**, which opens the endpoint's dataset; and **Show curl**. Its menu (**⋮**) has the rest:
 
 | Action | What it does |
 | --- | --- |
-| **View records** | Opens the endpoint's dataset on the **Datasets** tab. |
-| **Send a test event…** | Posts a payload to the real URL and follows the event for up to 30 seconds. |
-| **Edit…** | Changes the **Name**, the **Dataset** that events land in from now on, and **Allowed source IPs (optional)**. Records already stored stay where they are. |
+| **Activity** | What the endpoint received and refused over the last 7 days. See below. |
+| **Edit…** | Changes the name, the dataset that events land in from now on, allowed source IPs, the form redirect, allowed browser origins, URL verification and signature verification. Records already stored stay where they are. |
 | **Rotate URL…** | Gives the endpoint a new URL. See below. |
+| **Rotate signing secret…** | Takes your provider's new secret and keeps the current one working for an overlap. Shown when the endpoint verifies signatures. |
 | **Disable…** / **Enable** | Stops or resumes accepting events. |
 | **Delete** | Removes the endpoint. |
 
-Owners, admins and developers see these actions. Viewers see the list.
+Every role can see **Activity** and **View records**. The other actions need owner, admin or developer.
+
+### Verify your provider's signature
+
+An endpoint URL is a credential on its own, but many providers also sign each request. Under **Signature verification**, choose how the sender signs and paste its secret:
+
+| Choice | Header checked |
+| --- | --- |
+| **Stripe** | `Stripe-Signature` |
+| **GitHub** | `X-Hub-Signature-256` |
+| **Shopify** | `X-Shopify-Hmac-Sha256` |
+| **Slack** | `X-Slack-Signature` |
+| **Standard Webhooks (Svix and others)** | `webhook-id`, `webhook-timestamp`, `webhook-signature` |
+| **Custom HMAC** | a header you name, SHA-256 or SHA-1, hex or Base64, with an optional prefix such as `sha256=` |
+
+Hookie checks the signature over the raw request bytes before anything is stored or counted. A missing header, a forged signature or a stale timestamp is refused with `401` and a `reason` of `missing_header`, `bad_signature` or `stale_timestamp`. The secret is stored encrypted and never shown again.
+
+When your provider rolls its secret, use **Rotate signing secret…**, paste the **New signing secret**, and choose how long to **Keep accepting the current secret for**.
+
+### Answer a provider's URL check
+
+Some providers check a URL before they will save it. Under **URL verification**, choose the provider and Hookie answers its check without storing it as an event: **Slack** (`url_verification`), **Meta** for Facebook, Instagram and WhatsApp (`hub.challenge`), **Microsoft Graph** (`validationToken`), **Zoom** (`endpoint.url_validation`) or **Twitch EventSub** (`webhook_callback_verification`). Meta and Zoom also need their verify token or secret token, which is stored encrypted.
+
+### Accept HTML forms and browser calls
+
+- **Redirect after a form submit (optional):** an `https://` page, such as a thank-you page. A browser's native form post is answered `303 See Other` to it once the event is stored. Other senders still get JSON.
+- **Allowed browser origins (optional):** pages allowed to call the URL with `fetch()` and read the answer, one per line, such as `https://example.com`, or `*` for any page. Nothing is allowed by default.
+
+See the [Quickstart](/quickstart#point-an-html-form-straight-at-an-endpoint) for examples.
+
+### See what an endpoint refused
+
+**Activity** lists what the endpoint received and what it refused over the last 7 days, with counts for the last 24 hours. Each refusal says why: IP allowlist, signature, burst limit, quota, disabled endpoint, body size, content type, a bad or empty body, a failed URL check, a disallowed origin, or a suspended workspace. Refused requests are never counted against your quota. Use it first when a provider reports an error from Hookie.
 
 ### Rotate a leaked URL
 
@@ -97,7 +129,10 @@ Before anything is stored, each request passes these checks, in order:
 1. The credential: a known, enabled endpoint URL, or an active ingest key.
 2. Every IP allowlist that is set.
 3. The burst limit: 100 requests per 10 seconds per endpoint URL or ingest key, on every plan.
-4. The `Idempotency-Key`, if sent. A repeat returns the original submission and is not counted again.
-5. Your plan's monthly event quota. See [Limits and plans](/concepts/limits-and-plans).
+4. The body size: 1,000,000 bytes at most.
+5. The provider's URL check, if the endpoint answers one. It is answered here and not stored.
+6. The signature, if the endpoint or key requires one.
+7. The duplicate check. A request with an `Idempotency-Key`, or with a delivery ID that a known provider keeps across its retries (such as `X-GitHub-Delivery`, `webhook-id` or a Stripe event ID), is answered with the original submission if it was already stored, and is not counted again.
+8. Your plan's monthly event quota. See [Limits and plans](/concepts/limits-and-plans).
 
-A refused request stores nothing. See [Response codes](/api-reference#response-codes).
+A refused request stores nothing, isn't counted, and appears in the endpoint's **Activity**. See [Response codes](/api-reference#response-codes).

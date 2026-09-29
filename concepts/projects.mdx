@@ -21,6 +21,8 @@ On **Projects**, choose **Create a project**. Enter a **Name** and pick a **Type
 | **Webhook** | Collect events from endpoints you publish. Hookie adds one endpoint for you, named after the project, that stores into the dataset `default`. |
 | **AI trigger** | Run a model against events as they arrive. Nothing is added for you. |
 
+The new project opens on its **Endpoints** tab. For a Webhook project, the endpoint Hookie added is marked **new**.
+
 The type is a starting template, not a restriction. Any project can add any endpoint, key, source, trigger or workflow later.
 
 Only workspace owners and admins can create projects. Developers and viewers don't see the button.
@@ -40,11 +42,21 @@ Open a project to see its tabs:
 | **Workflows** | Multi-step [workflows](/workflows), their start triggers, and AI agents. |
 | **Deliveries** | Every outbound attempt. See [Destinations, deliveries and retries](/concepts/destinations-and-deliveries). |
 | **Observability** | Search across records, submissions, deliveries, AI runs and AI calls, trace any ID to its whole chain, and set up [Broadcast Logs](/broadcast-logs). |
-| **Settings** | The project's name, slug and type, its [customer portal](/customer-portal) and [Data API](/data-api), and deleting the project. |
+| **Settings** | The project's name, slug and type; its configuration (export, import and clone); its [customer portal](/customer-portal) and [Data API](/data-api); and deleting the project. |
 
 ## The project slug
 
 A project's slug is the second segment of every endpoint URL: `app.hookie.ai/{workspace}/{project}/{endpoint-slug}`. The Default project's slug is `default`. The **Overview** and **Settings** tabs show it.
+
+## Export, import and clone
+
+Under **Configuration** on a project's **Settings** tab:
+
+- **Export JSON** and **Export YAML** download the project's configuration: endpoints, rules, destinations, AI agents, workflows, AI and cron triggers, and record views. Secrets, endpoint URLs and keys are never exported, and sources, WebSocket triggers and the customer portal aren't included.
+- **Import configuration (JSON)** loads an export into the project. Imported endpoints get new URLs, and imported destinations get new signing secrets. Anything whose name already exists in the project is skipped, never overwritten. A YAML export is applied with `hookie apply` in the [CLI](/cli).
+- **Clone project** copies the configuration into a new project. Owners and admins only.
+
+Records, deliveries and other event data are not part of a configuration export. To download those, see [Delete, export and close](/data-deletion).
 
 ## Delete a project
 

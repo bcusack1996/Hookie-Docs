@@ -16,8 +16,8 @@ Everyone in a workspace has a **role**. A [connected agent](/connected-agents) h
 | **Viewer** | ✓ | | | |
 
 - **Read** covers every project and resource in the workspace: records, deliveries, configuration and the audit log.
-- **Create and change project resources** covers endpoints, ingest keys, rules, destinations, sources, triggers, workflows and record views.
-- **Administer the workspace** covers single sign-on, the workspace IP allowlist and audit log export. Creating a project also needs owner or admin, as does revealing or rotating a destination's signing secret.
+- **Create and change project resources** covers endpoints, ingest keys, rules, destinations, sources, AI triggers, workflows and record views, and deleting a record.
+- **Administer the workspace** covers single sign-on, the workspace IP allowlist and audit log export. Creating a project, managing cron and WebSocket triggers, and revealing or rotating a destination's signing secret also need owner or admin.
 - **Billing** is the owner's alone: subscribing, changing the card and cancelling.
 
 A few actions are the **owner's** only: billing, and deleting a project.
@@ -34,17 +34,25 @@ Your own role is shown under **Settings → Plan & billing**, in **Your access**
 
 A **connected agent** is a coding agent, such as Claude Code, Cursor or another MCP client, that signed in to Hookie as you over OAuth. It calls the same API the console does. Choose **Connect agent** in the console's top bar for the MCP URL and setup commands, and see [Connected agents](/connected-agents) for the whole guide.
 
-You decide what each agent may do under **Settings → Connected agents**, which lists the agents *you* connected. Anyone can manage their own agents, whatever their role. A new agent can only read until you grant it more:
+You decide what each agent may do under **Settings → Connected agents**, which lists the agents *you* connected. Anyone can manage their own agents, whatever their role. A new agent can only read until you choose **Change access** and give it a higher level. Each level includes the ones below it:
 
-| Scope | In the console | The agent can act as at most |
+| Level | Scope | The agent can act as at most |
 | --- | --- | --- |
-| `hookie:read` | **Read your workspace** | Viewer |
-| `hookie:write` | **Create and change resources** | Developer |
-| `hookie:manage` | **Administer your workspace** | Admin |
+| **Read only** | `hookie:read` | Viewer |
+| **Read and write** | `hookie:write` | Developer |
+| **Administer** | `hookie:manage` | Admin |
 
-The agent's access is the **weaker** of your role and its scope. A viewer who grants `hookie:manage` gets an agent that can still only read. Billing is never reachable by an agent, at any scope and whatever your role.
+The agent's access is the **weaker** of your role and its level. A viewer who grants `hookie:manage` gets an agent that can still only read. Billing is never reachable by an agent, at any scope and whatever your role.
 
 Every action an agent takes is written to the audit log with you as the actor and the agent recorded alongside, in the **Via** column. **Revoke** on the agent's row cuts it off on its next request.
+
+When an agent is refused for lack of access, the `403` names the scope the call needs and links to the agent's entry in **Settings → Connected agents**. When your own role is the limit, it says that changing the agent's level won't help.
+
+## API keys
+
+For CI, infrastructure-as-code and back-end services that can't sign in through a browser, owners and admins can create an **API key** (`hk_…`) under **Settings → API keys**. A key is sent as `Authorization: Bearer` to the admin API and to `/mcp`, and it is shown once.
+
+Like a connected agent, a key acts as the person who created it, capped at the key's **Role**: viewer, developer or admin, never owner. It is re-checked against that person's current role on every request, and it stops working if they leave the workspace. A key can also be limited to one project under **Projects**, given an **Expires** date and restricted to **Allowed source IPs**. No key can reach billing.
 
 ## Not to be confused with
 

@@ -30,9 +30,9 @@ When a free trial is on offer, a new workspace starts on a paid plan for a set n
 
 ## Manage or cancel
 
-On a paid plan, **Manage billing** opens Stripe's billing portal in a new tab. Change your card, download invoices, or cancel there.
+On a paid plan, the owner sees the renewal date and recent **Invoices** on **Plan & billing**. **Manage billing** opens Stripe's billing portal. Change your card or cancel there.
 
-If a payment fails, Stripe retries it and your plan stays in place meanwhile. The workspace moves to Free only when the subscription actually ends, whether you cancelled it or Stripe gave up on payment.
+A cancelled subscription runs to the end of the period it was paid for, and **Plan & billing** says when it ends. If a payment fails, **Plan & billing** says so, and Stripe retries the charge while your plan stays in place. Pay the open invoice or change your card in **Manage billing**. If every retry fails, Stripe cancels the subscription and the workspace moves to Free.
 
 ## When your plan changes
 
@@ -42,6 +42,10 @@ Moving to a smaller plan applies its limits from then on:
 - Monthly allowances switch to the new plan's numbers. If you are already past them, events are refused and deliveries are held until the next month. See [What happens at a limit](/concepts/limits-and-plans#what-happens-at-a-limit).
 - Retention follows the new plan, so data older than its window is deleted.
 
+## Close the workspace
+
+To download everything a workspace holds, or close it for good, use **Settings → Export & closure**. See [Delete, export and close](/data-deletion).
+
 ## Suspended workspaces
 
-A workspace suspended for non-payment or abuse refuses new events and holds its deliveries, but you can still sign in and read everything. Billing stays available, so an owner can settle what is owed. Once the workspace is reinstated, paused deliveries are sent and sources and triggers resume within about five minutes. Events sent while it was suspended were refused, not stored, so their senders must retry them.
+A workspace suspended for non-payment or abuse refuses new events and holds its deliveries, but you can still sign in and read everything. Billing stays available, so an owner can settle what is owed. Workflow runs already under way are paused where they are. Once the workspace is reinstated, paused deliveries are sent, paused runs carry on from the step they stopped at, and sources and triggers resume within about five minutes. Events sent while it was suspended were refused, not stored, so their senders must retry them.

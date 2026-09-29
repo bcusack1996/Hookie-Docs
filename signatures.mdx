@@ -1,10 +1,10 @@
 ---
 title: "Verify signatures"
-description: "Verify Hookie's outbound webhook signatures with HMAC-SHA256."
+description: "Verify Hookie's outbound webhook signatures: Hookie-Signature or Standard Webhooks, in Node, Python, Go and Ruby."
 icon: "signature"
 ---
 
-Every outbound delivery is signed with the destination's secret, a `whsec_`-prefixed value that Hookie generates when you create the destination. Verify the signature before trusting the payload.
+Every outbound delivery is signed with the destination's secret, a `whsec_`-prefixed value that Hookie generates when you create the destination. Each delivery is signed **twice**: with Hookie's own `Hookie-Signature` header, and with the [Standard Webhooks](https://www.standardwebhooks.com) headers, so any Standard Webhooks library can verify it. Verify either one before trusting the payload.
 
 You never have to write it down. The secret is encrypted at rest and masked in the console. The destination's **Reveal** button fetches it on demand for owners and admins only, and every reveal is written to your audit log. **Rotate** issues a new secret and shows it to you. The secret it replaces keeps signing for **24 hours**: every delivery in that window carries two signatures, one per secret, so your receiver keeps verifying while you update it (see [Rotating the secret](#rotating-the-secret)).
 
@@ -14,30 +14,57 @@ Each delivery carries:
 
 ```http
 Hookie-Signature: t=1718000000,v1=5f2b8c…e11a
+webhook-id: 4c7b…
+webhook-timestamp: 1718000000
+webhook-signature: v1,g0hM9SsE…1OE=
 Hookie-Event-Id: 9d3f2a10-…
 Hookie-Delivery-Id: 4c7b…
 Hookie-Hop: 1
 ```
 
 - `Hookie-Signature`: `t=<unix>,v1=<hex>`, an HMAC-SHA256 (Stripe-style). For 24 hours after a rotation it carries a second `v1`: `t=<unix>,v1=<new>,v1=<previous>`.
+- `webhook-id`, `webhook-timestamp`, `webhook-signature`: the [Standard Webhooks](https://www.standardwebhooks.com) set. `webhook-id` is the delivery ID, the same on every retry of that delivery (a replay is a new delivery, with a new ID); `webhook-timestamp` is the same unix time as `t`; `webhook-signature` is `v1,<base64>`, and for 24 hours after a rotation `v1,<new> v1,<previous>`, space-separated.
 - `Hookie-Event-Id`: the event ID. **Dedupe on this**, since delivery is at-least-once and unordered.
-- `Hookie-Delivery-Id`: the specific delivery attempt, useful in logs.
+- `Hookie-Delivery-Id`: the delivery, useful in logs. It stays the same across the retries of one delivery (every attempt is listed under it in the console's delivery drawer), and a replay is a new delivery with a new ID.
 - `Hookie-Hop`: how many times this event has passed through Hookie. If your service forwards the event into Hookie again, pass this header on: Hookie refuses an event at 8 hops, which stops a delivery loop.
 
 Deliveries **never follow redirects**. A `3xx` answer is recorded as a failed attempt naming the `Location` it pointed to, and is not retried: a redirect means the destination URL is wrong, so update it rather than letting a signed event be forwarded somewhere you did not choose.
 
-## What's signed
+## Two schemes, one secret
 
-The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex and compare it in constant time with **each** `v1` in the header. Accept the request if any of them matches.
+You only need to verify one of them. `Hookie-Signature` is unchanged, so an existing receiver keeps working; the Standard Webhooks headers let you use an off-the-shelf library instead.
 
-## Node.js
+| | `Hookie-Signature` | Standard Webhooks |
+|---|---|---|
+| Headers | `Hookie-Signature: t=<unix>,v1=<sig>` | `webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<sig>` |
+| Signed string | `<t>.<raw body>` | `<webhook-id>.<webhook-timestamp>.<raw body>` |
+| HMAC-SHA256 key | the UTF-8 bytes of the **whole secret string**, `whsec_` included | the **base64-decoded** bytes of what follows `whsec_` (36 bytes) |
+| Signature encoding | lowercase hex | base64 |
+| During a rotation | `t=<unix>,v1=<new>,v1=<previous>` | `v1,<new> v1,<previous>` (space-separated) |
 
-```js
+If the destination has a body template (see [Destination options](/destinations)), both signatures cover the templated body as sent, not the envelope. Verification is the same.
+
+Both are computed from the **same** signing secret, but each derives its HMAC key
+the way its own scheme says, so the keys differ. Hookie's secrets are `whsec_`
+followed by 48 hexadecimal characters. Hex digits are all base64 characters and
+48 is a multiple of 4, so the part after `whsec_` is already valid base64: it
+decodes to 36 bytes, and every Standard Webhooks library accepts the secret
+exactly as Hookie shows it. Do **not** hex-decode it, and do not use the text of
+it as the Standard Webhooks key: base64-decode the characters after `whsec_`.
+
+For either scheme: verify the exact **raw body bytes**, compare in constant time with **each** signature and accept the request if any of them matches, and reject a timestamp more than five minutes from now.
+
+## Verify Hookie-Signature
+
+The signed string is `<t>.<raw body>`: the timestamp, a dot, then the exact request body bytes. Compute `HMAC-SHA256(secret, "<t>.<body>")` as lowercase hex, keyed with the whole secret string, and compare it with **each** `v1` in the header.
+
+<CodeGroup>
+
+```js Node.js
 const crypto = require("crypto");
 
-// Verify a Hookie outbound webhook signature.
-// header: the raw "Hookie-Signature" value ("t=<unix>,v1=<hex>[,v1=<hex>]")
-// rawBody: the exact request body bytes (do NOT re-serialize the JSON)
+// Hookie-Signature: "t=<unix>,v1=<hex>[,v1=<hex>]".
+// Key: the secret string itself, whsec_ prefix included. Signed: "<t>.<raw body>".
 function verifyHookie(secret, header, rawBody, toleranceSeconds = 300) {
   // v1 repeats during a secret rotation, so collect every one. (Object.fromEntries
   // would keep only the last, which is the PREVIOUS secret's signature.)
@@ -54,12 +81,210 @@ function verifyHookie(secret, header, rawBody, toleranceSeconds = 300) {
 }
 ```
 
+```python Python
+import hashlib, hmac, time
+
+# Hookie-Signature: "t=<unix>,v1=<hex>[,v1=<hex>]".
+# Key: the secret string itself, whsec_ prefix included. Signed: "<t>.<raw body>".
+def verify_hookie(secret: str, header: str, raw_body: bytes, tolerance: int = 300) -> bool:
+    pairs = [p.split("=", 1) for p in (header or "").split(",") if "=" in p]
+    t = next((v for k, v in pairs if k == "t"), None)
+    signatures = [v for k, v in pairs if k == "v1"]  # two during a secret rotation
+    if not t or not t.isdigit() or not signatures or abs(time.time() - int(t)) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), t.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(expected.encode(), sig.encode()) for sig in signatures)
+```
+
+```go Go
+package webhooks
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// VerifyHookie checks Hookie-Signature: "t=<unix>,v1=<hex>[,v1=<hex>]".
+// Key: the secret string itself, whsec_ prefix included. Signed: "<t>.<raw body>".
+func VerifyHookie(secret, header string, rawBody []byte) bool {
+	var t string
+	var sigs []string
+	for _, part := range strings.Split(header, ",") {
+		k, v, _ := strings.Cut(part, "=")
+		switch k {
+		case "t":
+			t = v
+		case "v1":
+			sigs = append(sigs, v) // two during a secret rotation
+		}
+	}
+	unix, err := strconv.ParseInt(t, 10, 64)
+	if err != nil || len(sigs) == 0 || time.Since(time.Unix(unix, 0)).Abs() > 5*time.Minute {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(t + "."))
+	mac.Write(rawBody)
+	expected := []byte(hex.EncodeToString(mac.Sum(nil)))
+	for _, sig := range sigs {
+		if hmac.Equal(expected, []byte(sig)) {
+			return true
+		}
+	}
+	return false
+}
+```
+
+```ruby Ruby
+require "openssl"
+
+# Hookie-Signature: "t=<unix>,v1=<hex>[,v1=<hex>]".
+# Key: the secret string itself, whsec_ prefix included. Signed: "<t>.<raw body>".
+def verify_hookie(secret, header, raw_body, tolerance = 300)
+  pairs = header.to_s.split(",").map { |p| p.split("=", 2) }
+  t = pairs.find { |k, _| k == "t" }&.last
+  signatures = pairs.select { |k, _| k == "v1" }.map(&:last) # two during a secret rotation
+  return false if t.nil? || signatures.empty? || (Time.now.to_i - t.to_i).abs > tolerance
+  expected = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{t}.#{raw_body}")
+  signatures.any? { |sig| OpenSSL.secure_compare(expected, sig.to_s) }
+end
+```
+
+</CodeGroup>
+
+## Verify Standard Webhooks
+
+The signed string is `<webhook-id>.<webhook-timestamp>.<raw body>`. Compute its HMAC-SHA256 as base64, keyed with the base64-decoded bytes after `whsec_`, and compare it with the signature after `v1,` in **each** space-separated entry of `webhook-signature`.
+
+Any [Standard Webhooks](https://www.standardwebhooks.com) library verifies these
+headers with the secret as-is: `standardwebhooks` on npm, PyPI and RubyGems, and
+`github.com/standard-webhooks/standard-webhooks/libraries/go` for Go. For example,
+in Node: `new Webhook(secret).verify(rawBody, headers)` (from `standardwebhooks`),
+which throws when no signature matches.
+
+Or, without a library:
+
+<CodeGroup>
+
+```js Node.js
+const crypto = require("crypto");
+
+// Standard Webhooks: webhook-id, webhook-timestamp, webhook-signature ("v1,<base64>[ v1,<base64>]").
+// Key: the base64-DECODED bytes after "whsec_". Signed: "<id>.<timestamp>.<raw body>".
+// headers: an object with lower-case names (Express's req.headers is one).
+function verifyStandardWebhook(secret, headers, rawBody, toleranceSeconds = 300) {
+  const id = headers["webhook-id"];
+  const timestamp = headers["webhook-timestamp"];
+  const signatures = headers["webhook-signature"];
+  if (!id || !timestamp || !signatures) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > toleranceSeconds) return false;
+  const key = Buffer.from(secret.slice("whsec_".length), "base64");
+  const expected = Buffer.from(crypto.createHmac("sha256", key).update(`${id}.${timestamp}.${rawBody}`).digest("base64"));
+  // Space-separated: two signatures during a secret rotation.
+  return signatures.split(" ").some((versioned) => {
+    const [version, sig] = versioned.split(",");
+    const given = Buffer.from(sig ?? "");
+    return version === "v1" && given.length === expected.length && crypto.timingSafeEqual(given, expected);
+  });
+}
+```
+
+```python Python
+import base64, hashlib, hmac, time
+
+# Standard Webhooks: webhook-id, webhook-timestamp, webhook-signature ("v1,<base64>[ v1,<base64>]").
+# Key: the base64-DECODED bytes after "whsec_". Signed: "<id>.<timestamp>.<raw body>".
+# headers: a case-insensitive mapping (Flask's request.headers, Django's request.headers).
+def verify_standard_webhook(secret: str, headers, raw_body: bytes, tolerance: int = 300) -> bool:
+    msg_id = headers.get("webhook-id")
+    timestamp = headers.get("webhook-timestamp")
+    signatures = headers.get("webhook-signature")
+    if not msg_id or not timestamp or not timestamp.isdigit() or not signatures:
+        return False
+    if abs(time.time() - int(timestamp)) > tolerance:
+        return False
+    key = base64.b64decode(secret.removeprefix("whsec_"))
+    signed = f"{msg_id}.{timestamp}.".encode() + raw_body
+    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest())
+    for versioned in signatures.split(" "):  # two during a secret rotation
+        version, _, sig = versioned.partition(",")
+        if version == "v1" and hmac.compare_digest(expected, sig.encode()):
+            return True
+    return False
+```
+
+```go Go
+package webhooks
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// VerifyStandardWebhook checks webhook-id, webhook-timestamp and webhook-signature
+// ("v1,<base64>[ v1,<base64>]").
+// Key: the base64-DECODED bytes after "whsec_". Signed: "<id>.<timestamp>.<raw body>".
+func VerifyStandardWebhook(secret string, h http.Header, rawBody []byte) bool {
+	id, ts, sigs := h.Get("webhook-id"), h.Get("webhook-timestamp"), h.Get("webhook-signature")
+	unix, err := strconv.ParseInt(ts, 10, 64)
+	if id == "" || sigs == "" || err != nil || time.Since(time.Unix(unix, 0)).Abs() > 5*time.Minute {
+		return false
+	}
+	key, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, "whsec_"))
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(id + "." + ts + "."))
+	mac.Write(rawBody)
+	expected := []byte(base64.StdEncoding.EncodeToString(mac.Sum(nil)))
+	for _, versioned := range strings.Split(sigs, " ") { // two during a secret rotation
+		version, sig, _ := strings.Cut(versioned, ",")
+		if version == "v1" && hmac.Equal(expected, []byte(sig)) {
+			return true
+		}
+	}
+	return false
+}
+```
+
+```ruby Ruby
+require "base64"
+require "openssl"
+
+# Standard Webhooks: webhook-id, webhook-timestamp, webhook-signature ("v1,<base64>[ v1,<base64>]").
+# Key: the base64-DECODED bytes after "whsec_". Signed: "<id>.<timestamp>.<raw body>".
+# headers: a hash with lower-case names (in Rails: request.headers["webhook-id"] etc.).
+def verify_standard_webhook(secret, headers, raw_body, tolerance = 300)
+  id, timestamp, signatures = headers.values_at("webhook-id", "webhook-timestamp", "webhook-signature")
+  return false if id.nil? || timestamp.nil? || signatures.nil?
+  return false if (Time.now.to_i - timestamp.to_i).abs > tolerance
+  key = Base64.strict_decode64(secret.delete_prefix("whsec_"))
+  expected = Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", key, "#{id}.#{timestamp}.#{raw_body}"))
+  signatures.split(" ").any? do |versioned| # two during a secret rotation
+    version, sig = versioned.split(",", 2)
+    version == "v1" && OpenSSL.secure_compare(expected, sig.to_s)
+  end
+end
+```
+
+</CodeGroup>
+
 ## Rotating the secret
 
 Rotating is safe to do while deliveries are flowing:
 
 1. Press **Rotate** on the destination (owner or admin). The new secret is shown to you.
-2. For the next 24 hours every delivery is signed with **both** secrets, new first: `Hookie-Signature: t=1718000000,v1=<new>,v1=<previous>`. A receiver that accepts any matching `v1` (as the verifier above does) keeps working whichever secret it holds.
+2. For the next 24 hours every delivery is signed with **both** secrets, new first: `Hookie-Signature: t=1718000000,v1=<new>,v1=<previous>` and `webhook-signature: v1,<new> v1,<previous>`. A receiver that accepts any matching signature (as the verifiers above and every Standard Webhooks library do) keeps working whichever secret it holds.
 3. Update your receiver to the new secret at any point in that window. The destination shows when the previous secret stops signing.
 4. Once every receiver is on the new secret you can press **Expire now** to stop sending the previous signature early; otherwise it stops on its own after 24 hours.
 
@@ -75,6 +300,7 @@ const app = express();
 app.post("/hook", express.raw({ type: "*/*" }), (req, res) => {
   const raw = req.body.toString("utf8");
   const ok = verifyHookie(process.env.HOOKIE_SECRET, req.get("Hookie-Signature"), raw);
+  // or: verifyStandardWebhook(process.env.HOOKIE_SECRET, req.headers, raw)
   if (!ok) return res.status(401).end();
 
   const eventId = req.get("Hookie-Event-Id"); // dedupe on this — delivery is at-least-once
@@ -87,6 +313,6 @@ app.post("/hook", express.raw({ type: "*/*" }), (req, res) => {
 ## Notes
 
 - Verify against the **raw bytes**. Re-serializing the JSON will change the signature.
-- Reject the request if the header is missing or `v1` doesn't match. Optionally reject old `t` values to limit replay.
-- Always compare with a constant-time function such as `crypto.timingSafeEqual`.
+- Reject the request if the headers are missing or no signature matches. Reject a timestamp more than five minutes old to limit replay.
+- Always compare with a constant-time function: `crypto.timingSafeEqual` (Node), `hmac.compare_digest` (Python), `hmac.Equal` (Go), `OpenSSL.secure_compare` (Ruby).
 - A destination's URL is fixed once created, and a signature is only meaningful against the URL it was sent to. To move a destination, create the replacement and delete the old one.

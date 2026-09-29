@@ -39,12 +39,13 @@ Allowances reset on the 1st of each month, UTC. **Home** shows this month's even
 | Deliveries replayed per bulk replay call | 500 |
 | Customer portal API calls per portal token | 60 a minute |
 | Times one event may pass through Hookie | 8 |
+| Admin API and `/mcp` calls per API key, agent or person | 100 per 10 seconds |
 
 ## What happens at a limit
 
 | Limit reached | What happens |
 | --- | --- |
-| Monthly events | Ingest answers `429` with `Retry-After: 3600`, and nothing is stored. Free stops at exactly 1,000; Pro and Team stop at the allowance plus 10%. **Home** warns you from 80%. |
+| Monthly events | Ingest answers `429` with `Retry-After: 3600` and `"reason": "quota_exceeded"`, and nothing is stored. The answer says when the quota resets (`reset_at`, 00:00 UTC on the 1st). Free stops at exactly 1,000; Pro and Team stop at the allowance plus 10%. **Home** warns you from 80%. |
 | Burst rate | Ingest answers `429` with `Retry-After: 10`. |
 | Monthly deliveries | Events are still stored. Their deliveries are held, not dropped, until you send them. See [Held deliveries](/concepts/destinations-and-deliveries#held-deliveries). |
 | AI tokens or AI trigger runs | The next AI call is refused, and the trigger run or workflow step that made it fails. |

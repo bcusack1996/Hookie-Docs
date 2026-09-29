@@ -26,9 +26,11 @@ A dataset is also the unit that the rest of Hookie selects on:
 
 ## Browse records
 
-A project's **Datasets** tab lists each dataset with its record count and when it last received one. Choose **View records** to open one. The records are a table with one row per record. Choose **Refresh** to fetch records that arrived after the page loaded, and **Open record** on a row to see the whole record.
+A project's **Datasets** tab lists each dataset with its record count and when it last received one. Choose **View records** to open one. The records are a table with one row per record. Choose **Refresh** to fetch records that arrived after the page loaded, and **Open record** on a row to see the whole record and the **request** it arrived in: the method, content type, source IP, query string and headers. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
 
-**Export CSV** and **Export XLSX** download the dataset's most recent 1,000 records with every field, whatever view is on screen.
+**Export CSV** and **Export XLSX** download the whole dataset with every field, whatever view is on screen. A large export shows its progress and can be cancelled or resumed. An XLSX file stops at a sheet's limit of 1,048,575 rows.
+
+On a very large dataset, the record count stops at 10,000 (shown as "10,000+ records"), and a view sorted by a payload field sorts only the newest 10,000 records. Sorting by arrival covers the whole dataset.
 
 ## Record views
 
@@ -49,6 +51,8 @@ Paste any ID into **Trace an id** to see its whole chain: the submission, the re
 ## How long records are kept
 
 Records and submissions are kept for your plan's retention window, then deleted: 7 days on Free, 30 days on Pro and 90 days on Team. See [Limits and plans](/concepts/limits-and-plans). To keep data longer, send it to a [destination](/concepts/destinations-and-deliveries) of your own.
+
+To remove data sooner, **Delete record** in a record's preview erases it with its submission, deliveries and the workflow runs it started (developers and up). **Purge dataset** in the dataset's menu on the **Datasets** list erases every record in it (owners and admins). See [Delete, export and close](/data-deletion).
 
 ## The `source` of a record
 

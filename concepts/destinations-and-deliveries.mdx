@@ -18,7 +18,7 @@ On a project's **Connections** tab, under **Destinations · outbound**, choose *
 
 Choose **Create**. The destination's signing secret is shown then. Owners and admins can reveal it again later from the destination's card, and each reveal is written to the audit log. See [Verify signatures](/signatures).
 
-**From preset** fills the form in for a known service. Presets that Hookie can't send to directly yet are listed but disabled, with the reason.
+**From preset** fills the form in for a known service, including Slack, Datadog and email. A destination can also send custom headers, a credential and a body of your own; see [Destination options](/destinations).
 
 Destinations count across the whole workspace, not per project: 1 on Free, 10 on Pro and 25 on Team. Past that, creating one answers `402`.
 
@@ -28,16 +28,19 @@ Destinations count across the whole workspace, not per project: 1 on Free, 10 on
 
 ## What a delivery carries
 
-Each delivery is a `POST` of the record, signed with the destination's secret:
+Each delivery is a JSON `POST`. By default the body is Hookie's envelope, `{"id", "dataset", "received_at", "data"}`, where `data` is the record; a destination can send a [body of your own](/destinations#body) instead. Every delivery is signed with the destination's secret, twice: with Hookie's own header and with the [Standard Webhooks](https://www.standardwebhooks.com) headers.
 
 ```http
 Hookie-Signature: t=1718000000,v1=5f2b8c…e11a
+webhook-id: 4c7b…
+webhook-timestamp: 1718000000
+webhook-signature: v1,g0hM9SsE…1OE=
 Hookie-Event-Id: 9d3f2a10-…
 Hookie-Delivery-Id: 4c7b…
 Hookie-Hop: 1
 ```
 
-Delivery is **at-least-once** and **unordered**. Dedupe on `Hookie-Event-Id`. Deliveries never follow redirects. See [Verify signatures](/signatures) for the full header list and code.
+Verify either signature. Delivery is **at-least-once** and **unordered**, so dedupe on `Hookie-Event-Id`. Deliveries never follow redirects. See [Verify signatures](/signatures) for the full header list and code.
 
 ## Retries
 
@@ -68,7 +71,9 @@ An event that Hookie acknowledged with `201` is fanned out even if the first try
 
 ## Watch deliveries
 
-A project's **Deliveries** tab lists every delivery, newest first, with its status, destination, dataset, response, attempts and time. Filter by status, destination and time range. **Details** on a row shows the whole delivery, including your receiver's response.
+A project's **Deliveries** tab starts with delivery health for the last 24 hours, 7 days or 30 days: the success rate, p50, p95 and p99 latency, and failed attempts by kind (3xx, 4xx, 5xx, timeout, connection), in total and per destination.
+
+Below it is every delivery, newest first, with its status, destination, dataset, response, attempts and time. Filter by status, destination and time range, or switch on **Live** to refresh as events arrive. **Details** on a row shows the whole delivery, including every attempt with its time, latency, error and the start of your receiver's response.
 
 ## Replay
 
@@ -93,7 +98,13 @@ A delivery over the rate or concurrency limit is **deferred**: it waits on the q
 
 ## Disable or delete a destination
 
-**Disable** in a destination's menu stops sending. New deliveries wait as `paused` and are sent when you **Enable** it again. **Delete** removes the destination, and its waiting deliveries become `cancelled`. To stop deliveries for a while, disable rather than delete, and don't empty the dataset filter: an empty filter is refused.
+A destination's menu has **Disable** or **Enable**, **Edit…** (name, URL and dataset filter; the destination keeps its ID and signing secret), **Request options**, **Delivery settings** and **Delete**.
+
+**Disable** stops sending. New deliveries wait as `paused` and are sent when you **Enable** it again. **Delete** removes the destination, and its waiting deliveries become `cancelled`. To stop deliveries for a while, disable rather than delete, and don't empty the dataset filter: an empty filter is refused.
+
+## When a destination keeps failing
+
+The first `dead` delivery flags the destination as **failing**, with the last error, on its card and on **Home**. After 10 dead deliveries in a row over at least an hour, Hookie switches the destination off, and new deliveries are held as `paused` rather than sent to fail. Choose **Re-enable** on Home or on the destination's card to send what was held. One delivery that arrives ends the streak. See [Destination options](/destinations#when-a-destination-keeps-failing) for the alert webhook Hookie can send when it switches a destination off.
 
 ## The monthly delivery allowance
 

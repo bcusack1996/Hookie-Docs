@@ -49,12 +49,14 @@
         "icon": "book-open",
         "pages": [
           "signatures",
+          "destinations",
           "streaming",
           "workflows",
           "customer-portal",
           "broadcast-logs",
           "connected-agents",
           "data-api",
+          "data-deletion",
           "api-reference"
         ]
       },

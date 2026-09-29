@@ -23,7 +23,7 @@ This walks through the whole path an event takes in Hookie, in the console: an [
     Open the **Endpoints** tab and choose **Add endpoint**. Enter a **Name**, such as `Order events`. **Dataset** is optional: it defaults to the endpoint's name (`order_events`). Choose **Create**.
   </Step>
   <Step title="Copy its URL">
-    The endpoint's card shows its **Public URL** with a copy button. The project's **Overview** tab shows the same URL under **Send events to this project**, with a ready-to-paste `curl` command.
+    The new endpoint's card shows its **Public URL** with a copy button, and **Show curl** under it gives a ready-to-paste `curl` command. The project's **Overview** tab shows the same URL under **Send events to this project**.
   </Step>
 </Steps>
 
@@ -36,12 +36,12 @@ https://app.hookie.ai/{workspace}/{project}/{endpoint-slug}
 Hookie generates the endpoint slug, and it is high-entropy. **The URL is the endpoint's secret**: anyone who has it can send events, so there is no key to put in a header.
 
 <Note>
-  Creating a new project with **Create a project** and the **Webhook** type adds one endpoint for you, named after the project. Use that endpoint rather than adding a second one. The Default project starts with no endpoints.
+  Creating a new project with **Create a project** and the **Webhook** type adds one endpoint for you, named after the project, and opens the project on **Endpoints** with that endpoint marked **new**. Use it rather than adding a second one. The Default project starts with no endpoints.
 </Note>
 
 ## 3. Send a test event
 
-Open the endpoint's menu (**⋮** on its card) and choose **Send a test event…**. Edit the **Event payload (JSON)** if you like, then choose **Send test event**.
+Choose **Send test event** on the endpoint's card. Edit the **Event payload (JSON)** if you like, then choose **Send test event** in the dialog.
 
 This is not a simulation. It posts to the endpoint's real URL, so the event is stored, routed and fanned out exactly like a live one. The dialog then follows the event for up to 30 seconds and says what happened to it. At this point you have no destination, so it tells you that nothing is delivered.
 
@@ -66,9 +66,15 @@ Hookie answers with the submission ID and the datasets the event was stored in:
 
 ## 4. See the record
 
-Choose **View records** in the endpoint's menu. That opens the **Datasets** tab on the endpoint's dataset, with each event as a row. Choose **Refresh** to fetch events that arrived after the page loaded.
+Choose **View records** on the endpoint's card. That opens the **Datasets** tab on the endpoint's dataset, with each event as a row. Choose **Refresh** to fetch events that arrived after the page loaded.
 
-To see the body exactly as it arrived, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain: the submission, its record, and every delivery made from it.
+Open a record to see the **request** it arrived in: the method, content type, source IP, query string and headers, such as `X-GitHub-Event`. Credentials such as `Authorization` and `Cookie` are stored as `[redacted]`.
+
+To see the body exactly as it arrived, search **Submissions** on the **Observability** tab, or paste any ID into **Trace an id** to see its whole chain: the submission, its records, every delivery made from them, and any workflow run it started. Switch on **Live** to watch events arrive as you send them.
+
+<Tip>
+  When a provider says Hookie returned an error, choose **Activity** in the endpoint's menu (**⋮**). It lists what the endpoint received and what it refused over the last 7 days, and why each request was refused: IP allowlist, signature, rate limit, quota, disabled endpoint, content type and more. Refused requests never count against your quota.
+</Tip>
 
 ## 5. Add a destination
 
@@ -90,9 +96,9 @@ No receiver yet? Any HTTPS request inspector works for a first test. The Free pl
 
 ## 6. Watch the delivery
 
-Send another test event from the endpoint's menu. This time the dialog reports the delivery: delivered, or failed with your receiver's answer and whether it will be retried.
+Choose **Send test event** on the endpoint's card again. This time the dialog reports the delivery: delivered, or failed with your receiver's answer and whether it will be retried.
 
-Open the **Deliveries** tab to see every outbound attempt, newest first, with its status, destination, dataset, response and attempt count. Filter by status, destination and time. **Details** on a row shows the whole delivery, including your receiver's response. A delivery that did not arrive can be replayed, one at a time or all at once with **Replay matching**.
+Open the **Deliveries** tab to see every outbound attempt, newest first, with its status, destination, dataset, response and attempt count. Filter by status, destination and time. **Details** on a row shows the whole delivery, including every attempt with its latency and your receiver's response. A delivery that did not arrive can be replayed, one at a time or all at once with **Replay matching**.
 
 A failed delivery is retried for about a day. See [Destinations, deliveries and retries](/concepts/destinations-and-deliveries) for the schedule.
 
@@ -132,13 +138,32 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
   ```
 - Everything else is still parsed as JSON regardless of its `Content-Type`, which is what most webhook providers send. A body that is not JSON but is sent as text, such as `text/plain`, XML, CSV or NDJSON, is stored as `{ "body": "<the text>", "content_type": "text/plain" }`. See the [API reference](/api-reference#ingest).
 
+### Send visitors to a thank-you page
+
+Because the browser navigates to the endpoint on submit, a visitor would land on Hookie's JSON response. Give the endpoint a **redirect URL** instead: open **Endpoints**, choose **Edit…** in its menu, and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
+
+### Submit with fetch()
+
+To keep the visitor on your page, submit with `fetch()`. A browser only lets a page read the answer from an origin that allows it, so add your site under **Allowed browser origins** in the same form: one origin per line, such as `https://example.com`, or `*` for any page. Nothing is allowed by default. For an allowed origin the endpoint answers the `OPTIONS` preflight that a JSON body triggers, and every response carries `Access-Control-Allow-Origin`, so your page can show the error on a `429` too.
+
+```js
+const res = await fetch("https://app.hookie.ai/your-workspace/contact/aBcXyz…", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, message }),
+});
+if (res.ok) showThanks();
+```
+
 <Tip>
-  Because the browser navigates to the endpoint on submit, the visitor lands on Hookie's JSON response. For a polished flow, submit with `fetch` and a `FormData` body (that is also a form encoding, so it needs no preflight), then show your own thank-you state.
+  A `FormData` body needs no preflight, because it is a form encoding. Without an allowed origin the submission is still stored, but your page cannot read the answer, and `fetch()` rejects with "Failed to fetch".
 </Tip>
 
 ## Safe retries
 
-Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate. It never counts twice against your quota:
+A retry returns the original submission (`200`, with `"idempotent": true`) instead of creating a duplicate, and it never counts twice against your quota. Hookie recognises the delivery ids that webhook providers already send and keep across their retries, so Stripe, GitHub, Shopify, GitLab, Twilio, Linear, Twitch, Atlassian, Slack, Svix and every [Standard Webhooks](https://www.standardwebhooks.com) sender are deduplicated with nothing to configure. `deduplicated_by` in the answer says which id matched. Duplicates are tracked per endpoint, so two endpoints never collide.
+
+From your own code, send an `Idempotency-Key`:
 
 ```bash
 curl -X POST 'https://app.hookie.ai/your-workspace/default/aBcXyz…' \

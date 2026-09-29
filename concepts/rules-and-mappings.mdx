@@ -32,28 +32,36 @@ On a project's **Rules** tab, choose **Add rule** and fill in:
 | Field | What it does |
 | --- | --- |
 | **Name** | A label for the rule. |
-| **Dataset** | Where matching events are stored. Defaults to `default`. |
-| **Conditions (JSON)** | What an event must contain. `[]` matches every event. |
-| **Mappings (JSON)** | Which fields to keep, and what to call them. `[]` stores the payload unchanged. |
+| **Dataset** | Where matching events are stored. Pick one of the project's datasets or type a new name. |
+| **Conditions** | What an event must contain, one row per condition. No conditions matches every event. |
+| **Mappings** | Which fields to keep, as **Payload path** and **Record key** rows. No mappings stores the payload unchanged. |
+| **Status** | Enabled or disabled. Only enabled rules run. |
 
-Choose **Create**. The **Rules** tab lists rules in the order they are evaluated, with how many conditions each has and whether it is enabled. To change a rule's conditions, mappings or enabled state, use the [admin API](/api-reference#admin-api) or the `update_rule` tool of a [connected agent](/connected-agents). In the console you can add and delete rules.
+Before you save, paste a **Sample event (JSON)** and choose **Test rule**. It shows **Matched** with the record the rule would store, or **Not matched**, and writes nothing. Choose **Create** to save.
+
+Each rule's menu has **Edit**, **Duplicate**, **Enable** or **Disable**, and **Delete**. Rules have no order: every enabled rule that matches writes its own record.
+
+The same rules can be managed with the [admin API](/api-reference#admin-api) (`PATCH …/rules/{id}` edits any field, and `POST …/rules/test` runs the same test) or a [connected agent](/connected-agents).
 
 ## Conditions
 
-A condition compares one field of the payload with an exact value:
+A condition tests one field of the payload:
 
 ```json
 [
   { "path": "type", "equals": "refund" },
-  { "path": "customer.tier", "equals": "gold" }
+  { "path": "total", "op": "gte", "value": 100 },
+  { "path": "customer.tier", "op": "in", "value": ["gold", "platinum"] }
 ]
 ```
 
-- `path` is a field path, with dots for nested fields.
-- `equals` is the value the field must have. `{ "path": "type", "op": "equals", "value": "refund" }` is the same condition in long form.
+- `path` is a field path, with dots for nested fields, read from the event as it was sent.
+- `op` is one of `equals`, `not_equals`, `contains`, `exists`, `gt`, `gte`, `lt`, `lte`, `in` (a list of 1 to 100 values) or `regex`. `{ "path": "type", "equals": "refund" }` is shorthand for `op: "equals"`.
+- In rules, `equals`, `not_equals` and `in` compare values **as text**, so `"42"` and `42` match. `gt`, `gte`, `lt` and `lte` compare numbers only.
+- A `regex` is at most 200 characters, can't use backreferences or nested repetition, and tests only the first 256 characters of the field.
 - Every condition in the list must hold. A rule takes up to 50.
 
-Rules compare exact values only. The other operators (`not_equals`, `contains`, `exists`, `gt`, `lt`) work in [workflow](/workflows) conditions and in WebSocket and AI trigger conditions, and a rule refuses them when you save it.
+Conditions use the same operators everywhere: in rules, endpoint criteria, [workflows](/workflows), and AI and WebSocket triggers. In workflows and triggers, `equals`, `not_equals` and `in` compare exact values rather than text.
 
 ## Mappings
 
