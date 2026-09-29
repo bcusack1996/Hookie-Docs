@@ -5285,7 +5285,11 @@
                     "deliveries_this_month",
                     "deliveries_quota",
                     "deliveries_ceiling",
-                    "failing_destinations"
+                    "failing_destinations",
+                    "plan_name",
+                    "delivered_7d",
+                    "in_flight_7d",
+                    "destinations"
                   ],
                   "properties": {
                     "plan": {
@@ -5311,7 +5315,7 @@
                     },
                     "error_rate_7d": {
                       "type": "number",
-                      "description": "failed_7d / deliveries_7d, or 0 when there were no deliveries."
+                      "description": "failed_7d / (delivered_7d + failed_7d): a share of FINISHED deliveries, or 0 when none has finished. In-flight deliveries are in neither."
                     },
                     "agent_runs_7d": {
                       "type": "integer"
@@ -5355,7 +5359,8 @@
                             "type": "integer"
                           },
                           "error_rate_7d": {
-                            "type": "number"
+                            "type": "number",
+                            "description": "Failed as a share of the project's finished deliveries over 7 days."
                           },
                           "last_activity": {
                             "type": [
@@ -5467,6 +5472,21 @@
                           }
                         }
                       }
+                    },
+                    "plan_name": {
+                      "type": "string",
+                      "description": "The plan's display name (Free, Pro, Team) - what users see. plan is the internal id."
+                    },
+                    "delivered_7d": {
+                      "type": "integer"
+                    },
+                    "in_flight_7d": {
+                      "type": "integer",
+                      "description": "Deliveries in the last 7 days still queued, retrying or held by a paused destination - no outcome yet."
+                    },
+                    "destinations": {
+                      "type": "integer",
+                      "description": "Destinations in the workspace (deleted ones excluded)."
                     }
                   }
                 }
@@ -5626,7 +5646,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Workspace-wide, not project-scoped. Readable by any role.",
+        "description": "Workspace-wide, not project-scoped. Readable by any role. Counted in SQL, one row per bucket: there is no cap on how many events a window may hold.",
         "parameters": [
           {
             "name": "window",
@@ -6625,7 +6645,8 @@
                         "delivered_7d",
                         "failed_7d",
                         "success_rate",
-                        "avg_ms"
+                        "avg_ms",
+                        "in_flight_7d"
                       ],
                       "properties": {
                         "total_7d": {
@@ -6643,13 +6664,17 @@
                             "integer",
                             "null"
                           ],
-                          "description": "Whole percent, or null when no delivery was attempted in the window."
+                          "description": "delivered_7d / (delivered_7d + failed_7d) as a whole percent: a share of FINISHED deliveries. null until one has finished."
                         },
                         "avg_ms": {
                           "type": [
                             "integer",
                             "null"
                           ]
+                        },
+                        "in_flight_7d": {
+                          "type": "integer",
+                          "description": "Queued, retrying or held by a paused destination - no outcome yet."
                         }
                       }
                     },
@@ -6891,13 +6916,13 @@
     "/admin/api/projects/{pid}/datasets/{dataset}": {
       "get": {
         "operationId": "listDatasetRecords",
-        "summary": "Flattened records of one dataset (export shape)",
+        "summary": "One page of a dataset's records, whole and flattened (export shape)",
         "tags": [
           "Datasets"
         ],
         "responses": {
           "200": {
-            "description": "Up to 1000 newest records, payload JSON flattened into rows with the meta columns _id, _received_at and _source prepended. columns is the union of meta columns and every payload key seen. A non-object payload becomes a single value key.",
+            "description": "At most `limit` newest records after the cursor, payload JSON flattened into rows with the meta columns _id, _received_at and _source prepended. columns is the union of the meta columns and every payload key seen ON THIS PAGE. A non-object payload becomes a single value key.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6905,7 +6930,8 @@
                   "required": [
                     "dataset",
                     "columns",
-                    "rows"
+                    "rows",
+                    "next_cursor"
                   ],
                   "properties": {
                     "dataset": {
@@ -6943,6 +6969,17 @@
                           }
                         }
                       }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Opaque; pass it back as ?cursor= for the next page. null on the last page."
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Records in the dataset. On the first page only (no cursor)."
                     }
                   }
                 }
@@ -6950,7 +6987,7 @@
             }
           },
           "400": {
-            "description": "Dataset name must match the identifier pattern.",
+            "description": "Dataset name must match the identifier pattern; limit outside 1-1000; or a cursor this API did not issue.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7003,7 +7040,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: GET /admin/api/datasets/{dataset}. An unknown-but-valid dataset name returns 200 with empty rows, not 404. Readable by any role.",
+        "description": "Top-level alias: GET /admin/api/datasets/{dataset}. Keyset-paged, newest first, so an export can cover the WHOLE dataset in bounded requests: follow next_cursor until it is null. The cursor is a position (received_at, id), so records arriving during an export shift nothing, and a failed page can be retried with the same cursor. An unknown-but-valid dataset name returns 200 with empty rows, not 404. Readable by any role.",
         "parameters": [
           {
             "name": "pid",
@@ -7022,6 +7059,27 @@
             "schema": {
               "type": "string",
               "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Rows per page, 1-1000. Default 1000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "next_cursor from the previous page, passed back exactly. Omit for the first page.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -8942,9 +9000,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "name",
-                  "slug",
-                  "dataset"
+                  "name"
                 ],
                 "properties": {
                   "name": {
@@ -8955,11 +9011,12 @@
                   "slug": {
                     "type": "string",
                     "pattern": "^[a-z0-9][a-z0-9-]{0,46}$",
-                    "description": "The base slug (lowercase letters, digits and hyphens, max 47 characters). This is NOT the public URL - a separate high-entropy slug is generated and returned as webhook_slug."
+                    "description": "The base slug (lowercase letters, digits and hyphens, max 47 characters). This is NOT the public URL - a separate high-entropy slug is generated and returned as webhook_slug. Optional: when omitted or empty it is derived from the name (accents folded, Cyrillic and Greek transliterated) plus a 4-character random suffix, and a name with no Latin spelling becomes endpoint-<random>."
                   },
                   "dataset": {
                     "type": "string",
-                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$",
+                    "description": "Optional: when omitted or empty, the name as an identifier (folded to ASCII, d_ prefixed if it starts with a digit), or default."
                   },
                   "enabled": {
                     "type": "boolean",
@@ -12914,7 +12971,7 @@
       },
       "patch": {
         "operationId": "updateDestination",
-        "summary": "Toggle or re-enable a destination, change its dataset filter, request options or alert URL, or set its delivery limits",
+        "summary": "Edit a destination: name, URL, on/off, dataset filter, request options, alert URL or delivery limits",
         "tags": [
           "Destinations"
         ],
@@ -12936,6 +12993,10 @@
                     "resumed": {
                       "type": "integer",
                       "description": "Present when enabling sent deliveries the destination held while disabled."
+                    },
+                    "warning": {
+                      "type": "string",
+                      "description": "When a new url points back at this workspace's own ingest - legal, but usually a loop."
                     }
                   }
                 }
@@ -12943,7 +13004,7 @@
             }
           },
           "400": {
-            "description": "enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, or Nothing to update when no field was sent.",
+            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, or Nothing to update when no field was sent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12983,7 +13044,7 @@
             }
           },
           "409": {
-            "description": "The destination belongs to a customer portal - its dataset filter is fixed by the portal event types, and its headers, authentication and payload are the customer's. Only raised when dataset_filter, headers, auth or transform is in the body.",
+            "description": "The destination belongs to a customer portal - its dataset filter is fixed by the portal event types, and its URL, headers, authentication and payload are the customer's. Only raised when dataset_filter, url, headers, auth or transform is in the body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13044,8 +13105,18 @@
               "schema": {
                 "type": "object",
                 "minProperties": 1,
-                "description": "At least one of enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. Name, URL and secret are immutable - a delivery signature is verified against the URL it was sent to. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`).",
+                "description": "At least one of name, url, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`).",
                 "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "https only. Refused (409) for a destination that belongs to a customer portal - its URL is the customer's."
+                  },
                   "enabled": {
                     "type": "boolean"
                   },
@@ -13285,13 +13356,13 @@
       },
       "delete": {
         "operationId": "deleteDestination",
-        "summary": "Remove a destination from the project",
+        "summary": "Delete a destination",
         "tags": [
           "Destinations"
         ],
         "responses": {
           "200": {
-            "description": "Detached. The row is not hard-deleted (deliveries.destination_id is a NOT NULL foreign key): project_id is set to NULL and enabled to 0, so it disappears from every project list and stops receiving events while delivery history stays intact.",
+            "description": "Deleted. A destination with no delivery history is removed outright. One with history cannot be (deliveries.destination_id is a NOT NULL foreign key), so it is severed instead - project_id NULL, enabled 0 - which takes it out of every project list, count and fan-out for good while each past delivery still records where it went.",
             "content": {
               "application/json": {
                 "schema": {
@@ -22577,7 +22648,189 @@
           {
             "apiKey": []
           }
-        ]
+        ],
+        "description": "The version goes up only when the steps, entry dataset or entry conditions change."
+      },
+      "patch": {
+        "operationId": "patchWorkflow",
+        "summary": "Change part of a workflow (merge)",
+        "tags": [
+          "Workflows"
+        ],
+        "responses": {
+          "200": {
+            "description": "Replaced; `version` incremented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Same validation messages as createWorkflow. Also a condition outside the one dialect, or a {{placeholder}} that can never resolve.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Workflow not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Identical to the create body and validated by the same validateWorkflowSpec \u2014 this is a FULL REPLACE, not a merge: every omitted field reverts to its default (e.g. omitting `active` re-activates, omitting `entry_conditions` clears them). PATCH is accepted on this path and behaves identically. `version` is incremented server-side; it cannot be set.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "entry_dataset": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,62}$"
+                  },
+                  "entry_conditions": {
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path"
+                      ],
+                      "additionalProperties": false,
+                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Dot path. The empty path is rejected."
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "equals",
+                            "not_equals",
+                            "contains",
+                            "exists",
+                            "gt",
+                            "lt"
+                          ]
+                        },
+                        "value": {
+                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
+                        },
+                        "equals": {
+                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
+                        }
+                      }
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized).",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Like PUT, but what is not sent keeps its stored value: {\"name\": ...} renames it and {\"active\": false} stops it starting new runs, without resending the steps. The merged definition is validated as on create. The version goes up only when the steps, entry dataset or entry conditions change."
       },
       "delete": {
         "operationId": "deleteWorkflow",
@@ -24420,13 +24673,13 @@
       },
       "delete": {
         "operationId": "deleteAiAgent",
-        "summary": "Deactivate an AI agent",
+        "summary": "Retire, or permanently delete, an AI agent",
         "tags": [
           "AI agents"
         ],
         "responses": {
           "200": {
-            "description": "SOFT delete \u2014 the row is kept and `active` set to 0, so it still appears in listAiAgents but any agent_call step referencing it now fails.",
+            "description": "By default the agent is retired - `active` set to 0, still listed, and an agent_call step naming it fails until it is reactivated. With ?permanent=true the row is removed and it leaves listAiAgents; a step naming it then fails with `not found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -24505,6 +24758,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "required": false,
+            "description": "true removes the agent for good. Omitted, the agent is retired: active is set to 0 and the definition kept, so PATCH active:true brings it back.",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
