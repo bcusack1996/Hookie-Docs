@@ -131,7 +131,7 @@ A pattern that breaks a bound is refused when you save it. A stored pattern that
 
 ## Defining a workflow
 
-Build workflows on the canvas under **Project → Workflows**, or send the definition to the API. A workflow's menu also has **Rename…** and **Activate** or **Deactivate**, which change nothing else and keep its version. Over the API, `PATCH /admin/api/projects/{pid}/workflows/{id}` merges what you send into the stored definition, so `{"active": false}` alone switches a workflow off, while `PUT` replaces the whole definition. The `update_workflow` tool and `hookie workflows update` send the whole definition. Either way it is this JSON; the builder's **Definition (JSON)** panel shows it for the workflow you are editing. Entry conditions use the shared condition shape; an empty array matches every record in the dataset.
+Build workflows on the canvas under **Project → Workflows**, or send the definition to the API. A workflow's menu also has **Rename…** and **Activate** or **Deactivate**, which change nothing else and keep its version, and **Delete**, which removes the workflow and its run history for good (see [Deleting a workflow](#deleting-a-workflow)). Over the API, `PATCH /admin/api/projects/{pid}/workflows/{id}` merges what you send into the stored definition, so `{"active": false}` alone switches a workflow off, while `PUT` replaces the whole definition. The `update_workflow` tool and `hookie workflows update` send the whole definition. Either way it is this JSON; the builder's **Definition (JSON)** panel shows it for the workflow you are editing. Entry conditions use the shared condition shape; an empty array matches every record in the dataset.
 
 ```json
 {
@@ -231,7 +231,7 @@ Workflows run on [Cloudflare Workflows](https://developers.cloudflare.com/workfl
 
 Each matching entry record starts an **instance** (a run). The console lists instances per workflow with a drill-down into the live context and a per-step history, and shows any run on the workflow's graph (see [Runs on the graph](#runs-on-the-graph)), so you can see exactly where a flow is and why it stopped. A running or waiting instance can be **cancelled**, and a failed, timed-out or cancelled one **retried** from the start, from the console, the API (`POST /admin/api/projects/{pid}/workflow-instances/{id}/cancel` and `…/retry`), the CLI (`hookie workflows cancel|retry`) or a connected agent. Over the API, `GET /admin/api/projects/{pid}/workflows/{id}/instances` takes `state`, `since`, `until`, `limit` and `offset`, and answers with a `total`.
 
-A run's context starts as a copy of the record that started it, so run history is kept for your plan's retention window, like the records themselves: a finished run (completed, failed, cancelled or timed out) is removed, with its step history, once both its start and its last change are older than the window. A run that is pending, running or waiting is never removed.
+A run's context starts as a copy of the record that started it, so run history is kept for your plan's retention window, like the records themselves: a finished run (completed, failed, cancelled or timed out) is removed, with its step history, once both its start and its last change are older than the window. A run that is pending, running or waiting is never removed. Deleting a workflow removes its finished runs at once, whatever their age.
 
 | State | Meaning |
 | --- | --- |
@@ -242,6 +242,19 @@ A run's context starts as a copy of the record that started it, so run history i
 | `failed` | A step errored; last_error records why. |
 | `timed_out` | A wait_for_event passed its deadline, and its `on_timeout` is not `continue`. |
 | `cancelled` | Stopped with **Cancel run**, or from the API, the CLI or a connected agent. |
+
+## Deleting a workflow
+
+**Deactivate** switches a workflow off and keeps everything: it starts no new runs, runs in progress carry on, and **Activate** turns it back on. **Delete**, in the same menu, removes it for good after a warning: the workflow and its whole run history, meaning every run and its step history. Records and deliveries its runs produced, and the AI call log, are kept.
+
+A workflow with a run that has not finished (pending, running, waiting, or paused by a suspension) cannot be deleted. The refusal names up to 10 of those runs. Cancel them first (Instances → Details → **Cancel run**, `hookie workflows cancel`, or the `cancel_workflow_run` tool), and deactivate the workflow if it is still on so it starts no new ones.
+
+Over the API, `DELETE /admin/api/projects/{pid}/workflows/{id}` only deactivates, as the `delete_workflow` tool does by default. With `?permanent=true` it deletes:
+- It answers `200` with `{"ok": true, "done": true, "deleted": {"runs": …, "step_events": …}}`.
+- It answers `409` with `"code": "unfinished_runs"` and the runs in `instances` while a run has not finished.
+- A history of more than 10,000 runs is deleted over several calls. Each answers `202` with `"done": false` and `remaining_runs`, and sending the same request again carries on.
+
+The workflow is switched off before its history is deleted, and each call is recorded in the audit log as `delete_workflow`. With the tool, pass `permanent: true`. With the CLI, run `hookie workflows delete --workflow-id … --permanent`, which asks before it runs unless you pass `--yes`.
 
 ## Limits
 

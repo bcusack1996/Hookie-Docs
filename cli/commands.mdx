@@ -21,7 +21,7 @@ hookie help <group> <verb>     # the same
 Every command has its own help, the hand-written ones included: `hookie replay --help` shows `--since`, `--failed`, `--destination` and `--limit` with an example, and `hookie login --help` shows `--scope`, `--no-open`, `--name` and `--reregister`.
 
 - `*` marks a **required** flag.
-- ⚠️ marks a command that **asks before acting**. That gate reads the tool's own annotation, never the word "delete": `hookie workflows delete` only deactivates and an update undoes it, while `hookie keys revoke` destroys a credential and has no "delete" in its name.
+- ⚠️ marks a command that **asks before acting**. That gate reads the tool catalog, never the word "delete". `hookie workflows delete` only deactivates, and an update undoes it, so it asks only with `--permanent`. `hookie keys revoke` destroys a credential and has no "delete" in its name.
 - A flag name is the API field in kebab case, so `webhook_id` is `--webhook-id`. Where two sibling routes spell the same field differently — create takes `datasetFilter`, update takes `dataset_filter` — the **flag** is the same on both and the CLI sends whichever spelling that route wants.
 - **An unknown flag is an error**, with a suggestion. `--datset orders` would otherwise be a successful call that quietly did the wrong thing.
 
@@ -235,7 +235,7 @@ AI triggers.
 | `hookie workflows run` | `--instance-id*` | One instance with its per-step event log — which branch was taken, and where it stopped. |
 | `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow. |
 | `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | **Replace** a workflow's definition. |
-| `hookie workflows delete` | `--workflow-id*` | **Deactivate** a workflow. An update with `--active` turns it back on. |
+| `hookie workflows delete` | `--workflow-id* --permanent` | **Deactivate** a workflow; an update with `--active` turns it back on. ⚠️ With `--permanent`, delete it and its run history for good (refused while a run has not finished). |
 | `hookie workflows cancel` | `--instance-id*` | Cancel a running or waiting workflow instance. A finished one answers `409`. |
 | `hookie workflows retry` | `--instance-id*` | Retry a failed, timed-out or (Cloudflare engine) cancelled workflow instance. |
 
