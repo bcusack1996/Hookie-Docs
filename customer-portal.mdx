@@ -4,25 +4,31 @@ description: "Give your customers a self-serve portal to manage webhook destinat
 icon: "users"
 ---
 
-The **customer portal** is an embeddable, token-authed surface your _end customers_ use to manage their own webhook destinations and inspect deliveries, so "ship webhooks to our customers" stops generating support tickets. No separate auth backend: you issue a signed access token per customer, and everything the token can see is scoped to that customer.
+The **customer portal** is an embeddable, token-authed surface your _end customers_ use to manage their own webhook destinations and inspect deliveries, so "ship webhooks to our customers" stops generating support tickets. No separate auth backend: you issue an access token per customer, and the destinations a token can see and manage are that customer's own.
 
 <Steps>
   <Step title="Set up the project's portal">
-    Each project has exactly **one** customer portal. In the console, open the project's **Settings → Customer portal**, switch it on, give it a name, and pick which of the project's datasets it exposes. Customers can only subscribe destinations to those datasets.
+    Each project has exactly **one** customer portal. In the console, open the project's **Settings → Customer portal**, switch it on, give it a name, and pick which of the project's datasets it exposes. Those datasets are the boundary of what the portal reaches: customers' destinations receive them and nothing else.
+
+    The boundary is checked on every event, against the portal as it is now. Stop exposing a dataset and it stops arriving at every customer destination, including ones created before the change; a delivery already queued for it is cancelled rather than sent. A portal that exposes **no** datasets delivers nothing, and customers cannot add a destination to it. A portal that is switched off delivers nothing and refuses its tokens.
   </Step>
 
   <Step title="Issue a customer token">
     In the same pane, under **Access tokens**, issue one per customer using your own ID for them. You get a one-time link:
 
     ```http
-    https://app.hookie.ai/portal/{workspace}/{portal-slug}?token={token}
+    https://app.hookie.ai/portal/{workspace}/{portal-slug}#token={token}
     ```
 
-    The token (`hpt_…`) is shown once and stored hashed. Set an expiry if you want tokens to rotate; revoke from the same list at any time.
+    The token (`hpt_…`) is shown once and stored hashed. It sits in the URL **fragment** (after `#`), which a browser never sends to a server, so it stays out of request logs. Tokens issued from the console expire after 30 days unless you change that when issuing; revoke from the same list at any time.
+
+    Links issued before this change carry `?token=…` instead. They still open the portal.
   </Step>
 
   <Step title="Share or embed">
-    Send the link directly, or embed the portal in your own dashboard in an `iframe`. Pass `?token=…` when you render the frame from your authenticated app. The SPA stores the token in `sessionStorage` and strips it from the address bar.
+    Send the link directly, or embed the portal in your own dashboard in an `iframe` whose `src` is the link (`…#token=…`), rendered from your authenticated app.
+
+    On first load the portal removes the token from the address bar and trades it for a **session**: an HttpOnly cookie that lasts 8 hours, or until the token expires if that is sooner. The token is not stored in the browser. Revoking the token ends its sessions at once. **Sign out** clears the session. If the browser blocks the cookie (for example, third-party cookies are blocked in an embedded frame), the portal keeps the token in memory for that page only.
   </Step>
 </Steps>
 
@@ -31,7 +37,9 @@ The **customer portal** is an embeddable, token-authed surface your _end custome
 Everything the portal UI does is also available as a small token-authed API:
 
 ```http
-# All requests: Authorization: Bearer <token>   (or ?token=…)
+# All requests: Authorization: Bearer <token>   (or the portal's session cookie)
+POST   /portal/api/session              # trade the token for an 8-hour session cookie
+DELETE /portal/api/session              # sign out (clears the cookie)
 GET  /portal/api/me                   # portal + customer info + exposed event types
 GET  /portal/api/event-types          # datasets the portal exposes
 GET  /portal/api/destinations         # the customer's own destinations
@@ -39,6 +47,8 @@ POST /portal/api/destinations         # create one (https URL; signing secret sh
 PUT  /portal/api/destinations/{id}    # enable/disable or change the URL
 GET  /portal/api/deliveries           # recent deliveries to the customer's destinations
 ```
+
+The token is not accepted in the query string (`?token=…`): a token there ends up in request logs. Each token can make 60 calls a minute; beyond that the API answers `429` with `Retry-After: 60`. Writes made with the session cookie, rather than a bearer token, must send `X-Requested-With: fetch`.
 
 <Note>
   Why one portal per project: a project is one customer's space. Two portals over the same project would show the same events to two audiences, so Hookie keeps it to one — creating a second is refused. Workspaces that had several portals in one project kept the most recently updated; the others were retired (tokens revoked, their destinations paused, nothing deleted), and each retirement is listed in **Settings → Audit log**.
@@ -50,8 +60,8 @@ GET  /portal/api/deliveries           # recent deliveries to the customer's dest
 | --- | --- |
 | **Tenant + project** | A project has one portal, and a token is bound to it: the portal only ever reads that project's data. |
 | **Customer** | A customer only ever sees and manages destinations tagged with their own customer_id. |
-| **Datasets** | Destinations may only subscribe to the datasets the portal exposes; anything else is rejected. |
+| **Datasets** | Customers' destinations receive only the datasets the portal exposes at the time of each event. Narrowing the portal narrows existing destinations too; a portal exposing none delivers nothing. |
 | **Transport** | Destination URLs must be HTTPS; each gets its own HMAC signing secret, shown once. |
-| **Tokens** | Stored hashed (SHA-256), never recoverable; optional expiry; revocable at any time. |
+| **Tokens** | Stored hashed (SHA-256) and looked up by that hash, never recoverable; 30-day expiry by default from the console; revocable at any time, which also ends the token's sessions. Carried in the link's fragment, never the query string. |
 
 Deliveries made to customer destinations behave exactly like every other Hookie delivery: HMAC-signed, retried with backoff, dead-lettered, and [verifiable](/signatures). [Sign in](https://app.hookie.ai/) and open a project's **Settings → Customer portal** to try it.

@@ -45,7 +45,7 @@ A run that is pending, running or waiting can be stopped with **Cancel run**. A 
 
 ## Branching
 
-A `branch` step evaluates one or more conditions against the instance context, using the same condition shape used everywhere else in Hookie (`equals · not_equals · contains · exists · gt · lt`), and runs `then` when they match, `else` otherwise. Because conditions read the context, you can branch on _anything an earlier step produced_: score a lead with AI, then route high-scorers one way and everyone else another. Branches nest up to **3 levels deep**, and every taken path is recorded in step history so you can see exactly which way an instance went.
+A `branch` step evaluates one or more conditions against the instance context, using the same condition shape used everywhere else in Hookie (see [Conditions](#conditions)), and runs `then` when they match, `else` otherwise. Because conditions read the context, you can branch on _anything an earlier step produced_: score a lead with AI, then route high-scorers one way and everyone else another. Branches nest up to **3 levels deep**, and every taken path is recorded in step history so you can see exactly which way an instance went.
 
 ### Where a branch condition's path points
 
@@ -68,6 +68,8 @@ Branch sub-steps run _synchronously_: every step type except `delay` and `wait_f
 
 `gt` and `lt` compare numbers, and a model replies with text, so what a `call_ai` or `agent_call` step puts in the context matters. A reply that _is_ a JSON value is stored as that value; anything else is stored as the text the model wrote. So `"8"` becomes the number `8` and `{"score": 8, "reason": "…"}` becomes an object, while `"Looks like a good fit"` stays a string.
 
+Models do not always answer with bare JSON. A reply wrapped in a ```` ```json ```` fence, or introduced with a line such as "Here is the JSON:", is stored as the JSON inside it: the first fenced block that parses, otherwise the first `{…}` or `[…]` in the text that parses. A number inside a sentence ("8 out of 10") stays text. The run's step history says what each reply became (`output_type`), and flags `json_parse_failed` when a reply had a fence or a brace but no JSON could be read from it — check there first when a branch on an AI answer always takes `else`.
+
 That gives you two shapes that work, and it is worth picking one deliberately:
 
 - **Ask for the bare value**: "reply with the number only" with `"output_key": "score"`, then branch on `{ "path": "score", "op": "gt", "value": 7 }`. That is the example above.
@@ -76,6 +78,26 @@ That gives you two shapes that work, and it is worth picking one deliberately:
 What does _not_ work is asking for JSON and then branching on the `output_key` itself: `path: "score"` would resolve to the whole object, and a numeric comparison against an object is false. That one is still accepted, because the path resolves; it is the _value_ that cannot compare. The instance context is shown in full in the run's details — check there first when a branch always goes the same way.
 
 `output_dataset` is unaffected by any of this: it always records the model's reply as the text it actually wrote, so the audit trail is what was said, not what was inferred from it.
+
+## Conditions
+
+Every place Hookie takes conditions uses one shape: workflow entry conditions, `branch` and `wait_for_event` conditions, WebSocket triggers and AI triggers.
+
+```json
+{ "path": "status", "op": "equals", "value": "paid" }
+{ "path": "status", "equals": "paid" }
+```
+
+The second line is shorthand for the first, so the shape a rule takes works everywhere. The operators are `equals`, `not_equals`, `contains`, `exists`, `gt` and `lt`, and every condition in a list must hold.
+
+- `equals` and `not_equals` compare exactly, type included: `5` and `"5"` are different values.
+- `gt` and `lt` compare numbers, so their value must be a number. `contains` looks for text, so its value must be a string. `exists` takes no value.
+
+A condition that could never match is refused when you save it, rather than stored and silently never matching. That covers an unknown operator, a condition missing its value, both the shorthand and `op`/`value` at once (such as `{"path": "status", "op": "equals", "equals": "paid"}`), a key Hookie does not know, and a `gt` against text.
+
+Rules match exact values only. They take `{path, equals}`, or `{path, op: "equals", value}`, and refuse any other operator.
+
+A condition's value can be a `{{placeholder}}` only in a `branch` or `wait_for_event`, where there is an instance context to read it from. Anywhere else it would be compared as the literal text `{{…}}`, so it is refused.
 
 ## Defining a workflow
 
@@ -102,8 +124,21 @@ Build workflows on the canvas under **Project → Workflows**, or send the defin
       ] },
     { "type": "wait_for_event",
       "dataset": "approvals",
-      "conditions": [{ "path": "status", "op": "equals", "value": "approved" }],
-      "timeout_seconds": 86400 },
+      "conditions": [
+        { "path": "lead_id", "op": "equals", "value": "{{entry.id}}" },
+        { "path": "status", "op": "equals", "value": "approved" }
+      ],
+      "timeout_seconds": 86400,
+      "on_timeout": "continue" },
+    { "type": "branch",
+      "conditions": [{ "path": "waited_event", "op": "exists" }],
+      "then": [
+        { "type": "emit_event", "dataset": "approved_leads",
+          "payload": { "approved_by": "{{waited_event.approver}}", "score": "{{score}}" } }
+      ],
+      "else": [
+        { "type": "emit_event", "dataset": "escalations", "payload": { "reason": "no approval in 24h" } }
+      ] },
     { "type": "delay", "seconds": 3600 }
   ]
 }
@@ -113,15 +148,38 @@ Build workflows on the canvas under **Project → Workflows**, or send the defin
 
 | Type | What it does |
 | --- | --- |
-| `emit_event` | Write a record into a dataset (entry context merged with an optional payload) and enqueue signed deliveries for it. The payload is literal: there is no templating yet, so a `{{placeholder}}` value is refused rather than emitted as text. Leave a field out to pass the entry record's value through. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
+| `emit_event` | Write a record into a dataset and enqueue signed deliveries for it. The record is the entry record's fields with an optional `payload` merged over them, and the payload is [templated](#templating) from the instance context, so `"summary": "{{triage.summary}}"` delivers what an AI step produced. Emitted records never re-trigger workflow entry, so there are no feedback loops. |
 | `call_ai` | Run an AI prompt over the instance context. The reply lands in the context under output_key (default ai_result), as a number or object if the model replied with one, so a later branch can compare it, and, verbatim as text, in output_dataset. |
 | `agent_call` | Invoke a reusable AI agent by ID: its model, system prompt, and memory dataset apply. The result lands under output_key (default agent_result), interpreted the same way call_ai's is. In the builder, pick the agent from a list. |
 | `http` | Call an https URL on a public host with `method` (GET, POST, PUT, PATCH or DELETE), optional `headers` (up to 32) and a JSON `body` (up to 64 KB; not on GET). A `{{path}}` placeholder can appear after the host. The response lands in the context under output_key (default http_result). `timeout_seconds` is 1 to 30. |
 | `set` | Write `values` into the context. A value of exactly `"{{entry.email}}"` copies that context path; anything else is stored as written. |
 | `transform` | Build a new object from context paths: each field in `mapping` takes the value at its path. The object lands under output_key (default transformed). |
 | `branch` | Conditional if/then/else. Evaluate conditions against the instance context and run the matching then or else sub-sequence, including branching on an earlier call_ai or agent_call result. Branches can nest up to 3 levels deep. |
-| `wait_for_event` | Suspend until a record matching the conditions arrives in a dataset. An optional timeout_seconds moves the instance to timed_out if nothing arrives. |
+| `wait_for_event` | Suspend until a record matching the conditions arrives in a dataset. The conditions read the arriving record, and a value can come from this run, as in `"{{entry.order_id}}"` (see [Waiting for this run's record](#waiting-for-this-runs-record)). An optional `timeout_seconds` sets how long to wait. By default a timeout moves the instance to `timed_out`. With `"on_timeout": "continue"`, the run carries on with `waited_event` set to `null`. |
 | `delay` | Suspend for N seconds before the next step, accurate to the second. |
+
+## Waiting for this run's record
+
+A `wait_for_event` condition's value can name the run's own context. Hookie resolves it once, when the run starts waiting, so the wait matches the record that belongs to this run and no other:
+
+```json
+{ "type": "wait_for_event",
+  "dataset": "approvals",
+  "conditions": [
+    { "path": "order_id", "op": "equals", "value": "{{entry.order_id}}" },
+    { "path": "status", "equals": "approved" }
+  ],
+  "timeout_seconds": 86400,
+  "on_timeout": "continue" }
+```
+
+Without the first condition, every run waiting on `approvals` would take the first approval that arrived, whichever order it was for. With it, an approval for order `B2` resumes the run that started from order `B2` and leaves the others waiting.
+
+The placeholder has to be something the run has at that point: the entry record (`entry.…`) or a key an earlier step wrote. A placeholder that could never resolve is refused when you save. If the value is empty for a particular run (that entry record has no `order_id`), the run fails when it reaches the wait, rather than waiting for any record at all.
+
+### When nothing arrives
+
+`"on_timeout": "continue"` turns a timeout into an answer. The run carries on with `waited_event` set to `null`, so a `branch` on `{ "path": "waited_event", "op": "exists" }` takes `then` when the record came and `else` when it did not — "nobody approved in 24 hours, so escalate". Without `on_timeout`, or with `"fail"`, a timeout ends the run as `timed_out`, as before.
 
 ## AI agents
 
@@ -129,7 +187,9 @@ An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bo
 
 ## Templating
 
-`http`, `set` and `transform` read the instance context with `{{path}}`. A value that is exactly `"{{entry.email}}"` keeps its type (a number stays a number, an object stays an object). Inside longer text, as in `"https://api.example.com/users/{{entry.id}}"`, the value is inserted as text; in a URL it is also URL-encoded, and it may only appear after the host. `emit_event` payloads stay literal.
+`emit_event` payloads, `http`, `set` and `transform` read the instance context with `{{path}}`, and so do the values of `branch` and `wait_for_event` conditions. A value that is exactly `"{{entry.email}}"` keeps its type (a number stays a number, an object stays an object). Inside longer text, as in `"https://api.example.com/users/{{entry.id}}"` or `"Ticket {{entry.id}}: {{triage.summary}}"`, the value is inserted as text; in a URL it is also URL-encoded, and it may only appear after the host.
+
+In an `emit_event` payload, a placeholder that resolves to nothing for a run leaves that field out of the emitted record. A placeholder whose first part is not something the run can have (`entry`, `waited_event`, or a key an earlier step writes) is refused when you save, and the error lists the keys that do exist.
 
 ## Durable execution
 
@@ -146,7 +206,7 @@ Each matching entry record starts an **instance** (a run). The console lists ins
 | `waiting` | Suspended on a delay or wait_for_event. |
 | `completed` | Every step finished. |
 | `failed` | A step errored; last_error records why. |
-| `timed_out` | A wait_for_event passed its deadline. |
+| `timed_out` | A wait_for_event passed its deadline, and its `on_timeout` is not `continue`. |
 | `cancelled` | Stopped with **Cancel run**, or from the API, the CLI or a connected agent. |
 
 ## Limits
@@ -157,6 +217,27 @@ Each matching entry record starts an **instance** (a run). The console lists ins
 - `delay` and `wait_for_event` timeouts are exact to the second, up to **365 days**. A wait with no timeout gives up after 365 days.
 - A definition's steps are at most **256 KiB** of JSON, and an instance's context at most **768 KiB**. `set` writes at most 64 keys.
 - AI steps are bounded to 1,024 output tokens and 8,000 characters of instructions per step.
+
+## Start triggers
+
+A workflow starts when a record lands in its entry dataset. Besides webhooks, two kinds of trigger land records on their own. Both are under **Start triggers** on the Workflows tab, and owners and admins can create them.
+
+### Cron triggers
+
+A cron trigger lands one record on a schedule: a 5-field cron expression (`minute hour day-of-month month day-of-week`) read in the trigger's **time zone**. `0 9 * * 1-5` in `America/New_York` fires at 09:00 New York time on weekdays, on both sides of a daylight-saving change. Give the zone as an IANA name. The console fills in your browser's zone, and the API defaults to `UTC`.
+
+- The scheduler runs every 5 minutes, so a schedule whose firings are closer than that is refused. `*/5 * * * *` is the finest one accepted.
+- At a daylight-saving change, a local time that happens twice fires once, at its first occurrence. A local time the change skips (02:30 on the night clocks go from 02:00 to 03:00) fires just after the gap instead of being skipped.
+- Creating a trigger returns its next three fire times. To see them before saving, send `POST /admin/api/projects/{pid}/cron-triggers/preview` with `schedule` and `timezone`.
+- **Edit** changes the name, schedule, time zone, payload or dataset. A new schedule or time zone moves the next run. Resuming a paused trigger also moves it, so a trigger does not fire the moment it is resumed for a time that passed while it was paused.
+
+### WebSocket triggers
+
+A WebSocket trigger holds a connection to a feed open and lands a record for every frame that matches its [conditions](#conditions). The conditions are checked when you save, so a misspelled operator or a `gt` against text is an error there. Before this change, the trigger was saved, reported **connected**, and never matched a frame. `gt` and `lt` compare numbers, so a feed that sends prices as text (`"60000"`) never matches one.
+
+### AI triggers
+
+An AI trigger runs an AI agent when a matching record lands. If the model is briefly unavailable (busy, rate-limited, timing out, or failing on its side), the run is retried after about 30 seconds, then 2 minutes, then 10 minutes, and marked failed with the model's error after the fourth attempt. While it waits, the run shows `queued` and says why. A request the model refuses (for example, an unknown model) fails at once. A run refused because the month's AI allowance is used up also fails at once and is not retried.
 
 ## AI allowance and the AI call log
 
