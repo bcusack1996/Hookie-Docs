@@ -82,6 +82,10 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
 
 Open the project's **Datasets** tab to see the record as a table, and the **Overview** dashboard to watch your usage tick up. To see the body exactly as it arrived, before any rule reshaped it, search **Submissions** on the **Observability** tab. Every ID there links to the rest of its chain.
 
+The **Observability** tab searches the last 24 hours by default; widen it with **Time range**, down to a custom window to the minute. Each entity has its own filters (a delivery's status, destination, response code and latency, an event's dataset, a submission's routing status), and **Trace an id** takes any record, submission, delivery or AI run id, such as the `Hookie-Delivery-Id` your receiver logged, straight to its chain. The filters are kept in the page address, so a view like "failed deliveries to Billing between 14:00 and 14:30" can be shared as a link.
+
+To test the wiring end to end, use **Send a test event** in an endpoint's menu. It posts to the endpoint's real URL, then follows that event for up to 30 seconds and says what happened: delivered, failed (with the answer and whether it will be retried), held because a destination is disabled, still sending, or, only when your destinations' dataset filters confirm it, that no enabled destination accepts the dataset.
+
 ## Safe retries
 
 Send an `Idempotency-Key` and a retry returns the original submission instead of creating a duplicate, and it never counts twice against your quota:
@@ -95,7 +99,7 @@ curl -X POST 'https://app.hookie.ai/your-workspace/orders/aBcXyz…' \
 
 ## Prefer a key?
 
-Machine-to-machine senders can also use an **ingest key** (`ik_live_…`, created on the admin API with `POST /admin/api/projects/:id/ingest-keys`, stored hashed and returned once):
+Machine-to-machine senders can also use an **ingest key** (`ik_live_…`). Create one in the project's **Ingest keys** tab: it is stored hashed and shown once, and it can carry an expiry and an IP allowlist. See [Ingest keys](/ingest-keys) for rotating and revoking them.
 
 ```bash
 curl -X POST 'https://app.hookie.ai/v1/ingest/ik_live_xxx/orders' \
