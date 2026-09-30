@@ -3298,7 +3298,7 @@
             }
           },
           "201": {
-            "description": "Stored. If the webhook rule's conditions are empty or match the payload, the rule is applied and 'routed' holds its NAME; if the conditions do not match, the submission is still stored and the response is 201 with routed: [] and records: 0. A swallowed routing failure looks the same. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not.",
+            "description": "Stored. If the webhook rule's conditions are empty or match the payload, the rule is applied and 'routed' holds its NAME; if the conditions do not match, the submission is still stored and the response is 201 with routed: [] and records: 0. A swallowed routing failure looks the same, including an endpoint rule whose conditions/mappings JSON fails to parse (#304): the submission is marked forward_status 'failed' with reason 'Endpoint rule is malformed', listed on the project's Errors tab as routing_failed, and routed by the outbox sweep once the rule is fixed. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3447,7 +3447,7 @@
             }
           },
           "500": {
-            "description": "error: 'Key misconfigured' (signing secret could not be decrypted), 'Could not store submission', or 'Endpoint rule is malformed' (the rule's conditions/mappings JSON failed to parse \u2014 note the submission has already been stored and the quota already charged at this point).",
+            "description": "error: 'Key misconfigured' (signing secret could not be decrypted) or 'Could not store submission'. A rule whose conditions/mappings JSON fails to parse is no longer a 500 (#304): the event has already been stored and counted by then, so it is answered 201 as a routing failure (see 201).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3679,7 +3679,7 @@
             }
           },
           "201": {
-            "description": "Stored; 'routed' holds the webhook rule's name, or is empty when its conditions did not match. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not.",
+            "description": "Stored; 'routed' holds the webhook rule's name, or is empty when its conditions did not match. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not. An endpoint rule whose JSON fails to parse is a routing failure (#304): 201 with routed: [], the submission marked 'failed' with reason 'Endpoint rule is malformed', and routed by the outbox sweep once the rule is fixed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3826,7 +3826,7 @@
             }
           },
           "500": {
-            "description": "error: 'Key misconfigured', 'Could not store submission', or 'Endpoint rule is malformed'.",
+            "description": "error: 'Key misconfigured' or 'Could not store submission'. A malformed endpoint rule is answered 201 as a routing failure, not 500 (#304).",
             "content": {
               "application/json": {
                 "schema": {
