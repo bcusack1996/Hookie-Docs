@@ -61,15 +61,16 @@ Access is **one level of three**, and each includes the one before it. Choose it
 
 | Level | Scope | Lets the agent… |
 | --- | --- | --- |
-| Read only | `hookie:read` | Read the workspace: projects, datasets, records, endpoints, rules, destinations, deliveries, triggers and workflows. |
+| Read only | `hookie:read` | Read the workspace: projects, datasets, records, endpoints, rules, destinations, deliveries, triggers, workflows and the member list. |
 | Read and write | `hookie:write` | Also create, change and delete endpoints, rules, destinations, workflows, sources, AI triggers, AI agents and the customer portal. Equivalent to the developer role. |
-| Administer | `hookie:manage` | Also projects, cron and WebSocket triggers, and workspace administration: the IP allowlist and the audit export. Equivalent to admin. |
+| Administer | `hookie:manage` | Also projects, cron and WebSocket triggers, and workspace administration: the IP allowlist and the audit export. Equivalent to admin, except that it never reaches invites or member changes. |
 
 An agent is never a principal of its own. It acts _as you_, and its authority is your workspace role narrowed to the scopes you granted; whichever is more restrictive wins. An agent granted `hookie:manage` by someone with the viewer role is still a viewer.
 
-### Two things it can never do
+### Three things it can never do
 
 - **Touch billing.** Subscribing, cancelling, and changing a card are unreachable at every scope. Those stay decisions a person makes.
+- **Change who is in the workspace.** Inviting someone, changing a role, removing a member and transferring ownership are refused at every scope. An invite link gives a person access, so only a person in **Settings → Members** can create one. An agent can read the member list with `list_members`. See [Team members](/team-members#agents-and-api-keys).
 - **Destroy data in bulk.** There is no tool to delete a project, purge a dataset or close the workspace. An agent manages routing configuration, which is visible and undoable; bulk, irreversible deletion stays in the console, where it has to be typed out. Two tools can remove something for good, and both are marked destructive so your client asks you first: `delete_record`, which erases a **single** record by id (for an erasure request, or a secret posted by mistake), and `delete_workflow` with `permanent: true`, which deletes one workflow and its run history. Records and deliveries the workflow's runs produced are kept.
 
 Every action an agent takes is written to your audit log with **you** as the actor and the agent's client ID recorded alongside, so "who deleted this endpoint" always has an honest answer.
@@ -92,17 +93,17 @@ Over MCP the same sentence comes back as the tool's error, so the agent can hand
 
 Two refusals carry no link, because widening would not help:
 
-- `code: "insufficient_role"` — **your own role** does not allow the call, and an agent can never do more than you, so widening its access will not help. Roles cannot be changed in the product yet, so the call is one for the workspace owner. The error names your role and says so:
+- `code: "insufficient_role"` — **your own role** does not allow the call, and an agent can never do more than you, so widening its access will not help. A workspace owner or admin has to change your role first, in **Settings → Members**. The error names your role and links there:
 
   ```json
   {
-    "error": "This needs hookie:manage, and your own role on this workspace (developer) does not allow it. An agent can never do more than its user, so widening this agent's access will not help. Roles cannot be changed in the Hookie console yet: ask the workspace owner, who can do this themselves.",
+    "error": "This needs hookie:manage, and your own role on this workspace (developer) does not allow it. An agent can never do more than its user, so widening this agent's access will not help: a workspace owner or admin has to change your role first, in the Hookie console under Settings → Members (https://app.hookie.ai/#/settings/members).",
     "code": "insufficient_role",
     "required_scope": "hookie:manage",
     "granted_scopes": ["hookie:read", "hookie:write", "hookie:manage"]
   }
   ```
-- `code: "agent_not_permitted"` — no agent may do this at any level: billing, platform administration, managing connected agents, and revealing or rotating a destination's signing secret.
+- `code: "agent_not_permitted"` — no agent may do this at any level: billing, platform administration, managing connected agents, invites and member changes, switching workspaces, and revealing or rotating a destination's signing secret.
 
 ## Revoke
 
@@ -115,6 +116,7 @@ Available with `hookie:read`:
 | Tool | What it does |
 | --- | --- |
 | `get_workspace` | The workspace's slug, id, your role and plan. The slug is the first segment of every public endpoint URL. |
+| `list_members` | The people in the workspace: `user_id`, `email`, `name`, `role` and `joined_at`, owner first, and the plan's `max_members` (`null` for unlimited). Read-only: there is no tool to invite, change a role or remove anyone. |
 | `list_projects` | The workspace's projects. |
 | `get_project_overview` | A project's details plus its dataset summary. |
 | `list_datasets` | Datasets in a project, with record counts. |

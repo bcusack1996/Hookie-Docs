@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key, revoking an invite, removing a member or leaving, accepting an invite to another workspace, switching workspaces and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -59,7 +59,7 @@
     },
     {
       "name": "Workspace",
-      "description": "The workspace itself: its name and slug, admin API keys, data export and closure. There are no member invites or member routes yet (#258): a workspace has its owner, plus any admin the platform sets up."
+      "description": "The workspace itself: its name and slug, its members and their roles, shareable-link invites, ownership transfer, the switcher between the workspaces a person belongs to, admin API keys, data export and closure."
     },
     {
       "name": "Data API",
@@ -129,7 +129,7 @@
           "upgrade_url": {
             "type": "string",
             "format": "uri",
-            "description": "Present only on a monthly-quota 429."
+            "description": "Present on a monthly-quota 429, and on a `member_limit_reached` 403 (the console's Settings \u2192 Plan & billing)."
           },
           "reason": {
             "type": "string",
@@ -140,9 +140,10 @@
             "enum": [
               "agent_scope_insufficient",
               "insufficient_role",
-              "agent_not_permitted"
+              "agent_not_permitted",
+              "member_limit_reached"
             ],
-            "description": "Present on a 403 to an OAuth-connected agent. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 and roles cannot be changed in the product yet, so the call is one for the workspace owner. `agent_not_permitted`: no connected agent may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret)."
+            "description": "Present on a 403 to an OAuth-connected agent, and on a member-limit 403 to anyone. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 a workspace owner or admin has to change the user's role first, in the console under Settings \u2192 Members. `agent_not_permitted`: no connected agent or API key may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret, invites of any kind, changing a role, removing a member, transferring ownership, and listing or switching a person's workspaces). `member_limit_reached` (#308): the workspace already has as many members as its plan allows, so an invite cannot be created or accepted; `max_members`, `members` and `upgrade_url` say how many and where to upgrade."
           },
           "required_scope": {
             "type": "string",
@@ -168,6 +169,14 @@
           "scheme": {
             "type": "string",
             "description": "Present on a signature 401: the endpoint's verification scheme."
+          },
+          "max_members": {
+            "type": "integer",
+            "description": "With `code: \"member_limit_reached\"`: the plan's member limit."
+          },
+          "members": {
+            "type": "integer",
+            "description": "With `code: \"member_limit_reached\"`: the workspace's members now."
           }
         }
       },
@@ -761,6 +770,147 @@
               "null"
             ],
             "description": "The request's media type (ING-3); null for a trigger's event."
+          }
+        }
+      },
+      "Member": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "name",
+          "role",
+          "joined_at"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "The member's user id; the path parameter of PATCH and DELETE /admin/api/members/{user_id}."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "developer",
+              "viewer",
+              "member"
+            ],
+            "description": "`member` is the legacy read-only role, treated as viewer."
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Invite": {
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "created_by",
+          "created_by_email",
+          "created_at",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "developer",
+              "viewer"
+            ],
+            "description": "The role whoever accepts the link joins with. Never owner."
+          },
+          "created_by": {
+            "type": "string",
+            "description": "User id of the member who created the link."
+          },
+          "created_by_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Seven days after created_at."
+          }
+        }
+      },
+      "WorkspaceMembership": {
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "name",
+          "slug",
+          "role",
+          "plan",
+          "status",
+          "active"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "developer",
+              "viewer",
+              "member"
+            ],
+            "description": "The caller's role in that workspace."
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "standard",
+              "team"
+            ],
+            "description": "`standard` is Pro."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended"
+            ]
+          },
+          "active": {
+            "type": "boolean",
+            "description": "True for the workspace this request was answered in."
           }
         }
       }
@@ -28730,7 +28880,7 @@
             }
           },
           "403": {
-            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Team plan is coming soon` (TEAM_PLAN_SELF_SERVE is false in this build, so plan=team always fails here), or `Missing X-Requested-With header`. An agent \u2014 at any scope \u2014 is refused first, with `code: \"agent_not_permitted\"`.",
+            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Missing X-Requested-With header`. An agent \u2014 at any scope \u2014 is refused first, with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -34773,6 +34923,1178 @@
             "apiKey": []
           }
         ]
+      }
+    },
+    "/admin/api/invites": {
+      "get": {
+        "operationId": "listInvites",
+        "summary": "List the workspace's pending invites",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner or admin, in the console (#308). Pending only: not yet accepted, revoked or expired. Never a token or its hash: a link is shown once, when it is created.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending invites, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "invites",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
+                  "properties": {
+                    "invites": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Invite"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Rows in the whole list, before limit/offset (#201)."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (owner or admin only), or `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInvite",
+        "summary": "Create a shareable invite link",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner or admin, in the console (#308). Hookie sends no email: the response carries the link, which is shown this once and never again, and whoever opens it signed in joins the workspace with `role`. The token is 32 random bytes (base64url); only its SHA-256 is stored. The link works once and expires after seven days. Nobody grants above their own role: only the owner can invite an admin. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat). At the limit the invite is refused. At most 50 invites may be pending at once. Audited as `member_invited` (never the token). Refused while the workspace is suspended. An `Idempotency-Key` is refused with 400: the response holds a link shown once, which is never stored for replay.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "developer",
+                      "viewer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The invite, the raw token and the link. Store neither: they cannot be shown again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "invite",
+                    "token",
+                    "url"
+                  ],
+                  "properties": {
+                    "invite": {
+                      "$ref": "#/components/schemas/Invite"
+                    },
+                    "token": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$",
+                      "description": "The raw token, shown once."
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "`{APP_ORIGIN}/#/invite/{token}`: the link to share."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`role must be one of viewer, developer, admin`, a body that is not an object, or an `Idempotency-Key`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`; `Only the workspace owner can invite an admin`; `member_limit_reached`; `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console. Or `workspace_suspended`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The workspace already has 50 pending invites.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/invites/{invite_id}": {
+      "delete": {
+        "operationId": "revokeInvite",
+        "summary": "Revoke a pending invite",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner or admin, in the console (#308). The link stops working at once. Audited as `member_invite_revoked`. Allowed while the workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Invite not found` \u2014 unknown, in another workspace, or no longer pending (accepted, revoked).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/invites/accept": {
+      "post": {
+        "operationId": "acceptInvite",
+        "summary": "Join a workspace with an invite link's token",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Any signed-in person, in the console (#308); never an agent or an API key. The workspace joined is the one the invite belongs to, never one named in the request. This route is resolved WITHOUT the automatic workspace every other admin route creates for someone who has none, so an invitee joins this workspace without first getting an empty one of their own. The link is used once: accepting creates the membership with the invite's role, marks the invite accepted in the same transaction (two accepts racing for one link make one member), makes the workspace the caller's active one, and is audited as `member_invite_accepted`. A person who is already a member gets 200 with `joined: false` and is switched to the workspace; a pending link they open is not spent. A token that is wrong, expired, revoked or already used answers the same 404 with the same words, and so does an invite whose creator could no longer create it (removed, demoted below admin, or, for an admin invite, no longer the owner): an invite is only as good as its creator's authority when it is accepted. The console calls POST /admin/api/invites/preview first and accepts only when the person clicks Join; opening a link never joins by itself. The deployment's email-domain pin applies. On Team, the subscription's seat count follows (best-effort). Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat).",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The token from the link (`#/invite/{token}`)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Joined, or already a member. Either way the workspace is now the caller's active one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "joined",
+                    "tenant_id",
+                    "workspace",
+                    "role"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "joined": {
+                      "type": "boolean",
+                      "description": "False: the caller was already a member, and nothing changed but the active workspace."
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    },
+                    "workspace": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "slug"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "role": {
+                      "type": "string",
+                      "description": "The caller's role in the workspace."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An `Idempotency-Key` (not supported on invites).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`member_limit_reached` (worded for the invitee: the workspace is full, and its owner or an admin can upgrade it or free a seat); `workspace_suspended` (the inviting workspace is suspended or being closed); `email domain not allowed`; or `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The invite link is not valid: wrong, expired, revoked or already used. Deliberately one answer for all four.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/invites/preview": {
+      "post": {
+        "operationId": "previewInvite",
+        "summary": "See what an invite link's token would join, without joining",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Any signed-in person, in the console (#308); never an agent or an API key. Read-only: nothing is joined, spent or written, and like accept it is resolved WITHOUT the automatic workspace every other admin route creates for someone who has none. The console shows this (the workspace, who sent the invite, the role) and joins only when the person clicks Join, so opening a link from anywhere never moves them into a workspace by itself. It is a POST so the token travels in the body, not the URL. Every token that accept would refuse as not found (wrong, expired, revoked, used by someone else, or whose creator could no longer create it) answers the same 404 with the same words. Whether the workspace is full or suspended is decided when joining.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The token from the link (`#/invite/{token}`)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The invite, as the person would join it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workspace",
+                    "role",
+                    "invited_by_email",
+                    "expires_at",
+                    "already_member"
+                  ],
+                  "properties": {
+                    "workspace": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "slug"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "description": "The workspace's address, to tell apart two workspaces with the same name."
+                        }
+                      }
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "developer",
+                        "viewer",
+                        "owner",
+                        "member"
+                      ],
+                      "description": "The invite's role, or the caller's own role when they are already a member."
+                    },
+                    "invited_by_email": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The email of the member who created the invite."
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "already_member": {
+                      "type": "boolean",
+                      "description": "True: accepting would only switch the caller to the workspace."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An `Idempotency-Key` (not supported on invites).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`email domain not allowed`, or `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The invite link is not valid: wrong, expired, revoked or already used. Deliberately one answer for all four.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/members": {
+      "get": {
+        "operationId": "listMembers",
+        "summary": "List the workspace's members",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Any role, and an agent or admin API key at `hookie:read` (MCP: `list_members`) (#308). Owner first, then by when each joined. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat).",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The members.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "members",
+                    "total",
+                    "limit",
+                    "offset",
+                    "max_members",
+                    "plan"
+                  ],
+                  "properties": {
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Member"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Rows in the whole list, before limit/offset (#201)."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "max_members": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "The plan's member limit, the owner included. Null: unlimited (Team)."
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "free",
+                        "standard",
+                        "team"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or an invalid, revoked or expired token or key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A project-scoped API key (members are workspace-wide), or a token granted no Hookie scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/members/{user_id}": {
+      "patch": {
+        "operationId": "updateMemberRole",
+        "summary": "Change a member's role",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner or admin, in the console (#308). The owner's role is never changed here, and `owner` is never set: ownership moves with POST /admin/api/members/transfer-ownership. Nobody grants above their own role: only the owner can make someone an admin. Nobody changes their own role. Demoting an admin below admin revokes the pending invite links they created. Audited as `member_role_changed` with from and to. Refused while the workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "developer",
+                      "viewer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved (or unchanged). The member as they now are.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "member"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "member": {
+                      "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`role must be one of viewer, developer, admin`, or `owner` (use transfer).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`; the target is the owner; your own role; an admin making an admin; `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console. Or `workspace_suspended`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Member not found` \u2014 not a member of this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member's role changed meanwhile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeMember",
+        "summary": "Remove a member, or leave the workspace",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "An owner or admin removes a member; any member removes themselves (leaves) (#308). The owner can neither leave nor be removed: they transfer ownership first. The removed member's admin API keys for this workspace stop working at once (a key acts as its creator, who must still be a member), the pending invite links they created are revoked (so a link they kept cannot bring them, or anyone else, back in), and if this was their active workspace their next sign-in lands in another. Audited as `member_removed` or `member_left`. On Team, the subscription's seat count follows (best-effort). Allowed while the workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "user_id",
+                    "left"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "left": {
+                      "type": "boolean",
+                      "description": "True when the caller removed themselves."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (removing someone else); the target is the owner; or `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Member not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/members/transfer-ownership": {
+      "post": {
+        "operationId": "transferOwnership",
+        "summary": "Transfer ownership to another member",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "The owner only, in the console (#308). The target must already be a member. In one transaction the target becomes the owner and the previous owner becomes an admin, so the workspace always has exactly one owner. Billing and the workspace slug go with it. An admin cannot invite an admin, so the previous owner's pending admin invite links are revoked; their other links stand. Audited as `ownership_transferred`. Refused while the workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The member who becomes the owner."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transferred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "owner",
+                    "previous_owner"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "owner": {
+                      "$ref": "#/components/schemas/Member"
+                    },
+                    "previous_owner": {
+                      "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`user_id is required`, or it is the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Only the workspace owner can transfer ownership`; `agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console. Or `workspace_suspended`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Member not found` \u2014 ownership only goes to someone already in the workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The owner changed meanwhile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/workspaces": {
+      "get": {
+        "operationId": "listWorkspaces",
+        "summary": "List the workspaces the caller belongs to",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "The console's workspace switcher (#308): every workspace the signed-in person is a member of, with their role there. A person's own list, in the console only: not an agent or an API key.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's workspaces, owned ones first, then by when they joined.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workspaces",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
+                  "properties": {
+                    "workspaces": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceMembership"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Rows in the whole list, before limit/offset (#201)."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/workspaces/active": {
+      "post": {
+        "operationId": "setActiveWorkspace",
+        "summary": "Switch the caller's active workspace",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Sets the workspace every following console request is answered in (#308). The caller must be a member of `tenant_id`: it is checked against their own memberships, and a workspace they do not belong to answers the same 404 as one that does not exist. Cookie sessions only. Allowed while the current workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tenant_id"
+                ],
+                "properties": {
+                  "tenant_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Switched. The console reloads into it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "workspace"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "workspace": {
+                      "$ref": "#/components/schemas/WorkspaceMembership"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`tenant_id is required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`agent_not_permitted` \u2014 an OAuth-connected agent or an admin API key, at any scope: who is in a workspace is decided by a person in the console.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Workspace not found` \u2014 no such workspace, or the caller is not a member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
       }
     }
   },

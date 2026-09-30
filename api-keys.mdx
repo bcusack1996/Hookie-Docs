@@ -40,9 +40,9 @@ Creating and revoking a key are recorded in **Settings → Audit log** (`create_
 | **Developer** | Also create, change and delete project resources. |
 | **Admin** | Also manage projects, cron and WebSocket triggers, the workspace IP allowlist and the audit log export. |
 
-There is no owner role for a key, so **billing is never reachable with one**. Like a connected agent, a key also cannot reveal or rotate a destination's signing secret, manage connected agents, or create API keys. Those stay with a person in the console.
+There is no owner role for a key, so **billing is never reachable with one**. Like a connected agent, a key also cannot reveal or rotate a destination's signing secret, manage connected agents, create API keys, or invite people and change who the members are, whatever its role. Those stay with a person in the console. A key for all projects, of any role, can read the member list (`GET /admin/api/members`); see [Team members](/team-members#agents-and-api-keys).
 
-The role is applied on every request against the creator's role at that moment, so a key never acts above its creator's current role.
+The role is applied on every request against the creator's role at that moment, so a key never acts above its creator's current role. If the creator's role is lowered, their keys are lowered with it; if they leave or are removed from the workspace, their keys stop working on the next request.
 
 ## Project scope
 

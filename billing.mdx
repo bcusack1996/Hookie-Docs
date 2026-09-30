@@ -12,7 +12,7 @@ A plan belongs to a workspace, and only the workspace's **owner** manages its bi
 | --- | --- | --- |
 | **Free** | Nothing, and no card needed | Every workspace starts on it. |
 | **Pro** | $9.99 a month, a flat price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**, or **Add payment method** during a Pro trial. |
-| **Team** | $39.00 per user, per month | Not available to buy yet: its button is marked **coming soon**. |
+| **Team** | $39.00 per member, per month: one seat for each person in the workspace | **Upgrade to Team** on **Settings → Plan & billing**, or **Add payment method** during a Team trial. |
 
 For current prices, see the [pricing page](https://hookie.ai/pricing). What each plan includes is in [Limits and plans](/limits-and-plans). Single sign-on (SAML or OIDC) is planned and not available yet, on any plan, so no plan includes it today.
 
@@ -22,7 +22,7 @@ For current prices, see the [pricing page](https://hookie.ai/pricing). What each
 
 - the subscription's **Status**: **Active**, **Trialing**, **Payment failed**, **Unpaid**, **Cancels at period end** or **Cancelled**;
 - when it **Renews**, or, while it is in Stripe's trial, the date of its **First charge**; once it has been cancelled, when it **Ends**;
-- on Team, the number of **Seats**;
+- on Team, the number of **Seats**, which follows the number of members (see [Team seats](#team-seats));
 - **Invoices**: up to the 12 most recent, with the number, date, amount and status (**Paid**, **Due**, **Open**, **Void** or **Uncollectible**), and **View** and **PDF** links;
 - **Manage billing**, which opens Stripe's customer portal in a new tab, already signed in to the workspace's billing account. Change the card, cancel, and download receipts there.
 
@@ -30,13 +30,23 @@ These details are read live from Stripe. If Stripe cannot be reached, the tab sa
 
 ## Upgrade
 
-Choose **Upgrade to Pro**. Stripe's checkout page opens. Once you have paid, you come back to **Plan & billing**, and the plan changes as soon as Stripe confirms the subscription to Hookie, normally within seconds.
+Choose **Upgrade to Pro**, or **Upgrade to Team**. Stripe's checkout page opens. A Team checkout starts with one seat for each member the workspace has. Once you have paid, you come back to **Plan & billing**, and the plan changes as soon as Stripe confirms the subscription to Hookie, normally within seconds.
 
 - The new limits apply at once, to this month too: the events and deliveries already counted this month are measured against the new plan's numbers.
 - Destinations and database sources that an earlier downgrade paused are resumed, oldest first, as far as the new plan allows.
 - Deliveries held past the old allowance are not sent on their own. Choose **Send held deliveries** on each project's **Deliveries** tab.
 
-A workspace has one subscription at a time. While one is live, a second checkout is refused: change or cancel the plan from **Manage billing**.
+A workspace has one subscription at a time. While one is live, a second checkout is refused: change or cancel the plan from **Manage billing**. If a paying Pro workspace changes to Team there, Hookie sets its seat count to the number of members.
+
+## Team seats
+
+Team is billed per seat, and every member of the workspace is one seat, the owner included. You do not set the seat count yourself: it follows the member list.
+
+- When someone accepts an invite, is removed or leaves, Hookie sets the subscription's quantity in Stripe to the new number of members. Stripe prorates the change on your next invoice.
+- Changing someone's role does not change the count.
+- If Stripe cannot be reached, the membership change still happens, and the audit log records `seat_sync_failed`. The count is corrected on the next membership change, or when Stripe next reports the subscription to Hookie. A successful update is recorded as `seats_updated`.
+
+Inviting people is covered in [Team members](/team-members). Pro allows up to 3 members and Free only the owner; neither is billed per seat.
 
 ## Cancel or downgrade
 
@@ -45,6 +55,7 @@ Cancel from **Manage billing**. A subscription set to end with its billing perio
 A move to a lower plan, whether from a cancellation, a failed payment or a trial ending, applies the new plan's limits straight away:
 
 - Destinations and database sources over the new plan's numbers are paused, newest first, and database source poll intervals are raised to the new minimum. See [When your plan changes](/destinations#when-your-plan-changes).
+- Nobody is removed from the workspace. A workspace with more members than the new plan allows keeps them all, but cannot invite anyone else until it is under the limit. See [Member limits](/team-members#member-limits).
 - The monthly quotas keep this month's counts. A workspace that has already used more than the new plan allows has its new events refused, and its deliveries held, until the 1st.
 - **Retention is the exception.** Your previous plan's retention window still applies for **7 days**. After that, event data older than the new plan's window is deleted. **Home** shows the date. See [Retention after a downgrade](/limits-and-plans#retention-after-a-downgrade).
 
@@ -56,7 +67,7 @@ Stripe retries the charge, and meanwhile the workspace keeps its plan. **Plan & 
 
 ## The sign-up trial
 
-When Hookie offers a trial, the sign-up page has a checkbox such as **Start a 14-day Pro trial**; the plan and the length are Hookie's to set. A workspace created with the box ticked runs on that plan until the trial ends, with no card. **Plan & billing** shows how many days are left. When a trial ends without a paid subscription, the workspace moves to Free and the new limits apply as for any downgrade, and **Upgrade to Pro** is there as for any Free workspace. A trial is only offered when a workspace is created.
+When Hookie offers a trial, the sign-up page has a checkbox such as **Start a 14-day Pro trial**; the plan and the length are Hookie's to set. A workspace created with the box ticked runs on that plan until the trial ends, with no card. **Plan & billing** shows how many days are left. When a trial ends without a paid subscription, the workspace moves to Free and the new limits apply as for any downgrade, and **Upgrade to Pro** and **Upgrade to Team** are there as for any Free workspace. A trial is only offered when a workspace is created.
 
 ### Adding a payment method during a trial
 
@@ -68,10 +79,10 @@ While your workspace is on a free trial, **Settings → Plan & billing** shows *
 
 Once the card is added, **Plan & billing** shows your subscription as **Trialing**, with the date of the **First charge**. You are on the paid plan from that moment. Everything the plan includes stays on, and nothing changes when the trial converts. To change your card or cancel before the first charge, use **Manage billing**. If you cancel during the trial, the workspace moves to Free, and subscribing again starts billing that day.
 
-As with any checkout, only the owner can complete it. A trial of a plan that is not available to buy yet, such as Team, shows no **Add payment method** button.
+As with any checkout, only the owner can complete it. On a Team trial, the checkout starts with one seat for each member, and the seat count follows the members from then on.
 
 ## Good to know
 
 - **Quotas and billing run on different calendars.** Monthly quotas reset at 00:00 UTC on the 1st, whatever day the subscription renews.
 - **Closing the workspace** cancels its subscription at once. See [Delete, export and close](/data-deletion#close-the-workspace).
-- **Only the owner** sees the subscription details and invoices, and can upgrade, add a payment method during a trial, or open **Manage billing**.
+- **Only the owner** sees the subscription details and invoices, and can upgrade, add a payment method during a trial, or open **Manage billing**. Ownership, and billing with it, can be [transferred](/team-members#transfer-ownership) to another member.

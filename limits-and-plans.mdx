@@ -10,6 +10,7 @@ Hookie has three plans: **Free**, **Pro** and **Team**. A plan belongs to the wo
 
 | | Free | Pro | Team |
 | --- | --- | --- | --- |
+| Workspace members, owner included | 1 | 3 | unlimited, billed per seat |
 | Events a month | 1,000 | 100,000 | 300,000 |
 | New events refused after | 1,000 | 110,000 | 330,000 |
 | Deliveries a month | 1,000 | 90,000 | 600,000 |
@@ -25,7 +26,7 @@ Hookie has three plans: **Free**, **Pro** and **Team**. A plan belongs to the wo
 
 Everything in this table is counted across the whole workspace, not per project. Pro and Team accept 10% over the event and delivery numbers before they bite; Free stops at the number. Single sign-on (SAML or OIDC) is planned and not available yet, on any plan.
 
-**Team** is $39.00 per user, per month, and is coming soon: it cannot be bought self-serve yet. **Nothing is billed as overage** on any plan: past a limit, new events are refused, deliveries held and AI calls refused, as described below, so a paid plan never charges more than its price.
+**Team** is $39.00 per member, per month: its seat count follows the number of people in the workspace, as they join and leave. See [Billing](/billing#team-seats). **Nothing is billed as overage** on any plan: past a limit, new events are refused, deliveries held and AI calls refused, as described below, so a paid plan never charges more than its price.
 
 ## Retention after a downgrade
 
@@ -91,4 +92,5 @@ The customer portal's API has the same kind of guard, at about 60 calls a minute
 | Live stream connections | One more connection is refused with `429`; the console's **Live** mode refreshes every 10 seconds instead. |
 | Active workflow runs | A record that would start one more run does not start it, and the audit log records `workflow_start_skipped`. |
 | Endpoints, cron or WebSocket triggers | Creating one more in the project is refused: `402` for an endpoint, `409` for a trigger. |
+| Workspace members | Creating or accepting an invite is refused with `403` and `"code": "member_limit_reached"`, with an `upgrade_url`. Nobody already in the workspace is removed, including after a downgrade. See [Team members](/team-members#member-limits). |
 | Burst limit | `429` with `Retry-After: 10`. |
