@@ -135,6 +135,14 @@ Deliveries held because the workspace used its monthly delivery allowance. `hook
 | `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Issue a replacement key; the old one keeps working for the overlap (default 24 hours). Returns the new key once; `--reveal` prints it. |
 | `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |
 
+### members
+
+Read-only, at `hookie:read`. Inviting, changing roles and removing people are for a person in the console: see [Team members](/team-members).
+
+| Command | Flags | |
+| --- | --- | --- |
+| `hookie members list` | `—` | The people in the current workspace: user_id, email, name, role (owner, admin, developer or viewer) and joined_at, owner first. Also max_members, the plan's member limit (null: unlimited). |
+
 ### portal-tokens
 
 Customer links to the project's portal. `create` returns the token once; `--reveal` prints it.

@@ -62,6 +62,10 @@ A credential (`ik_live_…`) that your own servers send events into one project 
 
 A `{path, key}` pair that copies one field of an event into the stored record under a key you choose. With no mappings, the whole payload is stored. See [Mappings](/rules-and-mappings#mappings).
 
+### Member
+
+A person in a workspace, with one role: owner, admin, developer or viewer. A workspace has exactly one owner, and people join it through a single-use invite link an owner or admin shares. See [Team members](/team-members).
+
 ### Portal
 
 The customer portal: a page you embed in your own app, where your customers add the destinations your events are sent to and inspect and replay their deliveries. Each customer gets in with a token you issue. See [Customer portal](/customer-portal).
@@ -100,7 +104,7 @@ A multi-step process in a project that starts when a record lands in its entry d
 
 ### Workspace
 
-Your account. It holds the projects, the plan and billing, API keys, connected agents and the audit log, and its slug is the first segment of every endpoint URL. See [Projects](/projects).
+Your account. It holds the projects, its members, the plan and billing, API keys, connected agents and the audit log, and its slug is the first segment of every endpoint URL. A person can belong to several workspaces and switch between them. See [Projects](/projects) and [Team members](/team-members).
 
 ## One thing, three names
 
@@ -108,7 +112,8 @@ The console and these docs use the names above. The API and the MCP tools keep s
 
 | Name | In the API | MCP tools |
 | --- | --- | --- |
-| Workspace | `workspace`, `me` | `get_workspace` |
+| Workspace | `workspace`, `me`, `workspaces` | `get_workspace` |
+| Member | `members`, `invites` | `list_members` |
 | Project | `projects` | `list_projects`, `create_project` |
 | Endpoint | `webhooks`, `webhook_id`, `webhook_slug` | `create_webhook`, `list_webhooks`, `update_webhook` |
 | Ingest key | `ingest-keys` | `create_ingest_key`, `rotate_ingest_key` |

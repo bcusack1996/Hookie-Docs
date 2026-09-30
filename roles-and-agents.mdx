@@ -1,15 +1,17 @@
 ---
 title: "Roles, API keys and connected agents"
 sidebarTitle: "Roles and agents"
-description: "Who can do what in a workspace: the owner and admin roles, and the two credentials that act for a person, API keys and connected agents, with their scopes."
+description: "Who can do what in a workspace: the owner, admin, developer and viewer roles, and the two credentials that act for a person, API keys and connected agents, with their scopes."
 icon: "user-shield"
 ---
 
 ## People in a workspace
 
-Today a workspace has one person: its **owner**, whose first sign-in created it. There are no member invites yet, so nobody else can be added to a workspace, and someone else who signs up gets a workspace of their own. **Settings → Plan & billing → Your access** shows your role.
+A workspace has exactly one **owner**, whose first sign-in created it, and any number of **admins**, **developers** and **viewers**, up to its plan's member limit. The owner and admins invite people with a shareable link, choose the role each one joins with, and later change a member's role or remove them in **Settings → Members**. [Team members](/team-members) covers inviting, removing, transferring ownership and switching between workspaces. **Settings → Members** and **Settings → Plan & billing → Your access** show your role.
 
-Hookie's other roles already matter, because the two credentials that act for a person are held to them. An [API key](#api-keys) carries a role, and a [connected agent](#connected-agents) is clipped to one by the access you grant it.
+Nobody can grant a role above their own. Only the owner can make someone an admin, an admin cannot change the owner or their own role, and `owner` is never granted: it moves only by transferring ownership.
+
+The two credentials that act for a person are held to the same roles. An [API key](#api-keys) carries a role, and a [connected agent](#connected-agents) is clipped to one by the access you grant it. Either one is also capped by its person's current role, so changing someone's role changes what their keys and agents can do on the next request.
 
 ## Roles
 
@@ -17,8 +19,8 @@ Each role can do everything the role below it can:
 
 | Role | Adds |
 | --- | --- |
-| **Owner** | Billing, deleting a project, changing the workspace slug, and closing the workspace. |
-| **Admin** | Creating and renaming projects; cron and WebSocket triggers; purging a dataset; revealing and rotating a destination's signing secret; Broadcast Logs and the Data API; and workspace settings: the name, API keys, network access, the audit log export and **Export all data**. |
+| **Owner** | Billing, inviting and promoting admins, transferring ownership, deleting a project, changing the workspace slug, and closing the workspace. |
+| **Admin** | Creating and renaming projects; cron and WebSocket triggers; purging a dataset; revealing and rotating a destination's signing secret; Broadcast Logs and the Data API; inviting developers and viewers, and changing or removing members other than the owner; and workspace settings: the name, API keys, network access, the audit log export and **Export all data**. |
 | **Developer** | Creating, changing and deleting what is inside a project: endpoints, ingest keys, rules, destinations, workflows, database sources, AI triggers, AI agents and the customer portal. Also sending test events, replaying deliveries and deleting single records. |
 | **Viewer** | Reading everything: projects, datasets and records, endpoints, rules, destinations, deliveries, triggers, workflows and the audit log. |
 
@@ -28,7 +30,7 @@ A `member` role, from before these four existed, reads as viewer. Single sign-on
 
 An **API key** (`hk_…`) lets a system with no browser, such as a CI job, a script or your own backend, call the admin API and the hosted MCP server at `/mcp`. Owners and admins create them in **Settings → API keys**, and only a person signed in to the console can: an agent or another key cannot.
 
-- **A key acts as the person who created it**, and its role, viewer, developer or admin, is a ceiling on that person's role. There is no owner role for a key, so billing is out of its reach.
+- **A key acts as the person who created it**, and its role, viewer, developer or admin, is a ceiling on that person's role. There is no owner role for a key, so billing is out of its reach. Inviting and member changes are too, at every role. If its creator leaves or is removed, the key stops working.
 - **A key can be limited** to one project, to an expiry date, and to an IP allowlist.
 - **A key is shown once.** Hookie keeps only its SHA-256 hash. Revoking a key stops its next request.
 
@@ -48,7 +50,7 @@ What it may do is decided separately, by you, in **Settings → Connected agents
 
 An agent's authority is your own role narrowed to the level you granted, whichever is lower. A change applies on its next request, with no need to reconnect. **Revoke** cuts it off on its next request too, even though its token is still valid, because Hookie checks the grant on every call.
 
-At every level, an agent cannot touch billing, manage connected agents, create API keys, or reveal or rotate a destination's signing secret. Everything it does is written to the audit log with you as the actor and the agent's client id beside it. [Connected agents](/connected-agents) lists every tool and what each level unlocks.
+At every level, an agent cannot touch billing, invite people or change who the members are, manage connected agents, create API keys, or reveal or rotate a destination's signing secret. It can read the member list at `hookie:read`. Everything it does is written to the audit log with you as the actor and the agent's client id beside it. [Connected agents](/connected-agents) lists every tool and what each level unlocks.
 
 ## The same ladder
 

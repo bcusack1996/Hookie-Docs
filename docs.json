@@ -56,6 +56,7 @@
           "workflows",
           "customer-portal",
           "broadcast-logs",
+          "team-members",
           "connected-agents",
           "api-keys",
           "data-api",

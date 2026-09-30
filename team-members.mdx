@@ -1,0 +1,132 @@
+---
+title: "Team members"
+description: "Invite people to a workspace with a shareable link, give each one a role, remove or transfer ownership, switch between workspaces, and what each plan allows."
+icon: "users"
+---
+
+A workspace has **exactly one owner** and any number of **admins**, **developers** and **viewers**, up to its plan's [member limit](#member-limits). Everyone signs in with their own account, and each role decides what that person can do: see [Roles](/roles-and-agents#roles).
+
+Everything on this page happens in **Settings → Members** (`#/settings/members`). Everyone in the workspace sees the member list there. Owners and admins also see **Invite people** and the pending invites.
+
+## Invite someone
+
+Hookie does not send invite emails. It makes a link, and you send it to the person yourself, over chat, email or however you like.
+
+<Steps>
+  <Step title="Open Settings → Members">
+    Choose **Invite people**. Only owners and admins have it.
+  </Step>
+  <Step title="Choose a role">
+    Pick the role the person joins with: **Admin**, **Developer** or **Viewer**. Only the owner can invite an admin, so an admin chooses between developer and viewer. Nobody can invite a second owner: ownership moves only by [transfer](#transfer-ownership).
+  </Step>
+  <Step title="Copy the link">
+    Choose **Create invite link**. The link, `https://app.hookie.ai/#/invite/…`, is shown **once**. Copy it and send it privately. Hookie keeps only a hash of it and cannot show it again, so if it is lost, create a new one.
+  </Step>
+</Steps>
+
+An invite link:
+
+- **Works once.** One person joins with it, and then it is spent.
+- **Expires after 7 days.**
+- **Can be revoked.** **Pending invites**, under the member list, shows each unused link's role, who created it, and when it was created and expires. Choose **Revoke** to stop one straight away. The list never shows the link itself.
+- **Lasts only as long as its creator's authority.** If the person who created it is removed, is demoted below admin, or (for a link to join as admin) is no longer the owner, the link stops working and leaves the list.
+
+A workspace can have at most **50** pending invites at once. Anyone who has a link can use it, so treat it like a password until it is used.
+
+## Join a workspace
+
+<Steps>
+  <Step title="Open the link">
+    If you are not signed in, choose **Sign in to join**, or **Create an account** if you are new to Hookie. You come back to the invite afterwards.
+  </Step>
+  <Step title="Check the invite">
+    The page shows who invited you, the workspace's name and address, and the role you would join with. Opening the link does not join you by itself. Join only if you expected the invite and recognise the workspace.
+  </Step>
+  <Step title="Choose Join">
+    You join with the invite's role, and the console opens the workspace.
+  </Step>
+</Steps>
+
+Joining does not create an empty workspace for you first, so someone new to Hookie who signs up through an invite starts in the workspace they were invited to. If you are signed in with the wrong account, choose **Use a different account**.
+
+A link that is wrong, has expired, was revoked or has already been used always shows the same message: **This invite link is not valid. It may have expired, been revoked or already been used: ask for a new one.** If you are already a member, the page offers to open the workspace instead, and the link is not spent.
+
+A link cannot be used while the workspace is [full](#member-limits) or suspended. The page tells you to ask the workspace's owner or an admin.
+
+## Manage members
+
+Each row's menu in the member list has the actions you are allowed to take on that person.
+
+- **Change role…** Owners and admins change the roles of other members. An admin can change developers, viewers and other admins, but cannot make anyone an admin, cannot change the owner, and cannot change their own role. Only the owner can make someone an admin.
+- **Remove…** Owners and admins remove members, with the same limits. The owner cannot be removed.
+- **Leave workspace…** Anyone except the owner can leave, from their own row. The owner [transfers ownership](#transfer-ownership) first. If it was your only workspace, Hookie opens a new, empty one for you.
+
+When someone is removed or leaves:
+
+- They lose access at once. To come back, someone has to invite them again.
+- Their [API keys](/api-keys) for the workspace stop working on the next request, because a key acts as the person who created it.
+- The invite links they created are revoked, so a link they kept cannot bring them, or anyone they hand it to, back in. Demoting an admin revokes the links they could no longer create in the same way.
+
+A change of role applies on the person's next request, and so does the ceiling it puts on their API keys and [connected agents](/connected-agents).
+
+## Transfer ownership
+
+Only the owner can do this. On another member's row, choose **Make owner…**, then **Transfer ownership**.
+
+- That member becomes the owner, and you become an **admin**. There is always exactly one owner.
+- Billing, the workspace slug, closing the workspace, and ownership itself become theirs. See [Billing](/billing).
+- Any links you created to join as admin are revoked, because only the owner can invite an admin.
+
+Only the new owner can give ownership back.
+
+## Switch workspaces
+
+You can belong to more than one workspace: your own, and any you have been invited to. Once you do, the account panel (your profile, in the console's top bar) shows **Switch workspace**, with each workspace and your role in it. Choose one and the console reloads into it.
+
+Joining a workspace through an invite switches you to it. Everything you see, the projects, settings and billing, belongs to the workspace you are in.
+
+## Member limits
+
+Every member counts, the owner included:
+
+| Plan | Members |
+| --- | --- |
+| **Free** | 1: the owner only |
+| **Pro** | Up to 3 |
+| **Team** | Unlimited, billed per seat |
+
+At the limit, **Invite people** is disabled and **Settings → Members** says the workspace is at its member limit. Over the API, creating or accepting an invite answers `403` with `"code": "member_limit_reached"`, `max_members`, `members` and an `upgrade_url`. Nobody already in the workspace is removed when it reaches the limit, including after a downgrade.
+
+On **Team**, each member is a billed seat. The subscription's seat count follows the number of members: when someone joins, is removed or leaves, Hookie updates it in Stripe, prorated. See [Billing](/billing#team-seats).
+
+## Agents and API keys
+
+Inviting, changing roles, removing members and transferring ownership are for people in the console. A [connected agent](/connected-agents) or an [API key](/api-keys) is refused with `403` and `"code": "agent_not_permitted"` at every scope, even `hookie:manage`. An invite link gives a person access to your workspace, so no automated credential can create, read, revoke or use one.
+
+An agent at `hookie:read` or above, and an API key of any role for all projects, can read the member list:
+
+- the `list_members` MCP tool;
+- `hookie members list` in the [CLI](/cli/commands#members);
+- `GET /admin/api/members`.
+
+Each member comes with `user_id`, `email`, `name`, `role` and `joined_at`, owner first, and the response carries the plan's `max_members` (`null` means unlimited).
+
+## Audit log
+
+Every change is recorded in **Settings → Audit log**: `member_invited`, `member_invite_revoked`, `member_invite_accepted`, `member_role_changed`, `member_removed`, `member_left` and `ownership_transferred`. On Team, seat updates are recorded as `seats_updated`, or `seat_sync_failed` if Stripe refused one.
+
+## Over the API
+
+All of these are under `/admin/api`, and the [API reference](/api-reference) has the full contract.
+
+| Route | |
+| --- | --- |
+| `GET members` | The member list. Any role, agents and keys included (a key limited to one project cannot). |
+| `PATCH members/{user_id}` | Change a role, with `{"role": "admin" \| "developer" \| "viewer"}`. |
+| `DELETE members/{user_id}` | Remove a member, or leave when it is your own id. |
+| `POST members/transfer-ownership` | Make `{"user_id": …}` the owner. Owner only. |
+| `GET invites` · `POST invites` · `DELETE invites/{id}` | List pending invites, create one with `{"role": …}` (the response carries the `url` once), and revoke one. Owners and admins. `POST invites` refuses an `Idempotency-Key`, because the link is never stored for a replay. |
+| `POST invites/preview` · `POST invites/accept` | What a link's `{"token": …}` would join, and joining with it. |
+| `GET workspaces` · `POST workspaces/active` | The workspaces you belong to, and switching to one with `{"tenant_id": …}`. |
+
+While a workspace is suspended, its owner and admins can still revoke invites and remove members, and anyone but the owner can leave: taking access away is never refused. Inviting, changing roles and transferring ownership are.
