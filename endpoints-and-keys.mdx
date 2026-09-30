@@ -31,7 +31,7 @@ Create one on a project's **Endpoints** tab with **Add endpoint**: a **Name**, a
 
 ## Criteria and mappings
 
-An endpoint can carry **criteria**, conditions every event must meet, and **mappings**, which pick fields into the record's shape. They apply on the endpoint's URL and on `/v1/webhooks/{ingest_key}/{slug}`. An event that fails the criteria is kept as a submission but makes no record. No criteria accepts every event, and no mappings stores the payload whole.
+An endpoint can carry **criteria**, conditions every event must meet, and **mappings**, which pick fields into the record's shape. They apply on the endpoint's URL and on `/v1/webhooks/{ingest_key}/{slug}`. An event that fails the criteria is kept as a submission but makes no record: it is marked **Filtered**, its `201` carries `filtered: true`, and it is listed on the project's [Errors tab](/datasets-and-records#errors-tab). No criteria accepts every event, and no mappings stores the payload whole.
 
 Criteria use the same [operators as rules](/rules-and-mappings#conditions). An endpoint accepts at most 10 criteria, the same limit as a rule's conditions, and 50 mappings; an 11th criterion is refused with `400` and `At most 10 criteria are allowed`. Set them when you create the endpoint: `criteria` and `mappings` on `POST /admin/api/projects/{project_id}/webhooks`, the `create_webhook` MCP tool, or `hookie endpoints create`. The console's **Add endpoint** creates an endpoint with neither.
 

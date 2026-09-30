@@ -17,8 +17,22 @@ A submission's routing status tells "nothing matched" apart from "never arrived"
 | Status | Meaning |
 | --- | --- |
 | **Routed** | At least one record was written. |
-| **Pending (no rule matched yet)** | No record was written: the endpoint's criteria turned the event away. An event sent with an ingest key and no dataset does not end up here: when no rule matches it, it is stored in the key's [default dataset](/endpoints-and-keys#ingest-keys). Nor does an event from a cron or WebSocket trigger with no dataset: when no rule matches it, it is stored in the `default` dataset (see [Triggers with no dataset](/workflows#triggers-with-no-dataset)). |
-| **Routing failed** | Routing hit an error. The submission itself is safe. This includes a trigger event that no rule matched and that could not be stored in `default` either, such as an empty `{}` payload. |
+| **Filtered** | The endpoint's own [criteria](/endpoints-and-keys#criteria-and-mappings) turned the event away. It is kept as a submission, counted against the monthly events, and makes no record, so no destination, AI trigger, workflow or live stream receives it. It is listed on the project's [Errors tab](#errors-tab) with the criterion it did not meet. Events filtered before 30 September 2026 still read **Pending**. |
+| **Pending (no rule matched yet)** | No record has been written yet. An event sent with an ingest key and no dataset does not end up here: when no rule matches it, it is stored in the key's [default dataset](/endpoints-and-keys#ingest-keys). Nor does an event from a cron or WebSocket trigger with no dataset: when no rule matches it, it is stored in the `default` dataset (see [Triggers with no dataset](/workflows#triggers-with-no-dataset)). |
+| **Routing failed** | Routing hit an error. The submission itself is safe, and Hookie keeps retrying it in the background. This includes a trigger event that no rule matched and that could not be stored in `default` either, such as an empty `{}` payload. |
+
+### Errors tab
+
+Some events are received and kept but never reach a dataset. A project's **Errors** tab lists them, newest first. There are two kinds:
+
+- **Filtered.** The endpoint's criteria rejected the payload. For example, an endpoint that accepts only `type = order.created` receives an `order.cancelled`. The sender still gets `201`, with `routed: []`, `records: 0` and `filtered: true`. The **Reason** column names the criterion the payload did not meet.
+- **Routing failed.** The event was stored, but its records could not be written. Hookie keeps retrying it in the background, and it leaves this list once it is routed.
+
+Filter the table by kind, and page through 25, 50 or 100 rows. Open a row to see the whole payload, with a link to its trace in Observability. Flagged events follow the plan's retention like any other event.
+
+An endpoint's **Activity** (Endpoints → ⋮ → Activity) shows how many requests its criteria filtered in the last 24 hours, next to how many it refused.
+
+Over the API, `GET /admin/api/projects/{project_id}/errors?kind=all|filtered|routing_failed&limit=25&offset=0` returns `{ rows, total, limit, offset }`, and `GET /admin/api/projects/{project_id}/errors/{id}` returns one event with its whole payload. A connected agent can use `list_project_errors`, and the CLI has `hookie errors list`.
 
 ## Records
 

@@ -675,6 +675,94 @@
           }
         },
         "description": "A retention grace window (#281). For 7 days after a plan change that shortens retention (a Stripe downgrade or cancellation, a lapsed trial, an operator override), the retention prune keeps the retention that was in force before it. A second downgrade inside the window keeps the longest retention and restarts the 7 days; an upgrade to a plan whose retention covers `retention_days` ends it."
+      },
+      "ProjectError": {
+        "type": "object",
+        "required": [
+          "id",
+          "received_at",
+          "kind",
+          "forward_status",
+          "endpoint_id",
+          "endpoint_name",
+          "source",
+          "reason",
+          "payload",
+          "payload_length",
+          "payload_truncated",
+          "content_type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The submission id. Correlate it in Observability: POST \u2026/search/correlate/{id}."
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "filtered",
+              "routing_failed"
+            ],
+            "description": "filtered: the endpoint's own criteria rejected the payload. routing_failed: the submission was stored but its records could not be written (forward_status 'failed'); the outbox sweep keeps retrying it, and it leaves this list once it is routed."
+          },
+          "forward_status": {
+            "type": "string",
+            "enum": [
+              "filtered",
+              "failed"
+            ]
+          },
+          "endpoint_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The endpoint it arrived on; null for an event from an ingest key or a trigger."
+          },
+          "endpoint_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That endpoint's name; null when there is none or it has been deleted."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where it came from: webhook:<endpoint id or slug>, ingest, cron:<id>, ws:<id>, source:<id>."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, in a short sentence: for filtered, the first criterion the payload did not meet (e.g. \"Did not match the endpoint's criteria: type equals \\\"order.created\\\"\"); for routing_failed, the latest routing error. Null on a row from before #287."
+          },
+          "payload": {
+            "type": "string",
+            "description": "The stored body. In the list, its first 500 characters; from GET \u2026/errors/{id}, whole."
+          },
+          "payload_length": {
+            "type": "integer",
+            "description": "The stored body's full length in characters."
+          },
+          "payload_truncated": {
+            "type": "boolean"
+          },
+          "content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The request's media type (ING-3); null for a trigger's event."
+          }
+        }
       }
     },
     "parameters": {
@@ -789,7 +877,7 @@
             }
           },
           "201": {
-            "description": "Stored. The endpoint's own criteria and mappings apply (ING-1); project rules do not run on this URL. If the criteria are empty or match, the payload (mapped, or whole when the endpoint has no mappings) becomes one record in the endpoint's dataset and 'routed' holds that dataset name. If the criteria do not match, the submission is still stored and counted and the response is 201 with routed: [] and records: 0. Routing errors after the submission row is written are swallowed (the raw submission is never lost), which looks the same.",
+            "description": "Stored. The endpoint's own criteria and mappings apply (ING-1); project rules do not run on this URL. If the criteria are empty or match, the payload (mapped, or whole when the endpoint has no mappings) becomes one record in the endpoint's dataset and 'routed' holds that dataset name. If the criteria do not match, the submission is still stored and counted and the response is 201 with routed: [] and records: 0. Routing errors after the submission row is written are swallowed (the raw submission is never lost, it is marked 'failed' and the outbox sweep routes it again), which looks the same except that filtered is absent. A payload the criteria reject is answered with filtered: true as well (#287), and its submission is marked forward_status 'filtered', with the criterion it did not meet as the reason; a matching payload's response is unchanged and carries no filtered field.",
             "content": {
               "application/json": {
                 "schema": {
@@ -814,6 +902,13 @@
                     "records": {
                       "type": "integer",
                       "description": "routed.length"
+                    },
+                    "filtered": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Present, and true, only when the endpoint's own criteria rejected the payload (#287). The submission is kept (and counted against the quota) with forward_status 'filtered' and no record, and is listed on the project's Errors tab: GET /admin/api/projects/{project_id}/errors."
                     }
                   }
                 }
@@ -1416,7 +1511,7 @@
             }
           },
           "201": {
-            "description": "Stored. {dataset} is the endpoint's own dataset, and the endpoint's own criteria and mappings apply as on the three-segment URL (ING-1); project rules do not run. A match (or empty criteria) makes one record and 'routed' holds that dataset name; a non-match, or a swallowed routing error, is routed: [] and records: 0 with the submission kept.",
+            "description": "Stored. {dataset} is the endpoint's own dataset, and the endpoint's own criteria and mappings apply as on the three-segment URL (ING-1); project rules do not run. A match (or empty criteria) makes one record and 'routed' holds that dataset name; a non-match, or a swallowed routing error, is routed: [] and records: 0 with the submission kept. A non-match also carries filtered: true and marks the submission 'filtered' (#287); a routing error does not.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1439,6 +1534,13 @@
                     },
                     "records": {
                       "type": "integer"
+                    },
+                    "filtered": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Present, and true, only when the endpoint's own criteria rejected the payload (#287). The submission is kept (and counted against the quota) with forward_status 'filtered' and no record, and is listed on the project's Errors tab: GET /admin/api/projects/{project_id}/errors."
                     }
                   }
                 }
@@ -3196,7 +3298,7 @@
             }
           },
           "201": {
-            "description": "Stored. If the webhook rule's conditions are empty or match the payload, the rule is applied and 'routed' holds its NAME; if the conditions do not match, the submission is still stored and the response is 201 with routed: [] and records: 0. A swallowed routing failure looks the same.",
+            "description": "Stored. If the webhook rule's conditions are empty or match the payload, the rule is applied and 'routed' holds its NAME; if the conditions do not match, the submission is still stored and the response is 201 with routed: [] and records: 0. A swallowed routing failure looks the same. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3221,6 +3323,13 @@
                     "records": {
                       "type": "integer",
                       "description": "routed.length"
+                    },
+                    "filtered": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Present, and true, only when the endpoint's own criteria rejected the payload (#287). The submission is kept (and counted against the quota) with forward_status 'filtered' and no record, and is listed on the project's Errors tab: GET /admin/api/projects/{project_id}/errors."
                     }
                   }
                 }
@@ -3570,7 +3679,7 @@
             }
           },
           "201": {
-            "description": "Stored; 'routed' holds the webhook rule's name, or is empty when its conditions did not match.",
+            "description": "Stored; 'routed' holds the webhook rule's name, or is empty when its conditions did not match. When the conditions did not match, the response also carries filtered: true and the submission is marked forward_status 'filtered' (#287); a swallowed routing failure does not.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3593,6 +3702,13 @@
                     },
                     "records": {
                       "type": "integer"
+                    },
+                    "filtered": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Present, and true, only when the endpoint's own criteria rejected the payload (#287). The submission is kept (and counted against the quota) with forward_status 'filtered' and no record, and is listed on the project's Errors tab: GET /admin/api/projects/{project_id}/errors."
                     }
                   }
                 }
@@ -7552,8 +7668,10 @@
                               "pending",
                               "sent",
                               "failed",
+                              "filtered",
                               null
-                            ]
+                            ],
+                            "description": "pending: not routed yet (or, before #287, rejected by an endpoint's criteria); sent: routed into records; failed: routing threw and the outbox sweep retries it; filtered: an endpoint's own criteria rejected it (#287), terminal."
                           },
                           "forwarded_at": {
                             "type": [
@@ -7724,7 +7842,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: PATCH /admin/api/submissions/{id}. Write role required. PATCH is the only method on this path: there is no GET-one-submission route, and any other method answers 405 with `Allow: PATCH` (#277).",
+        "description": "Top-level alias: PATCH /admin/api/submissions/{id}. Write role required. PATCH is the only method on this path: there is no GET-one-submission route, and any other method answers 405 with `Allow: PATCH` (#277). Setting a status by hand clears the reason routing gave the submission (the Errors tab's `reason`, #287). `filtered` is set only by routing.",
         "parameters": [
           {
             "name": "project_id",
@@ -16898,7 +17016,8 @@
                     "enum": [
                       "pending",
                       "sent",
-                      "failed"
+                      "failed",
+                      "filtered"
                     ],
                     "description": "Matched against forward_status."
                   },
@@ -20723,7 +20842,8 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "Why the trigger is not storing events, or null. A connection failure (cleared on the next connect), a count of matching frames dropped by the rate limit or the quota, or the reason a matching frame could not be stored (#294); that last is cleared by the next frame that is stored."
                           },
                           "created_at": {
                             "type": "string"
@@ -21196,7 +21316,8 @@
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "description": "Why the trigger is not storing events, or null. A connection failure (cleared on the next connect), a count of matching frames dropped by the rate limit or the quota, or the reason a matching frame could not be stored (#294); that last is cleared by the next frame that is stored."
                         },
                         "created_at": {
                           "type": "string"
@@ -33541,6 +33662,7 @@
                         "window_hours",
                         "received",
                         "rejected",
+                        "filtered",
                         "last_received_at",
                         "last_rejected_at"
                       ],
@@ -33556,6 +33678,10 @@
                         "rejected": {
                           "type": "integer",
                           "description": "Refused requests in the last 24 hours (the sum of counts)."
+                        },
+                        "filtered": {
+                          "type": "integer",
+                          "description": "Of the submissions received in the last 24 hours, how many the endpoint's own criteria rejected (forward_status 'filtered', #287). They are kept and counted in `received`; the project's Errors tab lists them."
                         },
                         "last_received_at": {
                           "type": [
@@ -34387,6 +34513,266 @@
             "$ref": "#/components/responses/RateLimited"
           }
         }
+      }
+    },
+    "/admin/api/projects/{project_id}/errors": {
+      "get": {
+        "operationId": "listProjectErrors",
+        "summary": "A project's flagged events: filtered and routing failed",
+        "tags": [
+          "Observability"
+        ],
+        "description": "#287. Any role. The project's Errors tab: submissions an endpoint's own criteria rejected (kind filtered, forward_status 'filtered') and submissions whose records could not be written (kind routing_failed, forward_status 'failed'), newest first. Each is still a submission: kept, counted against the quota when it arrived, searchable in Observability, and pruned by the plan's retention like any other; nothing here is a copy. Payloads rejected before #287 stay forward_status 'pending' and are not listed (no backfill). Paged on the server with limit/offset and a total. MCP: list_project_errors.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "filtered",
+                "routing_failed"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the project's flagged events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rows",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ProjectError"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Rows matching `kind`, over every page."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "kind must be all, filtered or routing_failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Email domain not allowed for the workspace, or an agent token granted no Hookie scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{project_id}/errors/{id}": {
+      "get": {
+        "operationId": "getProjectError",
+        "summary": "One flagged event, with its whole payload",
+        "tags": [
+          "Observability"
+        ],
+        "description": "#287. Any role. One row of the Errors tab by its submission id, with `payload` whole rather than the list's 500-character preview. 404 for a submission that is not filtered or failed (for instance one routed since).",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Submission id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The flagged event.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "$ref": "#/components/schemas/ProjectError"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Email domain not allowed for the workspace, or an agent token granted no Hookie scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a filtered or failed submission of this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
       }
     }
   },
