@@ -133,6 +133,7 @@ Available with `hookie:read`:
 | `get_portal · list_portal_tokens` | The project's customer portal, and the customer links issued for it (prefix only, never the token). |
 | `list_ingest_keys` | Ingest keys as metadata only — name, prefix, last used, expiry, status. Never the plaintext. |
 | `list_deliveries` | Recent outbound deliveries: status, response code, and destination. |
+| `list_held_deliveries` | Events whose deliveries are held because the monthly delivery allowance is used up, oldest first, with this month's usage. |
 | `get_delivery` | One delivery in full: the stored response body and every attempt it made. The only call that returns them. |
 | `get_delivery_metrics` | Delivery health per destination over 24 hours, 7 or 30 days: success rate, p50/p95/p99 latency, failed attempts by class, and a time series. |
 | `search_deliveries · search_events · search_submissions` | Filtered, paged search with a time window. Use these rather than the `list_` tools for anything but a glance. |
@@ -155,6 +156,8 @@ Available with `hookie:write`:
 | `create_destination · update_destination · delete_destination` | Outbound sinks. Update renames a destination or moves it to a new https URL (same id and signing secret; a portal customer's keeps its URL), and changes enabled, the dataset filter and the delivery limits (`timeout_seconds`, `max_per_second`, `max_concurrency`; `null` restores the default). An empty filter is refused; leave it out for every dataset. |
 | `create_workflow · update_workflow` | A multi-step workflow: entry dataset, entry conditions, and the ordered steps. A multi-step workflow — entry dataset, entry conditions, and the ordered steps. Update is a **full replace**, not a patch: read with `get_workflow`, edit, send it all back. |
 | `delete_workflow` | By default this **deactivates**: the definition and its run history stay, and `update_workflow` with `active:true` turns it back on. With `permanent: true` it deletes the workflow and its run history for good. It is refused while a run has not finished, and the error names the runs to cancel with `cancel_workflow_run`. |
+| `cancel_workflow_run · retry_workflow_run` | Stop a running or waiting workflow run, or retry one that failed, timed out or was cancelled. |
+| `release_held_deliveries` | Send held deliveries, oldest first, while the allowance covers them. Stops at the first event it can't fully cover. |
 | `replay_delivery` | Re-queue a past delivery to its destination. |
 | `replay_deliveries` | Replay every delivery that did not arrive, by destination, status and time range, in bounded passes: call again while `more` is true. `dry_run` counts without sending. Charged to the delivery allowance and stops when it runs out. |
 | `create_ingest_key` | A new ingest key, optionally with an expiry and an IP allowlist. Returns the plaintext once, so treat it as a credential. |
@@ -167,6 +170,8 @@ Available with `hookie:write`:
 | `update_portal · delete_portal` | The project's customer portal: update creates it the first time, then changes its name, exposed datasets or enabled; delete switches it off, and update with `enabled: true` turns it back on. |
 | `create_portal_token · revoke_portal_token` | A customer's link to the portal, and cutting it off. Create returns the token **once**, so treat it as a credential. |
 | `delete_record` | Permanently erase **one** record and every copy Hookie keeps of it: its raw submission, deliveries and their responses, held deliveries, the workflow runs it started and AI output made from it. Returns what was deleted. Not reversible; see [Delete, export and close](/data-deletion). |
+
+The hosted server doesn't offer a tool that tails live events, because a tool call should return promptly rather than hold a connection open. To tail events, read the [live stream](/streaming) with an ingest key.
 
 Available with `hookie:manage` — the routes the console keeps to owners and admins:
 
