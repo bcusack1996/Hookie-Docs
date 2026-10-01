@@ -58,6 +58,7 @@
           "broadcast-logs",
           "team-members",
           "connected-agents",
+          "agent-self-registration",
           "api-keys",
           "data-api",
           "data-deletion",

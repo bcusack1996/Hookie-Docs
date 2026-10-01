@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key, revoking an invite, removing a member or leaving, accepting an invite to another workspace, switching workspaces and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key, revoking an invite, removing a member or leaving, accepting an invite to another workspace, switching workspaces and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\n**Agent self-registration.** An AI agent can create its own account with no person involved (#331): `GET /v1/agents/register/challenge` returns a signed proof-of-work challenge, and `POST /v1/agents/register` with the solution, the agent's name, an optional operator contact and `accept_terms` set to the current Terms version creates a WorkOS identity for the agent, a workspace on the Free plan with its Default project, and an admin API key (`hk_\u2026`, role admin) returned once, with a one-time claim token a person uses later to take ownership (`POST /admin/api/agent-accounts/claim`). The key works on `/admin/api/*`, on the hosted MCP server at `/mcp` and with the CLI (`HOOKIE_TOKEN`). Until a person claims the workspace, billing, SSO and organization requests, invites, Google Workspace linking and creating more API keys are refused to it (`agent_not_permitted`), and Free-plan quotas apply in full. The registration is rate limited per IP (an IPv6 address by its /64), capped per day across the platform with no one network taking more than a tenth of the cap, asks for more proof of work as the day's cap fills, and can be switched off by the operator.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -68,6 +68,14 @@
     {
       "name": "Broadcast Logs",
       "description": "Forward a project's logs and traces over OTLP/HTTP (JSON) to Datadog, Grafana Cloud, an OpenTelemetry Collector, PostHog or Sentry."
+    },
+    {
+      "name": "Status",
+      "description": "Whether the API can answer at all: the public health check that hookie.ai/status reads."
+    },
+    {
+      "name": "Agents",
+      "description": "Agent self-registration (#331): an AI agent creates its own Hookie account, with no person involved, and gets an admin API key for the admin API, the hosted MCP server and the CLI. The account starts on the Free plan; a person can later claim it with the one-time claim token. See docs.hookie.ai \u2192 Agents and the design note docs/design/agent-self-registration.md."
     }
   ],
   "components": {
@@ -133,7 +141,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used. `endpoint_disabled` (503): the endpoint is switched off; `handshake_failed`: a provider URL-verification challenge could not be answered (#193). `missing_header`, `bad_signature`, `stale_timestamp` (401): an endpoint's provider signature check failed; `scheme` names the check."
+            "description": "Machine-readable reason, where the status alone is ambiguous. `workspace_suspended` (403): the workspace is suspended; `delivery_allowance_exhausted` (429): a replay was refused because the monthly delivery allowance is used. `endpoint_disabled` (503): the endpoint is switched off; `handshake_failed`: a provider URL-verification challenge could not be answered (#193). `missing_header`, `bad_signature`, `stale_timestamp` (401): an endpoint's provider signature check failed; `scheme` names the check. `portal_customer_mismatch` (409): a portal token was requested for, or the vendor switched on the endpoint of, a customer other than the one the portal now serves (PORT-2g); `customer_id` and `customer_name` name that customer. Agent self-registration (#331), on /v1/agents/register: `rate_limited` (429), `agent_registration_disabled` and `agent_registration_unavailable` (503), `invalid_body`, `invalid_agent_name`, `invalid_operator_contact`, `terms_not_accepted` (with `terms_version`), `proof_of_work_required`, `invalid_challenge`, `challenge_expired`, `invalid_proof_of_work`, `invalid_idempotency_key` (400), `body_too_large` (413), `already_registered`, `registration_in_progress`, `challenge_spent` (409, with `account_id`), `daily_cap_reached`, `source_daily_limit` (429), `identity_provider_error` (502), `registration_incomplete` (503)."
           },
           "code": {
             "type": "string",
@@ -143,7 +151,7 @@
               "agent_not_permitted",
               "member_limit_reached"
             ],
-            "description": "Present on a 403 to an OAuth-connected agent, and on a member-limit 403 to anyone. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 a workspace owner or admin has to change the user's role first, in the console under Settings \u2192 Members. `agent_not_permitted`: no connected agent or API key may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret, invites of any kind, changing a role, removing a member, transferring ownership, and listing or switching a person's workspaces). `member_limit_reached` (#308): the workspace already has as many members as its plan allows, so an invite cannot be created or accepted; `max_members`, `members` and `upgrade_url` say how many and where to upgrade."
+            "description": "Present on a 403 to an OAuth-connected agent, and on a member-limit 403 to anyone. `agent_scope_insufficient`: the agent's grant is below what the call needs, and widening it would let the call through (see `required_scope` and `manage_url`). `insufficient_role`: the user's OWN workspace role does not allow the call, so no grant can \u2014 a workspace owner or admin has to change the user's role first, in the console under Settings \u2192 Members. `agent_not_permitted`: no connected agent or API key may do this at any scope (billing, platform admin, managing connected agents, a destination's signing secret, invites of any kind, changing a role, removing a member, transferring ownership, listing or switching a person's workspaces, and creating API keys). To a self-registered agent account nobody has claimed yet (#331) it also carries `claim_required: true`: a person must claim the workspace with the claim link from registration before anyone can do it. `member_limit_reached` (#308): the workspace already has as many members as its plan allows, so an invite cannot be created or accepted; `max_members`, `members` and `upgrade_url` say how many and where to upgrade."
           },
           "required_scope": {
             "type": "string",
@@ -177,6 +185,32 @@
           "members": {
             "type": "integer",
             "description": "With `code: \"member_limit_reached\"`: the workspace's members now."
+          },
+          "customer_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "On a `portal_customer_mismatch` 409: the customer the portal already serves."
+          },
+          "customer_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "On a `portal_customer_mismatch` 409: that customer's display name, if one was given."
+          },
+          "account_id": {
+            "type": "string",
+            "description": "On a 409 from POST /v1/agents/register: the agent account the earlier request created (or is creating). Never accompanied by a credential."
+          },
+          "terms_version": {
+            "type": "string",
+            "description": "On a `terms_not_accepted` 400: the Terms version `accept_terms` must equal."
+          },
+          "claim_required": {
+            "type": "boolean",
+            "description": "With `code: \"agent_not_permitted\"`, to a self-registered agent account nobody has claimed (#331): the refused action needs a person, who first claims the workspace with the claim link from the registration response (`claim.url`)."
           }
         }
       },
@@ -919,13 +953,15 @@
         "enum": [
           "webhook",
           "slack",
-          "s3"
+          "s3",
+          "sqs",
+          "pubsub"
         ],
         "default": "webhook",
-        "description": "How a delivery leaves Hookie (DLV-13, #313). `webhook`: the signed HTTPS POST to `url` (Hookie-Signature and the Standard Webhooks headers), unchanged. `slack`: a POST to a Slack incoming webhook with a readable message ({text, blocks}: dataset, event id, received time and the payload as pretty JSON truncated to 2,500 characters), or the destination's own template when it has a transform; it carries only Content-Type and User-Agent, no signature headers. `s3`: one object per event PUT to an S3-compatible bucket (AWS S3, Cloudflare R2, GCS interoperability, MinIO) at {prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json (dated by when the event was received, UTC), Content-Type application/json, x-amz-meta-hookie-event-id and x-amz-meta-hookie-dataset, signed with AWS SigV4; the key is the event's, so a retry or replay overwrites the same object. All three share retries with backoff, pacing, the delivery allowance and holds, replay and the delivery log. The type is fixed at creation."
+        "description": "How a delivery leaves Hookie (DLV-13, #313, #322). `webhook`: the signed HTTPS POST to `url` (Hookie-Signature and the Standard Webhooks headers), unchanged. `slack`: a POST to a Slack incoming webhook with a readable message ({text, blocks}: dataset, event id, received time and the payload as pretty JSON truncated to 2,500 characters), or the destination's own template when it has a transform; it carries only Content-Type and User-Agent, no signature headers. `s3`: one object per event PUT to an S3-compatible bucket (AWS S3, Cloudflare R2, GCS interoperability, MinIO) at {prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json (dated by when the event was received, UTC), Content-Type application/json, x-amz-meta-hookie-event-id and x-amz-meta-hookie-dataset, signed with AWS SigV4; the key is the event's, so a retry or replay overwrites the same object. `sqs` (#322): one SendMessage per event to an Amazon SQS queue over the JSON protocol (POST to the queue URL's host, X-Amz-Target AmazonSQS.SendMessage, Content-Type application/x-amz-json-1.0, signed with AWS SigV4 for service sqs); MessageBody is the delivery body, and the message attributes event_id and dataset (String) carry the event's id and dataset. A FIFO queue (name ending .fifo) also gets MessageDeduplicationId = the event id and MessageGroupId = the dataset, so a retry or replay inside SQS's five-minute window is one message. A message over SQS's 1 MiB limit (1,048,576 bytes, body and attributes together) fails at once and is not retried. SQS's error code decides a retry: throttling (ThrottlingException, RequestThrottled, KmsThrottled) and SQS-side failures are retried, refusals (AccessDenied, QueueDoesNotExist, InvalidParameterValue, InvalidMessageContents, signature and KMS errors) are not; the code is added to the delivery's error. `pubsub` (#322): one publish per event, POST https://pubsub.googleapis.com/v1/projects/{project}/topics/{topic}:publish with {messages: [{data: base64(body), attributes: {event_id, dataset}}]}, authorised by an OAuth access token minted from the destination's service-account key (an RS256 JWT exchanged at https://oauth2.googleapis.com/token) and cached until 60 s before it expires, never minted per delivery. A 401 drops the cached token and is retried; a key Google refuses fails the delivery without retrying. Pub/Sub has no deduplication on publish: receivers dedupe on the event_id attribute. All of them share retries with backoff, pacing, the delivery allowance and holds, replay and the delivery log. The type is fixed at creation."
       },
       "DestinationConfigInput": {
-        "description": "A Slack or S3 destination's settings (DLV-13). Required on create for those types; refused for a webhook. Credentials are stored AES-256-GCM encrypted and never returned, exported or logged. On PATCH, a credential that is not sent keeps the stored one, and S3 settings that are not sent keep their stored values. On create, the Slack variant needs webhook_url.",
+        "description": "A typed destination's settings (DLV-13, #313, #322). Required on create for those types; refused for a webhook. Credentials are stored AES-256-GCM encrypted and never returned, exported or logged. On PATCH, a credential that is not sent keeps the stored one, and settings that are not sent keep their stored values. On create, the Slack variant needs webhook_url.",
         "anyOf": [
           {
             "type": "object",
@@ -978,6 +1014,58 @@
               }
             },
             "description": "On create, bucket, access_key_id and secret_access_key are required, and region unless endpoint is set. On PATCH, send only what changes."
+          },
+          {
+            "type": "object",
+            "title": "SQS",
+            "additionalProperties": false,
+            "properties": {
+              "queue_url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 300,
+                "description": "The queue's URL: https://sqs.<region>.amazonaws.com/<12-digit account id>/<queue name> (also sqs.<region>.amazonaws.com.cn, sqs-fips.<region>.amazonaws.com and the legacy <region>.queue.amazonaws.com and queue.amazonaws.com). Any other host is refused. A name ending .fifo is a FIFO queue."
+              },
+              "region": {
+                "type": "string",
+                "description": "Optional: read from the queue URL. Sent, it must match it."
+              },
+              "access_key_id": {
+                "type": "string",
+                "description": "Returned in full: it identifies the key, it does not unlock it. Grant it sqs:SendMessage on this queue and nothing more."
+              },
+              "secret_access_key": {
+                "type": "string",
+                "maxLength": 256,
+                "description": "Write-only. Never returned."
+              }
+            },
+            "description": "On create, queue_url, access_key_id and secret_access_key are required. On PATCH, send only what changes."
+          },
+          {
+            "type": "object",
+            "title": "Pub/Sub",
+            "additionalProperties": false,
+            "properties": {
+              "project_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+                "description": "The Google Cloud project the topic is in."
+              },
+              "topic": {
+                "type": "string",
+                "description": "The topic id (3-255 letters, digits, - _ . ~ +, starting with a letter, not goog...), or its full name projects/{project}/topics/{topic}."
+              },
+              "service_account_json": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "maxLength": 16384,
+                "description": "Write-only. The service account's JSON key file as Google issues it (text or object): it must have type service_account, a client_email of a service account, an RSA private_key in PKCS #8 PEM, and token_uri https://oauth2.googleapis.com/token (any other token_uri is refused). Only the email, the private key and its id are kept, encrypted; the email is returned as config.service_account_email. Scope the account to roles/pubsub.publisher on this topic."
+              }
+            },
+            "description": "On create, project_id, topic and service_account_json are required. On PATCH, send only what changes; a new service_account_json drops the cached access token."
           }
         ]
       },
@@ -986,7 +1074,7 @@
           "object",
           "null"
         ],
-        "description": "The type's settings as returned (DLV-13): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3. No credential is ever included.",
+        "description": "The type's settings as returned (DLV-13, #322): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3; {queue_url, region, access_key_id, fifo} for SQS; {project_id, topic, service_account_email} for Pub/Sub. No credential is ever included.",
         "properties": {
           "webhook_url": {
             "type": [
@@ -1021,6 +1109,167 @@
               "string",
               "null"
             ]
+          },
+          "queue_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SQS: the queue's URL."
+          },
+          "fifo": {
+            "type": "boolean",
+            "description": "SQS: whether the queue is FIFO (its name ends .fifo), so messages carry MessageDeduplicationId and MessageGroupId."
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pub/Sub: the topic's project."
+          },
+          "topic": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pub/Sub: the topic id."
+          },
+          "service_account_email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pub/Sub: the service account whose key is stored (the key itself is never returned)."
+          }
+        }
+      },
+      "GoogleWorkspaceLink": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "domain",
+              "default_role",
+              "created_by",
+              "created_by_email",
+              "created_at"
+            ],
+            "properties": {
+              "domain": {
+                "type": "string",
+                "description": "The Google Workspace domain (Google's `hd`), lower case."
+              },
+              "default_role": {
+                "type": "string",
+                "enum": [
+                  "viewer",
+                  "developer"
+                ],
+                "description": "The role a person joins with."
+              },
+              "created_by": {
+                "type": "string",
+                "description": "The owner who linked it."
+              },
+              "created_by_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "SsoOrgRequest": {
+        "type": "object",
+        "description": "A workspace's request for a WorkOS organization, for single sign-on and/or Directory Sync (#325). Filing one creates nothing in WorkOS: a Hookie operator approves or rejects it, and only approval creates the organization.",
+        "required": [
+          "id",
+          "kinds",
+          "domains",
+          "note",
+          "status",
+          "requested_at",
+          "decided_at",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "sreq_6f1c0a7e2b8d4c1e9a3f5b7d0c2e4a6f"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sso",
+                "dsync"
+              ]
+            },
+            "description": "What the workspace asked for: `sso` (single sign-on) and/or `dsync` (Directory Sync). Each is an Admin Portal intent the owner may open once approved."
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "acme.com"
+            ],
+            "description": "Lower-cased email domains. WorkOS receives them as pending; the customer proves each one by DNS in the Admin Portal."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approving",
+              "approved",
+              "rejected",
+              "cancelled",
+              "superseded"
+            ],
+            "description": "`approving` is the moment an operator's decision is with WorkOS; it ends in `approved`, or back in `pending` if WorkOS refused. `superseded`: an approved request replaced by an approved change."
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The operator's reason, when rejected."
+          },
+          "supersedes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set on a change request: the approved request it would replace. Approving the change updates the same WorkOS organization (its domains are set to the change's) instead of creating a second one."
           }
         }
       }
@@ -4834,7 +5083,7 @@
             }
           },
           "401": {
-            "description": "Missing, malformed, revoked, expired token, or the portal is disabled.",
+            "description": "Missing, malformed, revoked, expired token, or the portal is disabled. Also answered when the token was revoked or expired while the request was in flight (PORT-2g, #321): the write re-checks the token inside the statement, so an endpoint is never added or switched on for a customer the vendor has just offboarded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4978,7 +5227,7 @@
             }
           },
           "401": {
-            "description": "Missing, malformed, revoked, expired token, or the portal is disabled.",
+            "description": "Missing, malformed, revoked, expired token, or the portal is disabled. Also answered when the token was revoked or expired while the request was in flight (PORT-2g, #321): the write re-checks the token inside the statement, so `enabled: true` never switches an endpoint on for a customer the vendor has just offboarded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5132,7 +5381,7 @@
             }
           },
           "401": {
-            "description": "Missing, malformed, revoked, expired token, or the portal is disabled.",
+            "description": "Missing, malformed, revoked, expired token, or the portal is disabled. Also answered when the token was revoked or expired while the request was in flight (PORT-2g, #321): the write re-checks the token inside the statement, so `enabled: true` never switches an endpoint on for a customer the vendor has just offboarded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5551,7 +5800,9 @@
                     "workspaceStatus",
                     "workspaceClosure",
                     "retentionGrace",
-                    "signInMethod"
+                    "signInMethod",
+                    "googleWorkspaceDomain",
+                    "googleWorkspaceNotice"
                   ],
                   "properties": {
                     "user": {
@@ -5679,6 +5930,81 @@
                         }
                       ],
                       "description": "Set for 7 days after a downgrade that shortened the workspace's retention: until `ends_at` the previous plan's retention still applies, and after it data older than the current plan's retention is deleted. Null otherwise."
+                    },
+                    "googleWorkspaceDomain": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The Google Workspace domain (Google's `hd`) Google verified for this console session's Google sign-in (#326). null for any other sign-in, a personal Google account, an agent or an API key, and where the WorkOS environment does not return Google's OAuth tokens."
+                    },
+                    "googleWorkspaceNotice": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "domain"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "const": "member_limit_reached"
+                            },
+                            "domain": {
+                              "type": "string",
+                              "description": "The person's own Google Workspace domain. Nothing about the linked workspace (its name, members or limit) is included: the person is not a member of it."
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Set when this Google sign-in's domain is linked to a workspace the person could not join because it is at its plan's member limit (#326); null otherwise."
+                    },
+                    "agent_account": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "Set when an AI agent registered this workspace itself (#331): which agent, and whether a person has claimed it. Null for every other workspace.",
+                      "required": [
+                        "id",
+                        "name",
+                        "claimed",
+                        "claimed_at",
+                        "created_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "claimed": {
+                          "type": "boolean"
+                        },
+                        "claimed_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "is_agent_account": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ],
+                      "description": "Present only when the caller is the self-registered agent itself, before a person claims the workspace (#331)."
                     }
                   }
                 }
@@ -12570,7 +12896,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack or s3) and config holds its settings without any credential (DLV-13).",
+            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack, s3, sqs or pubsub) and config holds its settings without any credential (DLV-13).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12799,10 +13125,11 @@
                               "type": "string",
                               "enum": [
                                 "webhook_url",
-                                "secret_access_key"
+                                "secret_access_key",
+                                "service_account_json"
                               ]
                             },
-                            "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
+                            "description": "Slack, S3, SQS and Pub/Sub only: which credentials are stored (their values never leave the server)."
                           }
                         }
                       }
@@ -12904,7 +13231,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Created. signing_secret is returned here in plaintext; it is stored AES-256-GCM encrypted and can be read back later via the secret endpoint. Every type gets a signing secret: a webhook's deliveries are signed with it, and for Slack and S3 it signs only the destination's alert_url notices.",
+            "description": "Created. signing_secret is returned here in plaintext; it is stored AES-256-GCM encrypted and can be read back later via the secret endpoint. Every type gets a signing secret: a webhook's deliveries are signed with it, and for Slack, S3, SQS and Pub/Sub it signs only the destination's alert_url notices.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13012,10 +13339,11 @@
                             "type": "string",
                             "enum": [
                               "webhook_url",
-                              "secret_access_key"
+                              "secret_access_key",
+                              "service_account_json"
                             ]
                           },
-                          "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
+                          "description": "Slack, S3, SQS and Pub/Sub only: which credentials are stored (their values never leave the server)."
                         }
                       },
                       "description": "The created destination, as GET by id returns it (#201)."
@@ -13026,7 +13354,7 @@
             }
           },
           "400": {
-            "description": "Validation failure - name missing or over 80 characters, url missing, not absolute, or not https, an invalid datasetFilter entry, a reserved, malformed or duplicated header, a header value with a line break, an unknown auth type or a missing credential, a custom header that is also the authentication's header, an invalid transform (unknown type, bad mapping key, over 16 KB), or an alert_url that is not a public https URL, an unknown type, a url, headers or auth on a Slack or S3 destination, config on a webhook, or a Slack or S3 config that is missing or invalid (a webhook_url not on https://hooks.slack.com/, an endpoint that is not a public https origin, a bad region, bucket, prefix or access key, a missing secret_access_key).",
+            "description": "Validation failure - name missing or over 80 characters, url missing, not absolute, or not https, an invalid datasetFilter entry, a reserved, malformed or duplicated header, a header value with a line break, an unknown auth type or a missing credential, a custom header that is also the authentication's header, an invalid transform (unknown type, bad mapping key, over 16 KB), or an alert_url that is not a public https URL, an unknown type, a url, headers or auth on a Slack, S3, SQS or Pub/Sub destination, config on a webhook, or a typed config that is missing or invalid (a webhook_url not on https://hooks.slack.com/, an endpoint that is not a public https origin, a bad region, bucket, prefix or access key, a missing secret_access_key, a queue_url that is not on an SQS endpoint or a region that does not match it, a bad project_id or topic, or a service_account_json that is not JSON, has no service account's client_email or usable private_key, or names a token_uri other than https://oauth2.googleapis.com/token).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13112,7 +13440,7 @@
                   "url": {
                     "type": "string",
                     "format": "uri",
-                    "description": "webhook only, and required for it: an absolute https URL. http and relative URLs are rejected. Normalized through the URL parser before storing. Refused for Slack and S3, whose address is their config. A Slack incoming-webhook URL (hooks.slack.com) is refused here (400): it is a credential, stored encrypted only as a `slack` destination's config.webhook_url (#313)."
+                    "description": "webhook only, and required for it: an absolute https URL. http and relative URLs are rejected. Normalized through the URL parser before storing. Refused for Slack, S3, SQS and Pub/Sub, whose address is their config. A Slack incoming-webhook URL (hooks.slack.com) is refused here (400): it is a credential, stored encrypted only as a `slack` destination's config.webhook_url (#313)."
                   },
                   "datasetFilter": {
                     "type": [
@@ -13160,10 +13488,10 @@
                       },
                       "additionalProperties": false
                     },
-                    "description": "Custom headers sent with every delivery (DLV-7). Replaces the whole list; null clears it. Sent before Hookie's own headers, which always win. webhook only: refused for Slack and S3."
+                    "description": "Custom headers sent with every delivery (DLV-7). Replaces the whole list; null clears it. Sent before Hookie's own headers, which always win. webhook only: refused for Slack, S3, SQS and Pub/Sub."
                   },
                   "auth": {
-                    "description": "Authentication (DLV-7), stored AES-256-GCM encrypted and never returned. null or {type:'none'} removes it. On PATCH, the same type with no credential keeps the stored credential (so an API key's header can be renamed without re-entering it). webhook only: refused for Slack and S3 (S3 is authenticated by SigV4 from config).",
+                    "description": "Authentication (DLV-7), stored AES-256-GCM encrypted and never returned. null or {type:'none'} removes it. On PATCH, the same type with no credential keeps the stored credential (so an API key's header can be renamed without re-entering it). webhook only: refused for Slack, S3, SQS and Pub/Sub (S3 and SQS are authenticated by SigV4 from config, Pub/Sub by its service-account key).",
                     "oneOf": [
                       {
                         "type": "null"
@@ -13469,10 +13797,11 @@
                             "type": "string",
                             "enum": [
                               "webhook_url",
-                              "secret_access_key"
+                              "secret_access_key",
+                              "service_account_json"
                             ]
                           },
-                          "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
+                          "description": "Slack, S3, SQS and Pub/Sub only: which credentials are stored (their values never leave the server)."
                         }
                       }
                     }
@@ -13551,7 +13880,7 @@
             }
           },
           "400": {
-            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, a type other than the destination's own, url, headers or auth on a Slack or S3 destination, config on a webhook, an invalid Slack or S3 config, or Nothing to update when no field was sent.",
+            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, a type other than the destination's own, url, headers or auth on a Slack, S3, SQS or Pub/Sub destination, config on a webhook, an invalid Slack, S3, SQS or Pub/Sub config, or Nothing to update when no field was sent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13591,7 +13920,7 @@
             }
           },
           "409": {
-            "description": "The destination belongs to a customer portal - its dataset filter is fixed by the portal event types, and its URL, headers, authentication and payload are the customer's. Only raised when dataset_filter, url, headers, auth or transform is in the body.",
+            "description": "The destination belongs to a customer portal - its dataset filter is fixed by the portal event types, and its URL, headers, authentication and payload are the customer's. Only raised when dataset_filter, url, headers, auth or transform is in the body. Also `portal_customer_mismatch` (PORT-2g, #321): `enabled: true` on a portal customer's destination while the portal now serves a different customer (the body names them in `customer_id` / `customer_name`); switching it on would send that customer's events to this one. Nothing in the request is applied. Offboard the current customer first, or leave the destination off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13652,7 +13981,7 @@
               "schema": {
                 "type": "object",
                 "minProperties": 1,
-                "description": "At least one of name, url, config, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`). A destination's type cannot change (400 when type names another). Slack and S3 destinations change their address through config, never url, and take no headers or auth.",
+                "description": "At least one of name, url, config, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`). A destination's type cannot change (400 when type names another). Slack, S3, SQS and Pub/Sub destinations change their address through config, never url, and take no headers or auth.",
                 "properties": {
                   "name": {
                     "type": "string",
@@ -26928,7 +27257,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Tokens, newest first. Only the 12-character prefix is returned \u2014 tokens are stored SHA-256 hashed and the plaintext is shown once, at issuance.",
+            "description": "Tokens, newest first. Only the 12-character prefix is returned \u2014 tokens are stored SHA-256 hashed and the plaintext is shown once, at issuance. `customer` names the customer this portal serves (PORT-2g, #321): whoever holds a live token on it (not revoked, not expired) or still has an endpoint that is on. A token for anyone else is a 409. Null when the portal is free.",
             "content": {
               "application/json": {
                 "schema": {
@@ -26978,6 +27307,25 @@
                             ],
                             "description": "The display name given at issuance, or null."
                           }
+                        }
+                      }
+                    },
+                    "customer": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "The one customer this portal serves, or null when it has none (PORT-2g). The console locks its token dialog to this id.",
+                      "properties": {
+                        "customer_id": {
+                          "type": "string"
+                        },
+                        "customer_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The latest display name given at issuance, or null."
                         }
                       }
                     }
@@ -27171,6 +27519,22 @@
               }
             }
           },
+          "409": {
+            "description": "`portal_customer_mismatch` (issue mode): this portal already serves another customer. The body names them in `customer_id` and `customer_name`. Issue the token for that customer, offboard them first (`{\"offboard\": customer_id}` on this route, or Offboard in the console), or give the new customer their own project and portal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "This portal already serves customer 'acme' (Acme Inc). A customer portal serves one customer, so its events never reach anyone else. Issue this token for 'acme', or offboard them first (Offboard customer in the console, or POST {\"offboard\": \"<customer_id>\"} to this route: it revokes their tokens and switches their endpoints off), or give the new customer their own project and portal.",
+                  "reason": "portal_customer_mismatch",
+                  "customer_id": "acme",
+                  "customer_name": "Acme Inc"
+                }
+              }
+            }
+          },
           "500": {
             "description": "`Internal error`.",
             "content": {
@@ -27223,7 +27587,7 @@
                       "customer_id": {
                         "type": "string",
                         "minLength": 1,
-                        "description": "The tenant's own identifier for their end customer. Trimmed; must be non-empty."
+                        "description": "The tenant's own identifier for their end customer. Trimmed; must be non-empty. Compared exactly (case-sensitive) with the portal's current customer: a different id is a 409 (PORT-2g)."
                       },
                       "scopes": {
                         "type": "array",
@@ -27285,7 +27649,8 @@
           {
             "apiKey": []
           }
-        ]
+        ],
+        "description": "**One customer per portal (PORT-2g, #321).** A portal's events are not scoped to a customer: every customer endpoint on a portal receives every event of each dataset the portal exposes. So a portal serves exactly one customer, and a vendor isolates customers by giving each one its own project and portal. Issuing a token whose `customer_id` differs from the portal's current customer (anyone holding a live token, not revoked and not expired, or still having an endpoint that is on) is a `409` with `reason: \"portal_customer_mismatch\"`. The check is made by the insert itself, so two concurrent issues for different customers cannot both succeed. The same customer can hold several tokens. Revoking a customer's last token or offboarding them switches their endpoints off and frees the portal for a new customer. Switching an offboarded customer's endpoint back on (`enabled: true` on the destination) is refused the same way while the portal serves someone else, and a portal customer's own create or enable re-checks their token inside the write (401 once it is revoked)."
       }
     },
     "/admin/api/agents": {
@@ -32572,7 +32937,7 @@
             }
           },
           "403": {
-            "description": "`Insufficient role`, a role above the creator's own, or the caller is an agent or API key.",
+            "description": "`Insufficient role`, a role above the creator's own, or the caller is an agent or API key (`code: \"agent_not_permitted\"`; `claim_required: true` for an unclaimed self-registered agent account).",
             "content": {
               "application/json": {
                 "schema": {
@@ -36295,6 +36660,2053 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/workspace/google-domain": {
+      "get": {
+        "operationId": "getGoogleWorkspaceDomain",
+        "summary": "The workspace's Google Workspace domain link",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Any member, an agent or API key included. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on Team the subscription's seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link, if any, and what this session could link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "link",
+                    "session",
+                    "roles"
+                  ],
+                  "properties": {
+                    "link": {
+                      "$ref": "#/components/schemas/GoogleWorkspaceLink"
+                    },
+                    "session": {
+                      "type": "object",
+                      "required": [
+                        "google_workspace_domain",
+                        "can_link"
+                      ],
+                      "properties": {
+                        "google_workspace_domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The Google Workspace domain Google verified for THIS console session's Google sign-in; null for every other sign-in, a personal Google account, an agent or an API key."
+                        },
+                        "can_link": {
+                          "type": "boolean",
+                          "description": "True when the caller is the owner and this session has a verified domain."
+                        }
+                      }
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "viewer",
+                          "developer"
+                        ]
+                      },
+                      "description": "The roles a link can give."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "put": {
+        "operationId": "linkGoogleWorkspaceDomain",
+        "summary": "Link the owner's Google Workspace domain",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner only, in the console, from a Google sign-in whose Google Workspace domain Google verified; never through an OAuth-connected agent or an API key. The domain linked is ALWAYS the session's, never one chosen by the request: `domain` in the body is only a check, refused with 409 `google_workspace_domain_mismatch` when it differs. Linking another domain replaces this workspace's link (members who joined stay); linking the same one again changes only `default_role` (PATCH changes the role without a Google sign-in). Audited as `google_workspace_linked` (or `google_workspace_updated`). Refused while the workspace is suspended. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on Team the subscription's seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "default_role": {
+                    "type": "string",
+                    "enum": [
+                      "viewer",
+                      "developer"
+                    ],
+                    "default": "viewer",
+                    "description": "The role people from the domain join with. Never admin or owner."
+                  },
+                  "domain": {
+                    "type": "string",
+                    "description": "Optional check: the domain the caller expects to link. It must equal the session's verified domain."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "link"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "link": {
+                      "$ref": "#/components/schemas/GoogleWorkspaceLink"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`default_role` is not viewer or developer, or the body is not a JSON object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the owner; an OAuth-connected agent or API key (`agent_not_permitted`); this session is not a Google sign-in with a verified Google Workspace domain (`google_workspace_session_required`); or the workspace is suspended (`workspace_suspended`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`domain` differs from the session's verified domain (`google_workspace_domain_mismatch`), or the domain is linked to another workspace (`google_workspace_domain_taken`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateGoogleWorkspaceDomainRole",
+        "summary": "Change the role people from the linked domain join with",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner only, in the console; never through an OAuth-connected agent or an API key. Changes only `default_role` on the link this workspace already holds. It claims no domain, so unlike linking it needs no Google sign-in: an owner signed in with an email code or GitHub can change it. Members who already joined keep their roles. Audited as `google_workspace_updated` when the role actually changes. Refused while the workspace is suspended.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "default_role"
+                ],
+                "properties": {
+                  "default_role": {
+                    "type": "string",
+                    "enum": [
+                      "viewer",
+                      "developer"
+                    ],
+                    "description": "The role people from the domain join with. Never admin or owner."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated (or already that role).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "link"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "link": {
+                      "$ref": "#/components/schemas/GoogleWorkspaceLink"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`default_role` is missing or not viewer or developer, or the body is not a JSON object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the owner; an OAuth-connected agent or API key (`agent_not_permitted`); or the workspace is suspended (`workspace_suspended`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This workspace is not linked to a Google Workspace domain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unlinkGoogleWorkspaceDomain",
+        "summary": "Unlink the Google Workspace domain",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner only, in the console; never through an agent or API key. Stops new joins; everyone who already joined stays a member. Audited as `google_workspace_unlinked`. Allowed while the workspace is suspended, since it only takes access away.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unlinked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "link"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "link": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the owner, or an OAuth-connected agent or API key (`agent_not_permitted`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This workspace is not linked to a Google Workspace domain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/sso/requests": {
+      "get": {
+        "operationId": "getSsoOrgRequest",
+        "summary": "Read the workspace's SSO / Directory Sync request",
+        "tags": [
+          "SSO"
+        ],
+        "description": "The workspace's latest request for single sign-on or Directory Sync, or null, and whether its plan offers them (`eligible`: Team only). Owner and admin. Never available to connected agents or API keys. While a change is in review, `request` is the change and `approved` the request still in force.",
+        "responses": {
+          "200": {
+            "description": "The latest request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eligible",
+                    "plan",
+                    "request",
+                    "approved",
+                    "portal_intents"
+                  ],
+                  "properties": {
+                    "eligible": {
+                      "type": "boolean"
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "free",
+                        "standard",
+                        "team"
+                      ]
+                    },
+                    "request": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/SsoOrgRequest"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The latest request: the approved one, a change or a first request in review, or the last decided."
+                    },
+                    "approved": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/SsoOrgRequest"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The approved request in force, if any. Differs from `request` while a change is in review."
+                    },
+                    "portal_intents": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "sso",
+                          "dsync"
+                        ]
+                      },
+                      "description": "The Admin Portal intents that can be opened at all in this deployment. Single sign-on (`sso`) is closed until Hookie's sign-in can start an SSO login, because an active SSO connection on a verified domain makes WorkOS refuse every other sign-in method for that domain; today this is `[\"dsync\"]`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role` (developer or viewer). `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createSsoOrgRequest",
+        "summary": "Request single sign-on or Directory Sync",
+        "tags": [
+          "SSO"
+        ],
+        "description": "Files a request for a Hookie operator to review (#325). WorkOS bills every SSO and Directory Sync connection, so nothing is created in WorkOS or in Hookie's organization mapping until an operator approves it; this call only stores the request as `pending`. Owner only, on the Team plan. One request in review (pending) per workspace. Filed while a request is approved, it is a CHANGE request (`supersedes` set): it carries the whole new set of kinds and domains, is reviewed the same way, and on approval updates the same WorkOS organization rather than creating another; the approved request stays in force until then, and a rejected or cancelled change leaves it as it was. Consumer mail domains (gmail.com and the like) are refused.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "kinds",
+                  "domains"
+                ],
+                "properties": {
+                  "kinds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "sso",
+                        "dsync"
+                      ]
+                    }
+                  },
+                  "domains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "acme.com"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Anything the operator should know: the identity provider, the number of people."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored as pending. Nothing was created in WorkOS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "request"
+                  ],
+                  "properties": {
+                    "request": {
+                      "$ref": "#/components/schemas/SsoOrgRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is invalid: `kinds`, a domain that is not one or is a public mail domain, or a `note` over 1000 characters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the owner may request; `reason: \"plan_upgrade_required\"` below Team. `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`reason: \"sso_request_open\"`: the workspace already has a pending or approved request, returned as `request`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        },
+                        "request": {
+                          "$ref": "#/components/schemas/SsoOrgRequest"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/admin/api/sso/requests/{request_id}": {
+      "delete": {
+        "operationId": "cancelSsoOrgRequest",
+        "summary": "Cancel a pending SSO / Directory Sync request",
+        "tags": [
+          "SSO"
+        ],
+        "description": "Withdraws a request that is still `pending`. An approved request cannot be cancelled here. Owner only; allowed while the workspace is suspended.",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "request"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "request": {
+                      "$ref": "#/components/schemas/SsoOrgRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the owner may cancel. `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Request not found` (in this workspace).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request is no longer pending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/admin/api/sso/portal-link": {
+      "post": {
+        "operationId": "createSsoPortalLink",
+        "summary": "Open the WorkOS Admin Portal to set up SSO or Directory Sync",
+        "tags": [
+          "SSO"
+        ],
+        "description": "Generates a WorkOS Admin Portal link for the workspace's organization, where the customer's IT admin connects their directory (`intent: \"dsync\"`). Refused unless a Hookie operator has approved the workspace's request, and the request included that intent. `intent: \"sso\"` is refused for every workspace, approved or not (`reason: \"sso_signin_not_available\"`) until Hookie's sign-in can start an SSO login: once an SSO connection is active and a domain verified, WorkOS refuses emailed codes, GitHub and Google for that domain across the whole environment, which would lock every Hookie user at it out. The link expires five minutes after it is made and is never stored, so the console opens it straight away. Owner only, on the Team plan.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "intent"
+                ],
+                "properties": {
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "sso",
+                      "dsync"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A single-use, five-minute link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "link",
+                    "intent",
+                    "expires_in_seconds"
+                  ],
+                  "properties": {
+                    "link": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "intent": {
+                      "type": "string",
+                      "enum": [
+                        "sso",
+                        "dsync"
+                      ]
+                    },
+                    "expires_in_seconds": {
+                      "type": "integer",
+                      "example": 300
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`intent must be \"sso\" or \"dsync\"`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`reason: \"sso_signin_not_available\"` (`intent: \"sso\"`, closed for now; no WorkOS call is made), `reason: \"sso_request_not_approved\"` (no approved request yet), `reason: \"sso_intent_not_approved\"` (the approved request did not include this intent; file a change request), `reason: \"plan_upgrade_required\"` below Team, or not the owner. `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "WorkOS could not create the link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "WorkOS is not configured in this environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Is the API up?",
+        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai, https://www.hookie.ai and the preview site https://preview.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
+        "tags": [
+          "Status"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Every check passed.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "checks",
+                    "time"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ],
+                      "description": "`ok` when every check passed, `degraded` when any failed."
+                    },
+                    "checks": {
+                      "type": "object",
+                      "required": [
+                        "database",
+                        "queue"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "database": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "error"
+                          ],
+                          "description": "A trivial read (`SELECT 1`) of the D1 database, failed if it errors or takes longer than 2 seconds."
+                        },
+                        "queue": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "error"
+                          ],
+                          "description": "Whether the outbound delivery queue is bound. No message is sent."
+                        }
+                      }
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the checks ran (UTC)."
+                    }
+                  }
+                },
+                "example": {
+                  "status": "ok",
+                  "checks": {
+                    "database": "ok",
+                    "queue": "ok"
+                  },
+                  "time": "2026-10-01T12:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one check failed: `status: \"degraded\"`, and the failed check is `error`.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "checks",
+                    "time"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ],
+                      "description": "`ok` when every check passed, `degraded` when any failed."
+                    },
+                    "checks": {
+                      "type": "object",
+                      "required": [
+                        "database",
+                        "queue"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "database": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "error"
+                          ],
+                          "description": "A trivial read (`SELECT 1`) of the D1 database, failed if it errors or takes longer than 2 seconds."
+                        },
+                        "queue": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "error"
+                          ],
+                          "description": "Whether the outbound delivery queue is bound. No message is sent."
+                        }
+                      }
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the checks ran (UTC)."
+                    }
+                  }
+                },
+                "example": {
+                  "status": "degraded",
+                  "checks": {
+                    "database": "error",
+                    "queue": "ok"
+                  },
+                  "time": "2026-10-01T12:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Over the per-IP limit: {error, retry_after: 60}, with a Retry-After: 60 header.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 60.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "retry_after": {
+                          "type": "integer",
+                          "enum": [
+                            60
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "operationId": "headHealth",
+        "summary": "Is the API up? (headers only)",
+        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai, https://www.hookie.ai and the preview site https://preview.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
+        "tags": [
+          "Status"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Every check passed. No body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one check failed: `status: \"degraded\"`, and the failed check is `error`. No body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Over the per-IP limit: {error, retry_after: 60}, with a Retry-After: 60 header. No body.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying: 60.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Origin`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Origin"
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "operationId": "preflightHealth",
+        "summary": "CORS preflight for /health",
+        "description": "Answers 204 without running any check. For an allowed origin (https://hookie.ai, https://www.hookie.ai, https://preview.hookie.ai) it carries Access-Control-Allow-Origin, Access-Control-Allow-Methods: GET, HEAD and Access-Control-Max-Age: 600; any other origin gets no CORS header.",
+        "tags": [
+          "Status"
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Preflight answered."
+          }
+        }
+      }
+    },
+    "/v1/agents/register/challenge": {
+      "get": {
+        "operationId": "getAgentRegistrationChallenge",
+        "summary": "Get a proof-of-work challenge to register an agent",
+        "tags": [
+          "Agents"
+        ],
+        "security": [],
+        "description": "Public: no cookie, no key. Issues a signed, stateless challenge that expires in ten minutes. Solve it by finding a `nonce` \u2014 a decimal string of at most 32 digits, found by counting up from 0 \u2014 such that SHA-256(`challenge` + `\":\"` + `nonce`) starts with `difficulty_bits` zero bits, then POST /v1/agents/register. The cost is small for one agent and large for a script creating accounts in bulk. `difficulty_bits` is the operator's setting (20 by default), plus 2, 4 or 6 bits once today's registrations pass 50, 75 or 90% of the daily cap: solve at the difficulty the challenge states. Refused when the operator has switched registration off.",
+        "responses": {
+          "200": {
+            "description": "A challenge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "challenge",
+                    "algorithm",
+                    "difficulty_bits",
+                    "expires_at",
+                    "solve",
+                    "register_url",
+                    "terms_version",
+                    "terms_url"
+                  ],
+                  "properties": {
+                    "challenge": {
+                      "type": "string",
+                      "description": "`v1.<payload>.<mac>`, signed by Hookie. Send it back unchanged as `pow.challenge`. Single use: one challenge registers at most one account."
+                    },
+                    "algorithm": {
+                      "type": "string",
+                      "enum": [
+                        "sha256"
+                      ]
+                    },
+                    "difficulty_bits": {
+                      "type": "integer",
+                      "description": "Leading zero bits SHA-256(challenge + \":\" + nonce) must have. 20 by default (about a million hashes on average: one to three seconds of CPU with Node's crypto.createHash or Python's hashlib); the operator can set 12\u201326."
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Ten minutes after issue."
+                    },
+                    "solve": {
+                      "type": "string",
+                      "description": "The puzzle and the next request, in words."
+                    },
+                    "register_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "terms_version": {
+                      "type": "string",
+                      "description": "The current Terms of Use version (currently `2026-10-01`): the value `accept_terms` must have."
+                    },
+                    "terms_url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address (`reason: rate_limited`, the AGENT_RL limiter: about 5 a minute per IP, an IPv6 address counted by its /64, best-effort and counted per Cloudflare location), or, on POST, today's platform-wide registration cap is reached (`reason: daily_cap_reached`) or this network (an IPv4 address or an IPv6 /48) has made its share of it, a tenth (`reason: source_daily_limit`); both retry after midnight UTC.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`agent_registration_disabled`: the operator has switched agent self-registration off. `agent_registration_unavailable`: this environment has no WorkOS API key, so the agent's identity cannot be made. On POST also `registration_incomplete`: retry the SAME request after `retry_after` seconds; it finishes the registration rather than making another.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/register": {
+      "post": {
+        "operationId": "registerAgent",
+        "summary": "Register an AI agent's own Hookie account",
+        "tags": [
+          "Agents"
+        ],
+        "security": [],
+        "description": "Public: no cookie, no key. Creates, all or nothing: the agent's identity in WorkOS (a User Management user with a non-deliverable, verified address on agents.hookie.ai, external_id = the account id; no WorkOS organization), its Hookie user, a workspace on the **Free plan** with its Default project and the agent as owner, an admin API key, and a one-time claim token. The key and the claim token are in this response and nowhere else: Hookie stores only their hashes, never logs them, and never returns them again.\n\n**Controls, in order:** a per-IP rate limit (an IPv6 address by its /64); the operator's kill switch; body validation including `accept_terms`; the proof of work (signed, unexpired, solved; harder as the day's cap fills); a platform-wide daily cap (default 200 a day, UTC) of which one network (an IPv4 address or an IPv6 /48) may take a tenth, both taken in the same statement that spends the challenge and before WorkOS is called. Free-plan quotas apply in full.\n\n**Idempotent.** A challenge registers at most one account. Sending the same request again \u2014 the same challenge, or the same `Idempotency-Key` header with a new, unexpired and solved challenge \u2014 never creates a second account: it answers 409 `already_registered` with the `account_id` and NO credential (the credential is returned once; if it was lost, register again with a new challenge and a new Idempotency-Key). A key is scoped to the request: the same key with a different `agent_name` or `operator_contact` is a different registration. While the first request is still running the answer is 409 `registration_in_progress`; a request that died part-way is finished by a retry of the SAME request (its original challenge) after a minute, adopting the WorkOS user it may already have made \u2014 a key with a new challenge never finishes it. One never retried is abandoned after an hour: its WorkOS user is deleted and the retry gets `challenge_spent`. An attempt that failed (502) releases its key, so a new challenge with the same key registers.\n\n**What the key may do.** Everything an admin can \u2014 projects, endpoints, rules, destinations, workflows, ingest keys, the rest \u2014 through /admin/api/*, the hosted MCP server at /mcp and the CLI. Billing, SSO and organization requests, invites, Google Workspace linking, platform administration, creating more API keys and revealing destination secrets answer 403 `agent_not_permitted` (with `claim_required: true`, except platform administration) until a person claims the workspace (and billing stays a person's in the console after that). Audited as `agent_registered`.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional, 1\u2013255 printable characters. A retry carrying the same key (with the same `agent_name` and `operator_contact`, and a live solved challenge) is answered 409 with the account it created, never a second account. A key whose attempt failed is released. Use a random value such as a UUID.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "agent_name",
+                  "accept_terms",
+                  "pow"
+                ],
+                "properties": {
+                  "agent_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "What the agent calls itself. Printable characters only. Names the workspace (`<agent_name>'s workspace`)."
+                  },
+                  "operator_contact": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 254,
+                    "description": "Optional: the email address or https URL of the person or organization responsible for the agent. Stored on the account and shown to the operator."
+                  },
+                  "accept_terms": {
+                    "type": "string",
+                    "description": "Must equal the current Terms of Use version, `2026-10-01` (also in the challenge response as `terms_version`). By sending it the agent accepts the Terms at https://hookie.ai/legal/terms for the person or organization it acts for; the version is recorded on the account."
+                  },
+                  "pow": {
+                    "type": "object",
+                    "required": [
+                      "challenge",
+                      "nonce"
+                    ],
+                    "properties": {
+                      "challenge": {
+                        "type": "string",
+                        "description": "From GET /v1/agents/register/challenge, unchanged."
+                      },
+                      "nonce": {
+                        "type": "string",
+                        "pattern": "^[0-9]{1,32}$",
+                        "description": "The solution."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registered. Store `api_key.key` and `claim.token` now: they are never shown again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "account_id",
+                    "agent_name",
+                    "user_id",
+                    "workspace",
+                    "project",
+                    "api_key",
+                    "claim",
+                    "terms_version",
+                    "endpoints",
+                    "notice"
+                  ],
+                  "properties": {
+                    "account_id": {
+                      "type": "string",
+                      "description": "`agt_\u2026`. The agent account."
+                    },
+                    "agent_name": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string",
+                      "description": "The agent's WorkOS user id, also its Hookie user id."
+                    },
+                    "workspace": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "slug",
+                        "plan"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "plan": {
+                          "type": "string",
+                          "enum": [
+                            "free"
+                          ]
+                        }
+                      }
+                    },
+                    "project": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "slug"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "api_key": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "key",
+                        "key_prefix",
+                        "role"
+                      ],
+                      "description": "The agent's credential: an admin API key, shown here ONCE and stored only as its SHA-256. Send it as `Authorization: Bearer <key>` to /admin/api/* and /mcp, or set HOOKIE_TOKEN for the CLI. Listed under Settings \u2192 API keys as \"Agent registration key\".",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string",
+                          "description": "`hk_\u2026`"
+                        },
+                        "key_prefix": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "admin"
+                          ]
+                        }
+                      }
+                    },
+                    "claim": {
+                      "type": "object",
+                      "required": [
+                        "token",
+                        "url",
+                        "note"
+                      ],
+                      "description": "A one-time token for the person responsible for the agent, shown here ONCE and stored only as its SHA-256. Signed in to Hookie, they open `url` (or POST the token to /admin/api/agent-accounts/claim) to become the workspace's owner \u2014 which they need to upgrade it.",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "description": "`hkc_\u2026`"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "terms_version": {
+                      "type": "string"
+                    },
+                    "endpoints": {
+                      "type": "object",
+                      "properties": {
+                        "api": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "mcp": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "openapi": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "string"
+                    },
+                    "notice": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is wrong (`invalid_body`, `invalid_agent_name`, `invalid_operator_contact`), the Terms version is missing or old (`terms_not_accepted`, with the current `terms_version`), the proof of work is missing, forged, expired or wrong (`proof_of_work_required`, `invalid_challenge`, `challenge_expired`, `invalid_proof_of_work`), or the Idempotency-Key is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only POST.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A retry: `already_registered` (with `account_id` and `workspace_id`, no credential), `registration_in_progress` (retry the original request, with its original challenge, after `retry_after`), or `challenge_spent` (an earlier attempt with this challenge failed; get a new one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "account_id": {
+                          "type": "string"
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 4 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`identity_provider_error`: WorkOS could not create the identity. Nothing was registered and the challenge is spent; get a new one and try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address (`reason: rate_limited`, the AGENT_RL limiter: about 5 a minute per IP, an IPv6 address counted by its /64, best-effort and counted per Cloudflare location), or, on POST, today's platform-wide registration cap is reached (`reason: daily_cap_reached`) or this network (an IPv4 address or an IPv6 /48) has made its share of it, a tenth (`reason: source_daily_limit`); both retry after midnight UTC.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying. Same value as retry_after in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`agent_registration_disabled`: the operator has switched agent self-registration off. `agent_registration_unavailable`: this environment has no WorkOS API key, so the agent's identity cannot be made. On POST also `registration_incomplete`: retry the SAME request after `retry_after` seconds; it finishes the registration rather than making another.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/agent-accounts/claim-preview": {
+      "post": {
+        "operationId": "previewAgentClaim",
+        "summary": "See what a claim token would take over",
+        "tags": [
+          "Workspace"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Read-only: the agent account and workspace the token claims (#331). Nothing is written. Any signed-in person, in the console; never an OAuth agent or an API key (403 `agent_not_permitted`). Resolved WITHOUT the automatic workspace every other admin route creates for someone who has none, as accepting an invite is. A token that is wrong or already used answers 404 with the same words.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "claim_token"
+                ],
+                "properties": {
+                  "claim_token": {
+                    "type": "string",
+                    "description": "`hkc_\u2026`, from the registration response (or the `#/claim/{token}` link)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What claiming would take over.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "account",
+                    "workspace",
+                    "suspended"
+                  ],
+                  "properties": {
+                    "account": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "workspace": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "slug"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "suspended": {
+                      "type": "boolean",
+                      "description": "True when an operator suspended the workspace: it cannot be claimed until reinstated."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An OAuth agent or API key (`agent_not_permitted`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The token is not valid, or was used already.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only POST.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/agent-accounts/claim": {
+      "post": {
+        "operationId": "claimAgentAccount",
+        "summary": "Take ownership of a workspace an AI agent registered",
+        "tags": [
+          "Workspace"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "The person becomes the workspace's owner and it becomes their active workspace (#331). The agent identity's membership ends and the agent's API keys are re-pointed at the person, so the agent's key keeps working at its admin role, now acting for them (revoke it in Settings \u2192 API keys to cut the agent off). The Free plan's one-member limit holds. From then on the workspace is an ordinary one: billing, SSO requests, invites and the rest are the owner's. The token works once (two claims racing for it make one owner) and is audited as `agent_account_claimed`. A workspace an operator suspended answers 403 `workspace_suspended`. Any signed-in person, in the console; never an OAuth agent or an API key (403 `agent_not_permitted`). Resolved WITHOUT the automatic workspace every other admin route creates for someone who has none, as accepting an invite is. A token that is wrong or already used answers 404 with the same words.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "claim_token"
+                ],
+                "properties": {
+                  "claim_token": {
+                    "type": "string",
+                    "description": "`hkc_\u2026`, from the registration response (or the `#/claim/{token}` link)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Claimed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "claimed",
+                    "account",
+                    "workspace",
+                    "role"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "claimed": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "account": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "workspace": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "slug"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An OAuth agent or API key (`agent_not_permitted`), or the workspace is suspended (`workspace_suspended`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The token is not valid, or was used already.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only POST.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

@@ -6,6 +6,10 @@ icon: "book"
 
 ## Terms
 
+### Agent account
+
+A workspace that an AI agent registered for itself, with no person involved, through `POST /v1/agents/register`. It starts on the Free plan, and the agent works in it with an admin API key. Until a person claims it with the agent's claim link, billing, invites and a few other actions are refused with `claim_required`. See [Agent self-registration](/agent-self-registration).
+
 ### AI trigger
 
 A project setting that runs a model with your instructions on each record that lands in a dataset and meets its conditions. The reply is stored as a record in the trigger's output dataset. See [AI triggers](/workflows#ai-triggers).
@@ -132,6 +136,7 @@ The console and these docs use the names above. The API and the MCP tools keep s
 | Source | `sources` | `create_source` |
 | Portal | `portal`, `portals` | `update_portal`, `create_portal_token` |
 | Connected agent | `agents` | none |
+| Agent account | `v1/agents/register`, `agent-accounts/claim` | none |
 | API key | `api-keys` | none |
 
 In prose, "webhook" means the HTTP request a provider sends, or one Hookie sends; the URL Hookie gives you to receive them is an **endpoint**.

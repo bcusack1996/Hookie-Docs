@@ -1,0 +1,237 @@
+---
+title: "Agent self-registration"
+description: "Let an AI agent create its own Hookie account with no person involved, run its own projects on the Free plan, and hand a claim link to a person when it needs one."
+icon: "robot"
+---
+
+An AI agent can sign up for Hookie by itself, with no person involved, and then set up and run its own projects: endpoints, rules, destinations, workflows and the rest. The account starts on the **Free** plan. When a person later wants to upgrade it or manage it, they **claim** it with a link the agent was given at registration.
+
+<Note>
+  If you already use Hookie and want your coding agent to work in **your** workspace, connect it over OAuth instead. See [Connected agents](/connected-agents). Self-registration is for an agent that should have an account of its own.
+</Note>
+
+Registration takes two calls, with a small proof of work between them:
+
+<Steps>
+  <Step title="Get a challenge">
+    `GET /v1/agents/register/challenge` returns a signed challenge and the current Terms version.
+  </Step>
+  <Step title="Solve it">
+    Find a nonce whose hash with the challenge starts with enough zero bits. About a million hashes, one to three seconds of CPU.
+  </Step>
+  <Step title="Register">
+    `POST /v1/agents/register` with the solution and your acceptance of the Terms. The response carries an admin API key and a claim link, each shown once.
+  </Step>
+</Steps>
+
+Both endpoints are public: no cookie, no key. They are in the [OpenAPI document](https://hookie.ai/openapi.json) under the **Agents** tag.
+
+## 1. Get a challenge
+
+```bash
+curl -s https://app.hookie.ai/v1/agents/register/challenge
+```
+
+```json
+{
+  "challenge": "v1.eyJpZCI6…",
+  "algorithm": "sha256",
+  "difficulty_bits": 20,
+  "expires_at": "2026-10-01T12:10:00.000Z",
+  "solve": "Find a nonce, a decimal string of at most 32 digits, such that SHA-256(challenge + \":\" + nonce) starts with 20 zero bits. …",
+  "register_url": "https://app.hookie.ai/v1/agents/register",
+  "terms_version": "2026-10-01",
+  "terms_url": "https://hookie.ai/legal/terms"
+}
+```
+
+The challenge is cheap for one agent and costly for a script creating accounts in bulk. It expires in ten minutes and registers at most one account. It is signed by Hookie, so a client cannot mint its own, lower the difficulty, or extend the expiry.
+
+Always solve at the `difficulty_bits` the challenge states. It is 20 normally, and 2, 4 or 6 bits more (4, 16 or 64 times the work) on a day when registrations are close to Hookie's daily limit.
+
+## 2. Solve the proof of work
+
+Find a `nonce`, a decimal string of at most 32 digits, such that:
+
+```text
+SHA-256( challenge + ":" + nonce )
+```
+
+starts with `difficulty_bits` zero bits. Hash the UTF-8 bytes of the challenge string exactly as you received it, a colon, and the nonce. Count up from `0`. At 20 bits that is about a million hashes.
+
+<CodeGroup>
+
+```js Node.js
+import { createHash } from "node:crypto";
+
+function solve(challenge, bits) {
+  for (let n = 0; ; n++) {
+    const d = createHash("sha256").update(`${challenge}:${n}`).digest();
+    let zeros = 0;
+    for (const byte of d) {
+      if (byte === 0) { zeros += 8; continue; }
+      zeros += Math.clz32(byte) - 24;
+      break;
+    }
+    if (zeros >= bits) return String(n);
+  }
+}
+```
+
+```python Python
+import hashlib
+
+def solve(challenge: str, bits: int) -> str:
+    n = 0
+    while True:
+        d = hashlib.sha256(f"{challenge}:{n}".encode()).digest()
+        if int.from_bytes(d, "big") >> (256 - bits) == 0:
+            return str(n)
+        n += 1
+```
+
+</CodeGroup>
+
+The server checks your answer with a single hash.
+
+## 3. Register
+
+Read the [Terms of Use](https://hookie.ai/legal/terms) first. By sending `accept_terms`, the agent accepts them for the person or organization it acts for (its operator), who is responsible for what it does with the account.
+
+```bash
+curl -s -X POST https://app.hookie.ai/v1/agents/register \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "agent_name": "release-bot",
+    "operator_contact": "platform-team@example.com",
+    "accept_terms": "2026-10-01",
+    "pow": { "challenge": "v1.eyJpZCI6…", "nonce": "1048213" }
+  }'
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `agent_name` | Yes | Up to 80 characters. Names the agent and its workspace. |
+| `operator_contact` | No | The email address or `https://` URL of the person or organization responsible for the agent. |
+| `accept_terms` | Yes | The current Terms version: `terms_version` from step 1. Anything else is refused with `terms_not_accepted`. |
+| `pow` | Yes | `{ "challenge", "nonce" }`: the challenge from step 1, unchanged, and your solution. |
+
+`Idempotency-Key` is optional. Use a random value such as a UUID: it makes a retry safe across challenges. It counts only with a challenge that is unexpired and solved, and only for the same `agent_name` and `operator_contact`, so the same key with a different name is a different registration. If an attempt fails with `502 identity_provider_error`, the key is released: get a new challenge and send the same key again.
+
+**201 Created:**
+
+```json
+{
+  "account_id": "agt_0a1b2c3d4e5f60718293a4b5",
+  "workspace": { "id": "…", "name": "release-bot's workspace", "slug": "release-bot-1a2b3c4d", "plan": "free" },
+  "project": { "id": "…", "name": "Default", "slug": "default" },
+  "api_key": { "id": "…", "key": "hk_…", "key_prefix": "hk_…", "role": "admin" },
+  "claim": { "token": "hkc_…", "url": "https://app.hookie.ai/#/claim/hkc_…" },
+  "endpoints": { "api": "https://app.hookie.ai/admin/api", "mcp": "https://app.hookie.ai/mcp" }
+}
+```
+
+<Warning>
+  **Store `api_key.key` and `claim.token` now.** They are shown once. Hookie keeps only their hashes and never returns them again: a retry of the same request gets `409 already_registered` with the `account_id` and no credential.
+</Warning>
+
+## 4. Use the API key
+
+The key is an ordinary admin [API key](/api-keys). Send it as `Authorization: Bearer hk_…` to the REST API, the hosted MCP server, or the CLI:
+
+<CodeGroup>
+
+```bash REST
+curl -s https://app.hookie.ai/admin/api/projects \
+  -H "Authorization: Bearer $HOOKIE_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Orders","type":"webhook"}'
+```
+
+```bash Claude Code (MCP)
+claude mcp add --transport http hookie https://app.hookie.ai/mcp \
+  --header "Authorization: Bearer $HOOKIE_KEY"
+```
+
+```bash CLI
+HOOKIE_TOKEN=$HOOKIE_KEY HOOKIE_ALLOW_REMOTE=1 hookie projects list
+```
+
+</CodeGroup>
+
+### What the key can do
+
+Everything an admin can do in a workspace, on `/admin/api/*`, `/mcp` and the CLI: create projects, endpoints, ingest keys, rules, destinations, sources, triggers and workflows, read records, and replay deliveries. See the [API reference](/api-reference) and the [MCP tools](/connected-agents#tools).
+
+### What it cannot do
+
+Some actions need a person. Until someone claims the workspace, the key is refused:
+
+- billing and upgrades
+- single sign-on and Directory Sync requests
+- inviting members
+- linking a Google Workspace domain
+- creating more API keys
+
+Each answers `403` with `code: "agent_not_permitted"` and `claim_required: true`, and the message tells the agent to hand over its claim link:
+
+```json
+{
+  "error": "… needs a person. This workspace was registered by an AI agent and nobody has claimed it yet: give the claim link from your registration response (claim.url) to the person responsible for you. Once they claim the workspace, they can do this in the Hookie console.",
+  "code": "agent_not_permitted",
+  "claim_required": true
+}
+```
+
+After a claim, the same actions answer `agent_not_permitted` without `claim_required`: the person who claimed the workspace does them in the console. The agent identity itself can never sign in to the console or hold an OAuth token.
+
+## 5. Hand the claim link to a person
+
+When the account needs a person, to upgrade it or to manage members, give the person responsible for the agent `claim.url`.
+
+<Steps>
+  <Step title="They open the link">
+    Signed in to Hookie, they see which agent and workspace it is.
+  </Step>
+  <Step title="They click Claim">
+    They become the workspace's owner. The link works once.
+  </Step>
+  <Step title="The agent keeps working">
+    The agent's key keeps its admin role, now acting for the person. They can revoke it any time in **Settings → API keys**.
+  </Step>
+</Steps>
+
+From then on the workspace is an ordinary one: billing, members and the rest are the person's, in the console. The console's claim page calls `POST /admin/api/agent-accounts/claim-preview` and `POST /admin/api/agent-accounts/claim` with `{ "claim_token" }`; both need a signed-in person.
+
+## Limits
+
+| Limit | What it means |
+| --- | --- |
+| **Free plan** | The workspace starts on Free, and every Free-plan quota applies in full: monthly events and deliveries, one destination, one member, seven-day retention. See [Limits and plans](/limits-and-plans). |
+| **Rate limit** | About five registration requests a minute per address (an IPv6 address counts by its `/64`). Past it, `429 rate_limited` with `Retry-After: 60`. |
+| **Daily cap** | Hookie limits how many agent accounts are registered per day, platform-wide. One network (an IPv4 address, or an IPv6 `/48`) may take a tenth of it. Past either, `429 daily_cap_reached` or `429 source_daily_limit`; retry after midnight UTC. |
+| **Difficulty** | Rises by 2, 4 and 6 bits as the day's registrations approach the cap. |
+| **Terms version** | `accept_terms` must equal the current `terms_version`. When the Terms change, the version changes, and the challenge always tells you the current one. |
+
+## Refusals
+
+Every refusal carries a stable `reason` and a sentence saying what to do.
+
+| Status | `reason` | What to do |
+| --- | --- | --- |
+| 400 | `terms_not_accepted` | Send the current `terms_version` as `accept_terms`. |
+| 400 | `invalid_proof_of_work`, `challenge_expired`, `invalid_challenge` | Get a new challenge and solve it. |
+| 409 | `already_registered` | The registration succeeded earlier; its credential was returned then. |
+| 409 | `registration_in_progress` | Retry the original request, with its original challenge, after `retry_after` seconds. A new challenge with the same `Idempotency-Key` does not finish it. |
+| 409 | `challenge_spent` | An earlier attempt with this challenge failed (or was abandoned for an hour); get a new one. |
+| 429 | `rate_limited` | Too many requests from this address; retry in a minute. |
+| 429 | `daily_cap_reached` | Hookie's daily limit on agent registrations is reached; retry after midnight UTC. |
+| 429 | `source_daily_limit` | Your network has made its share of the day's registrations; retry after midnight UTC. |
+| 502 | `identity_provider_error` | Nothing was registered; get a new challenge and retry (the same `Idempotency-Key` is fine). |
+| 503 | `registration_incomplete` | Retry the same request, with the same challenge, after `retry_after` seconds. |
+| 503 | `agent_registration_disabled` | Hookie has switched agent registration off for now. |
+
+## For agents: where to start
+
+An agent that knows nothing about Hookie yet can read [hookie.ai/llms.txt](https://hookie.ai/llms.txt) (also served, byte for byte, at [app.hookie.ai/llms.txt](https://app.hookie.ai/llms.txt)). It describes Hookie, this registration flow, the MCP URL, the OpenAPI document, the CLI and the Free plan in one plain-text file. These docs have their own [llms.txt](https://docs.hookie.ai/llms.txt) too.
