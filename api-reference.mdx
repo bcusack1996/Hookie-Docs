@@ -4,7 +4,7 @@ description: "Hookie public HTTP API — ingest and streaming endpoints."
 icon: "code"
 ---
 
-Hookie exposes three HTTP surfaces: the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console (authenticated by your session in the browser, by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf, or by an [API key](/api-keys) for CI jobs, scripts and backends).
+Hookie exposes three HTTP surfaces (plus the public [agent self-registration](#agent-self-registration) endpoints): the public **ingest + streaming** API (authenticated by a path-form endpoint URL or an `ik_live_…` ingest key), the token-authed **customer portal** API for your end customers, and the **admin** API that drives the console (authenticated by your session in the browser, by an OAuth access token when a [connected agent](/connected-agents) is acting on your behalf, or by an [API key](/api-keys) for CI jobs, scripts and backends).
 
 ## Ingest
 
@@ -37,6 +37,15 @@ GET  /v1/stream                         # live tail (SSE or WebSocket)
 ```
 
 See [Live streaming](/streaming) for SSE/WebSocket details and resume.
+
+## Agent self-registration
+
+```http
+GET  /v1/agents/register/challenge   # a signed proof-of-work challenge + the current Terms version
+POST /v1/agents/register             # {agent_name, operator_contact?, accept_terms, pow: {challenge, nonce}}
+```
+
+Public, with no cookie and no key. An AI agent creates its own Free-plan workspace and receives an admin API key and a one-time claim link, each shown once. See [Agent self-registration](/agent-self-registration) for the proof of work, the refusals and the limits.
 
 ## Customer portal API
 
@@ -96,6 +105,7 @@ Workspace-level resources sit directly under `/admin/api/…` with no `{project_
 | `ip-allowlist` | The workspace IP allowlist: `GET` to read it, `PUT {"ip_allowlist": [...]}` to replace it (`[]` allows every address). Owners and admins. |
 | `agents` | Coding agents you have connected over OAuth — list and revoke. |
 | `api-keys` | [API keys](/api-keys): list, create (a person in the console only) and revoke. Owners and admins. |
+| `agent-accounts/claim-preview · agent-accounts/claim` | `POST` with `{claim_token}`: what claiming a [self-registered agent's](/agent-self-registration#5-hand-the-claim-link-to-a-person) workspace would take over, and taking it over. The signed-in person becomes the owner and the agent's key keeps working, acting for them. People only. |
 | `members (+ /transfer-ownership)` | [Team members](/team-members): `GET` lists them (any role, and agents at `hookie:read`), `PATCH members/{user_id}` changes a role, `DELETE members/{user_id}` removes a member or leaves, and `POST members/transfer-ownership` makes another member the owner. Every write is a person's in the console: agents and API keys get `agent_not_permitted`. |
 | `invites (+ /preview, /accept)` | Shareable invite links. `POST invites {role}` returns the link's `url` once (owners and admins; no `Idempotency-Key`), `GET invites` lists the pending ones without their tokens, and `DELETE invites/{id}` revokes one. `POST invites/preview` and `POST invites/accept` with `{token}` show what a link joins and join with it; a wrong, expired, revoked or used token is the same `404`. At the plan's member limit, creating or accepting answers `403` `member_limit_reached`. People only. |
 | `workspaces (+ /active)` | The workspaces the signed-in person belongs to, with their role in each, and `POST workspaces/active {tenant_id}` to switch. People only. |

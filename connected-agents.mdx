@@ -53,6 +53,10 @@ No credential goes in that file, because there isn't one to put there. The first
   For something that runs unattended, such as a CI job or your own backend, with nobody at a browser to sign in, create an [API key](/api-keys) instead. `/mcp` accepts it as a bearer token, and its role decides which tools it can call.
 </Tip>
 
+<Tip>
+  For an agent that should have a Hookie account of its **own**, with no person signing in at all, see [Agent self-registration](/agent-self-registration). The agent registers itself on the Free plan and gets an admin API key, and a person can claim the workspace later.
+</Tip>
+
 ## What it may do
 
 Signing in proves _who_ the agent is acting for. _What_ it may do is decided separately, by you, in **Settings → Connected agents**. A newly connected agent can only read until you grant it more, and the change takes effect on its next call.
