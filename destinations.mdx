@@ -1,16 +1,153 @@
 ---
-title: "Destination options"
-description: "Send custom headers, authentication and your own JSON body to a destination, and know when one keeps failing."
+title: "Destination types and options"
+sidebarTitle: "Destination options"
+description: "Send events to an HTTPS endpoint, a Slack channel or an S3-compatible bucket, shape the body, add headers and authentication, and know when a destination keeps failing."
 icon: "send"
 ---
 
-A destination sends every matching event to an HTTPS URL, signed and retried. By default the body is Hookie's envelope, `{id, dataset, received_at, data}`. Each destination can also carry its own headers, a credential and a body template, so you can send straight to services such as Slack, Datadog or an email API without a relay in between.
+A destination sends every matching event somewhere, retried until it arrives. Each destination has a **type**, chosen when you create it:
 
-Set these on the destination's tile under **Request options**, or when you create it. **From preset** fills them in for Slack, Datadog and email.
+| Type | What each event becomes | Credential (stored encrypted, never returned) |
+| --- | --- | --- |
+| **HTTPS webhook** (`webhook`, the default) | A signed `POST` to your https URL | Optional: a token, password or API key, and secret headers |
+| **Slack** (`slack`) | A readable message in a Slack channel, through an incoming webhook | The incoming-webhook URL itself |
+| **S3-compatible bucket** (`s3`) | One JSON object in AWS S3, Cloudflare R2, Google Cloud Storage or MinIO | The secret access key |
+
+All three use the same delivery machinery: the retry schedule, the send rate and concurrency limits, the monthly delivery allowance and its holds, replay, the delivery log, and the failure streak that switches a failing destination off. Only the request differs. See [Destinations and deliveries](/destinations-and-deliveries).
+
+By default a webhook's body is Hookie's envelope, `{id, dataset, received_at, data}`. A webhook can also carry its own headers, a credential and a body template, so you can send straight to services such as Datadog or an email API without a relay in between.
+
+Choose the type under **Type** when you choose **Add destination** on a project's **Connections** tab. A destination's type is fixed once it exists: to change it, create a new destination of the type you want. Set the rest on the destination's tile under **Request options**, or when you create it. **From preset** fills them in for Slack, Datadog and email.
+
+## Slack
+
+A Slack destination posts each event to a channel through a Slack **incoming webhook**.
+
+1. In Slack, add an **Incoming Webhook** to a Slack app for the channel, and copy its URL. It starts `https://hooks.slack.com/services/`. Anyone who holds the URL can post to the channel, so treat it like a password.
+2. In the console, open the project's **Connections** tab. Choose **Add destination**, then **Slack** under **Type**. Or choose **From preset**, then **Slack (Incoming Webhook)**.
+3. Paste the URL into **Slack incoming-webhook URL**, and give the destination a name.
+4. Optional: set a **Dataset filter**, so only the datasets you want in the channel are sent.
+5. Choose **Create**.
+
+Only a `https://hooks.slack.com/` URL is accepted (`/services/…`, `/workflows/…` or `/triggers/…`). Hookie stores it encrypted and only ever shows a masked hint, such as `https://hooks.slack.com/services/••••abcd`, on the tile, in the API and in the delivery log. It is never exported. To replace it, choose **Edit…** on the tile and paste the new URL; leave the field blank to keep the saved one.
+
+### The message
+
+Each event becomes a message with:
+
+- a header, **New event in** and the dataset;
+- the **Dataset**, the **Event id** and when the event was **Received**;
+- the payload as pretty-printed JSON in a code block. A payload over 2,500 characters is cut there, with a note of its full length, so Slack never refuses a large record;
+- a **Sent by Hookie** footer.
+
+The notification text is `New <dataset> event <event id>`.
+
+To write your own message instead, choose **JSON template** under **Body**. A template replaces the default message, so it must be a Slack message body:
+
+```json
+{ "text": "Order {{data.order_id}} paid by {{data.customer.email}}" }
+```
+
+Placeholders work as they do for any [body template](#body).
+
+### What Slack is sent
+
+A `POST` with `Content-Type: application/json` and `User-Agent: Hookie/1.0`. There are no signature headers, because Slack checks none: the URL is the credential. A Slack destination takes no custom headers and no authentication.
+
+### Slack's answers
+
+| Slack answers | Hookie |
+| --- | --- |
+| `200` | Marks the delivery `delivered`. |
+| `429`, a `5xx`, or nothing in time | Tries again on the [retry schedule](/destinations-and-deliveries#attempts-and-retries). |
+| `400 invalid_payload` | Marks it `dead` at once: Slack cannot read the body. Check your template; the delivery's **Details** show Slack's answer. |
+| `403 action_prohibited`, `404 no_service` or `no_team`, `410 channel_is_archived` | Marks it `dead` at once. The incoming webhook was revoked, its workspace removed or the channel archived, and waiting will not change that. |
+
+Unlike a webhook, a Slack destination does not retry a `404`. After 10 dead deliveries in a row, over at least an hour, Hookie switches the destination off, as for any destination. Fix the URL with **Edit…**, then choose **Re-enable** to send what it held.
+
+<Note>
+A Slack URL is refused as an HTTPS webhook's URL, with `400`, and as a [customer portal](/customer-portal) destination's URL. That keeps every Slack URL encrypted: create a Slack destination instead.
+</Note>
+
+## S3-compatible storage
+
+An S3 destination writes each event as one JSON object in a bucket. It works with AWS S3, Cloudflare R2, Google Cloud Storage in interoperability mode, and MinIO. Each request is signed with AWS Signature Version 4.
+
+| Setting | AWS S3 | Cloudflare R2 |
+| --- | --- | --- |
+| **Endpoint** | Leave empty | `https://<account id>.r2.cloudflarestorage.com` |
+| **Region** | The bucket's region, such as `us-east-1` | `auto`, the default when an endpoint is set |
+| **Bucket** | The bucket's name | The bucket's name |
+| **Key prefix** (optional) | Such as `hookie/` | Such as `hookie/` |
+| **Access key id** and **Secret access key** | An IAM access key | An R2 API token's S3 credentials |
+
+The endpoint is the service's origin only, with no path: the bucket goes in **Bucket**. It must be a public `https` address. For Google Cloud Storage, the endpoint is `https://storage.googleapis.com`, the region `auto`, and the keys an HMAC key from the bucket's **Interoperability** settings.
+
+### Set up AWS S3
+
+1. Create the bucket, or choose an existing one, and note its region.
+2. In IAM, create a user for Hookie and attach a policy that allows `s3:PutObject` on the bucket and prefix, and nothing more:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "s3:PutObject",
+         "Resource": "arn:aws:s3:::my-hookie-bucket/hookie/*"
+       }
+     ]
+   }
+   ```
+
+   Hookie only writes. It never reads, lists or deletes objects. If the bucket encrypts with a customer-managed KMS key, the user also needs `kms:GenerateDataKey` on that key.
+3. Create an access key for the user.
+4. In the console, open the project's **Connections** tab. Choose **Add destination**, then **S3-compatible bucket** under **Type**.
+5. Leave **Endpoint** empty. Enter the **Region**, the **Bucket**, an optional **Key prefix**, the **Access key id** and the **Secret access key**, then choose **Create**.
+
+### Set up Cloudflare R2
+
+1. In the Cloudflare dashboard, create the R2 bucket, or choose an existing one.
+2. Under **R2 → Manage API tokens**, create an API token with **Object Read & Write** permission, applied to that bucket only. R2 has no write-only permission, and Hookie only writes. Copy the token's **Access Key ID** and **Secret Access Key**.
+3. Note your account's S3 API endpoint, `https://<account id>.r2.cloudflarestorage.com`. The bucket's settings show it with the bucket name on the end: leave that part off.
+4. In the console, choose **Add destination**, then **S3-compatible bucket**. Enter the **Endpoint**, leave **Region** empty for `auto`, and enter the **Bucket**, an optional **Key prefix** and the two keys. Choose **Create**.
+
+### Where each object goes
+
+Each event is written to:
+
+```text
+{prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json
+```
+
+The date is when Hookie received the event, in UTC. With the prefix `hookie/`, an `orders` event received on 1 October 2026 is written to `hookie/orders/2026/10/01/rec_….json`.
+
+The prefix is put in front exactly as you write it, so end it with `/` to make it a folder: `hookie` would give `hookieorders/…`. It may be up to 256 characters, and may not start with `/` or contain `.` or `..` segments, backslashes or control characters.
+
+The object is the [body](#body) Hookie would send: the envelope by default, or your template or field mappings. It is stored as `application/json`, with the metadata `x-amz-meta-hookie-event-id` and `x-amz-meta-hookie-dataset`. There are no Hookie signature headers; the request is signed with your key instead.
+
+Hookie addresses AWS buckets as `https://<bucket>.s3.<region>.amazonaws.com/<key>`, and uses path-style addresses (`<endpoint>/<bucket>/<key>`) for a custom endpoint and for a bucket name with a dot in it.
+
+### Retries and replays overwrite
+
+The object key comes from the event, never from the attempt: its prefix, dataset, received date and id. So a retry, a replay, or an event Hookie hands on twice writes the **same object** again, rather than a second copy. Each event leaves one object per destination. If the bucket has versioning on, a rewrite adds a version.
+
+| The bucket answers | Hookie |
+| --- | --- |
+| `200` | Marks the delivery `delivered`. |
+| `408`, `409`, `425`, `429`, a `5xx`, or nothing in time | Tries again on the [retry schedule](/destinations-and-deliveries#attempts-and-retries). |
+| `403 AccessDenied`, `404 NoSuchBucket`, or any other `4xx` | Marks it `dead` at once. Fix the key's permissions or the bucket name with **Edit…**, then replay. |
+
+Unlike a webhook, an S3 destination does not retry a `404`. The secret access key is stored encrypted, never returned, exported or logged, and is removed from any error text before it reaches the delivery log. The access key id is not secret and is shown. To rotate the key, choose **Edit…** and enter the new access key id and secret access key; leave the secret blank to keep the saved one. An S3 destination takes no custom headers and no authentication.
+
+## Signing secret on Slack and S3 destinations
+
+Every destination has a signing secret (`whsec_…`). Slack and S3 deliveries are not signed with it, so the console labels it **Signing secret (alert notices only)**: it signs the notices sent to the destination's [alert URL](#alert-webhook). Owners and admins can still reveal and rotate it on the tile.
 
 ## Custom headers
 
-Add up to 20 headers. Mark a header **Secret** when its value is a credential: it is stored encrypted and is never shown again, in the console, the API or the audit log. To keep a saved secret header while you edit others, leave its value blank.
+HTTPS webhook destinations only. Add up to 20 headers. Mark a header **Secret** when its value is a credential: it is stored encrypted and is never shown again, in the console, the API or the audit log. To keep a saved secret header while you edit others, leave its value blank.
 
 Hookie sets some headers itself, and you cannot override them:
 
@@ -20,7 +157,7 @@ Hookie sets some headers itself, and you cannot override them:
 
 ## Authentication
 
-Choose one:
+HTTPS webhook destinations only. Choose one:
 
 | Type | What is sent |
 |------|--------------|
@@ -31,6 +168,8 @@ Choose one:
 The credential is stored encrypted and is never returned. The destination shows only the type, and for an API key, the header name. To change the header without re-entering the key, leave the key blank.
 
 ## Body
+
+Every type takes a body. For a Slack destination, the default is the [Slack message](#the-message) rather than the envelope.
 
 | Body | What is sent |
 |------|--------------|
@@ -53,7 +192,7 @@ A string that is exactly one placeholder keeps the value's type, so `"{{data.tot
 Templates are data, never code. A placeholder is a path lookup, and nothing is evaluated.
 
 <Note>
-The body is always JSON, and `Hookie-Signature` is computed over the body exactly as sent. Verify a templated body the same way as the envelope (see [Verify signatures](/signatures)).
+The body is always JSON. For an HTTPS webhook, `Hookie-Signature` is computed over the body exactly as sent. Verify a templated body the same way as the envelope (see [Verify signatures](/signatures)).
 </Note>
 
 ## When a destination keeps failing
@@ -82,7 +221,7 @@ Set an **Alert URL** on the destination to be told when Hookie switches it off. 
 }
 ```
 
-The notice carries `Hookie-Signature`, signed with the destination's own signing secret, and `Hookie-Alert: destination.disabled`. It is sent once and is not retried. The alert URL must be a public `https` address.
+For a Slack destination, `destination.url` is the masked hint; for an S3 destination, it is the bucket's address. The notice carries `Hookie-Signature`, signed with the destination's own signing secret, and `Hookie-Alert: destination.disabled`. It is sent once and is not retried. The alert URL must be a public `https` address.
 
 Hookie does not send email alerts.
 
@@ -114,6 +253,38 @@ Over the API, destinations and sources carry `paused_reason`: `"over_plan_limit"
 
 `POST` and `PATCH /admin/api/projects/{project_id}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state.
 
-**Edit or delete.** A destination's **Edit…** changes its name, URL and dataset filter; over the API, `PATCH` takes `name` and `url` too. It stays the same destination, with the same id and signing secret, so your receiver keeps verifying. A new URL must be `https`, and a destination that belongs to a [customer portal](/customer-portal) customer keeps its URL (`409`): it is theirs to change. **Delete** removes a destination that has never had a delivery outright. One with delivery history leaves the project for good, and its past deliveries keep its name, so the delivery log still says where each one went.
+`POST` also takes `type`: `webhook` (the default), `slack` or `s3`. A Slack or S3 destination is addressed by `config` instead of `url`:
+
+```json
+{
+  "name": "Orders channel",
+  "type": "slack",
+  "config": { "webhook_url": "https://hooks.slack.com/services/T…/B…/…" },
+  "datasetFilter": ["orders"]
+}
+```
+
+```json
+{
+  "name": "Event archive",
+  "type": "s3",
+  "config": {
+    "endpoint": "https://<account id>.r2.cloudflarestorage.com",
+    "region": "auto",
+    "bucket": "hookie-events",
+    "prefix": "hookie/",
+    "access_key_id": "…",
+    "secret_access_key": "…"
+  }
+}
+```
+
+For S3, `endpoint` is left out (or `null`) for AWS, and `region` is required then. `config.secret_access_key` and `config.webhook_url` are write-only.
+
+- A Slack or S3 destination refuses `url`, `headers` and `auth` with `400`. A webhook refuses `config`, and refuses a `hooks.slack.com` URL.
+- A destination comes back with `type`, `config` and `secrets_set`. `config` never holds a credential: a Slack destination's `webhook_url` is the masked hint, and an S3 destination's has `endpoint`, `region`, `bucket`, `prefix` and `access_key_id`. `secrets_set` names the credential held, `["webhook_url"]` or `["secret_access_key"]`. A webhook has `config: null`. Its `url` is a display value: the masked Slack URL, or the bucket's address.
+- `PATCH` with `config` changes a Slack or S3 destination's settings. Settings you leave out keep their stored values, and so does a credential you leave out. `PATCH` with a different `type` is refused with `400`.
+
+**Edit or delete.** A destination's **Edit…** changes its name, URL and dataset filter, or a Slack or S3 destination's settings and credential; over the API, `PATCH` takes `name`, and `url` or `config`, too. It stays the same destination, with the same id and signing secret, so your receiver keeps verifying. A new URL must be `https`, and a destination that belongs to a [customer portal](/customer-portal) customer keeps its URL (`409`): it is theirs to change. **Delete** removes a destination that has never had a delivery outright. One with delivery history leaves the project for good, and its past deliveries keep its name, so the delivery log still says where each one went.
 
  `GET /admin/api/dashboard/summary` lists failing destinations in `failing_destinations`. See the [API reference](/api-reference).

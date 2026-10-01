@@ -36,11 +36,11 @@ The dataset an ingest key stores an event in when it is sent with no dataset in 
 
 ### Delivery
 
-One record sent to one destination as a signed `POST`, retried until it arrives or runs out of attempts. Each one counts once against the monthly delivery allowance. See [Destinations and deliveries](/destinations-and-deliveries#deliveries).
+One record sent to one destination: a signed `POST`, a Slack message or an object written to a bucket, retried until it arrives or runs out of attempts. Each one counts once against the monthly delivery allowance. See [Destinations and deliveries](/destinations-and-deliveries#deliveries).
 
 ### Destination
 
-An https URL that a project sends its records to, optionally only those of some datasets, with every request signed with the destination's secret. See [Destinations and deliveries](/destinations-and-deliveries).
+Where a project sends its records, optionally only those of some datasets. Its type is an HTTPS webhook (every request signed with the destination's secret), a Slack channel, or an S3-compatible bucket. See [Destinations and deliveries](/destinations-and-deliveries) and [Destination types and options](/destinations).
 
 ### Endpoint
 

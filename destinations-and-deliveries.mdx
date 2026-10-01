@@ -1,26 +1,27 @@
 ---
 title: "Destinations and deliveries"
-description: "How a record becomes a signed request to a URL of yours: deliveries and their attempts, retries, the monthly allowance and holds, replay, and what pauses a destination."
+description: "How a record becomes a signed request to a URL of yours, a Slack message or an object in a bucket: deliveries and their attempts, retries, the monthly allowance and holds, replay, and what pauses a destination."
 icon: "paper-plane"
 ---
 
-A **destination** is an https URL that a project sends its records to. When a record lands in a dataset, Hookie creates a **delivery** for each enabled destination in the project whose dataset filter admits it: a signed `POST` of the record, retried until it arrives or runs out of attempts.
+A **destination** is where a project sends its records: an https URL of yours, a Slack channel, or an S3-compatible bucket. When a record lands in a dataset, Hookie creates a **delivery** for each enabled destination in the project whose dataset filter admits it: for an https URL, a signed `POST` of the record, retried until it arrives or runs out of attempts.
 
 ## Destinations
 
 Add one on a project's **Connections** tab with **Add destination**, or **From preset** for Slack, Datadog and email. A destination has:
 
-- a **URL**, which must be `https`;
+- a **type**, fixed when you create it: **HTTPS webhook** (the default), **Slack** or **S3-compatible bucket**. See [Destination types and options](/destinations);
+- for a webhook, a **URL**, which must be `https`. A Slack destination has its incoming-webhook URL and an S3 destination its bucket settings instead, with the credential stored encrypted;
 - a **Dataset filter**: the datasets it receives, or all of them when it is empty;
 - a **signing secret** (`whsec_…`), shown in full when you create it. Owners and admins can reveal it again at any time with **Reveal secret** on the destination, and rotate it; see [Verify signatures](/signatures);
-- optional [request options](/destinations): custom headers, authentication and a body template;
+- optional [request options](/destinations): a body template, and for a webhook, custom headers and authentication;
 - **delivery settings**: a timeout (10 seconds by default), a send rate and a concurrency cap.
 
-A workspace runs 1 destination on Free, 10 on Pro and 25 on Team, counted across all of its projects.
+A workspace runs 1 destination on Free, 10 on Pro and 25 on Team, counted across all of its projects, whatever their type.
 
 ## Deliveries
 
-A delivery is one record sent to one destination, by default as the envelope `{"id", "dataset", "received_at", "data"}`, with these headers:
+A delivery is one record sent to one destination. To an HTTPS webhook it is, by default, the envelope `{"id", "dataset", "received_at", "data"}`, with these headers:
 
 | Header | |
 | --- | --- |
@@ -29,12 +30,14 @@ A delivery is one record sent to one destination, by default as the envelope `{"
 | `Hookie-Delivery-Id` | The delivery's id: the same on its retries, and new for a replay. |
 | `Hookie-Hop` | How many times the event has passed through Hookie, to stop loops. |
 
+A Slack destination is sent a [readable message](/destinations#the-message), and an S3 destination writes each event as [one JSON object](/destinations#where-each-object-goes). Neither carries these headers: Slack checks no signature, and an S3 request is signed with your own key.
+
 Delivery is at-least-once and unordered. Each delivery has a status:
 
 | Status | Meaning |
 | --- | --- |
 | `queued` | Waiting to be sent, or for its turn under the destination's rate or concurrency limit. |
-| `delivered` | Your URL answered `2xx`. |
+| `delivered` | Your URL, Slack or the bucket answered `2xx`. |
 | `failed` | An attempt failed. The console shows `retrying` while another is scheduled. |
 | `dead` | Hookie gave up: no attempts are left, or your URL refused the request outright. |
 | `paused` | Held while the destination is disabled or the workspace suspended; sent when that ends. |
@@ -50,6 +53,8 @@ Each try is an **attempt**, and a delivery gets up to eight. After a failed one,
 | `5xx`, `404`, `408`, `409`, `425` or `429`, or nothing in time | Tries again on the schedule. |
 | Any other `4xx` | Marks it `dead` at once: the receiver refused the request, and would again. |
 | A `3xx` | Marks it `dead` at once. Redirects are never followed: update the destination's URL. |
+
+Slack and S3 destinations follow the same schedule with one difference: a `404` is not retried. From Slack it means the incoming webhook was revoked, and from a bucket `NoSuchBucket`; neither comes back by waiting. See [Slack's answers](/destinations#slacks-answers) and [Retries and replays overwrite](/destinations#retries-and-replays-overwrite).
 
 Every failed attempt is kept with its status code, latency, error and the start of the response; the delivery keeps the latest response body, up to 16 KiB. **Details**, the eye icon on a row, shows them. Waiting under a rate or concurrency limit uses no attempt.
 
@@ -68,7 +73,7 @@ A delivery that did not arrive can be sent again as a new delivery, with a new `
 - **Replay**, on the row of a delivery that did not arrive, sends it again.
 - **Replay matching** sends again every delivery matching the tab's status, destination and time filters that did not arrive: `dead` ones, and `failed` ones with no attempt scheduled. It takes only the latest delivery of each event to each destination, so nothing goes twice, and asks you to confirm the count first.
 
-The record must still be stored. A replay is charged to the allowance, and refused rather than held when none is left. Over the API: `POST …/deliveries/{id}/replay` and `POST …/deliveries/replay`.
+To an S3 destination, a replay rewrites the same object, because the key comes from the event. The record must still be stored. A replay is charged to the allowance, and refused rather than held when none is left. Over the API: `POST …/deliveries/{id}/replay` and `POST …/deliveries/replay`.
 
 ## What pauses a destination
 
