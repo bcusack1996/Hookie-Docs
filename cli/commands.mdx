@@ -93,8 +93,8 @@ Owner/admin in the console, so a connected agent needs `hookie:manage`. `--paylo
 | Command | Flags | |
 | --- | --- | --- |
 | `hookie destinations list` | `—` | A project's outbound destinations. |
-| `hookie destinations create` | `--name* --url* --dataset-filter --headers --auth --transform --alert-url` | Create an outbound destination, optionally with custom headers, authentication, a body template and an alert URL (see [Destination options](/destinations)). |
-| `hookie destinations update` | `--destination-id* --name --url --enabled --dataset-filter --timeout-seconds --max-per-second --max-concurrency --headers --auth --transform --alert-url` | Rename a destination, move it to a new https URL, enable or disable it (enabling one Hookie switched off for failing clears its failure streak and sends what it held), change which datasets it receives, set its headers, authentication, body template or alert URL, or set its delivery limits: a request timeout, a maximum send rate and a concurrency cap (`null` restores the default: 10 s, unlimited, unlimited). |
+| `hookie destinations create` | `--name* --type --url --config --dataset-filter --headers --auth --transform --alert-url` | Create an outbound destination. `--type` is `webhook` (the default), which needs `--url`, or `slack` or `s3`, which take `--config` instead and no `--url`, `--headers` or `--auth`. Optionally with custom headers, authentication, a body template and an alert URL (see [Destination types and options](/destinations)). |
+| `hookie destinations update` | `--destination-id* --name --url --config --enabled --dataset-filter --timeout-seconds --max-per-second --max-concurrency --headers --auth --transform --alert-url` | Rename a destination, move it to a new https URL or change a Slack or S3 destination's `--config` (settings left out keep their stored values), enable or disable it (enabling one Hookie switched off for failing clears its failure streak and sends what it held), change which datasets it receives, set its headers, authentication, body template or alert URL, or set its delivery limits: a request timeout, a maximum send rate and a concurrency cap (`null` restores the default: 10 s, unlimited, unlimited). |
 | `hookie destinations delete` ⚠️ | `--destination-id*` | Delete a destination. |
 
 ### endpoints
@@ -295,6 +295,13 @@ hookie rules update --rule-id r_123 \
   --conditions '[{"path":"total","op":"gte","value":100},{"path":"country","op":"in","value":["US","CA"]}]'
 
 hookie workflows create --name Scoring --entry-dataset leads --steps @steps.json
+```
+
+A Slack or S3 destination's `--config` holds a credential, so read it from a file rather than typing it, where it would land in your shell history:
+
+```bash
+hookie destinations create --name "Orders channel" --type slack --config @slack.json --dataset-filter orders
+hookie destinations create --name Archive --type s3 --config @s3.json
 ```
 
 A list of plain strings also takes a comma-separated list, because `'["orders","shipments"]'` is a quoting puzzle with no upside:

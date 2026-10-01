@@ -128,6 +128,14 @@
           {
             "label": "Pricing",
             "href": "https://hookie.ai/pricing"
+          },
+          {
+            "label": "Changelog",
+            "href": "https://hookie.ai/changelog"
+          },
+          {
+            "label": "Status",
+            "href": "https://hookie.ai/status"
           }
         ]
       },
@@ -145,6 +153,19 @@
           {
             "label": "Connected agents",
             "href": "/connected-agents"
+          }
+        ]
+      },
+      {
+        "header": "Company",
+        "items": [
+          {
+            "label": "Security",
+            "href": "https://hookie.ai/security"
+          },
+          {
+            "label": "Contact",
+            "href": "https://hookie.ai/contact"
           }
         ]
       },

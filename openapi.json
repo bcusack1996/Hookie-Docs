@@ -913,6 +913,116 @@
             "description": "True for the workspace this request was answered in."
           }
         }
+      },
+      "DestinationType": {
+        "type": "string",
+        "enum": [
+          "webhook",
+          "slack",
+          "s3"
+        ],
+        "default": "webhook",
+        "description": "How a delivery leaves Hookie (DLV-13, #313). `webhook`: the signed HTTPS POST to `url` (Hookie-Signature and the Standard Webhooks headers), unchanged. `slack`: a POST to a Slack incoming webhook with a readable message ({text, blocks}: dataset, event id, received time and the payload as pretty JSON truncated to 2,500 characters), or the destination's own template when it has a transform; it carries only Content-Type and User-Agent, no signature headers. `s3`: one object per event PUT to an S3-compatible bucket (AWS S3, Cloudflare R2, GCS interoperability, MinIO) at {prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json (dated by when the event was received, UTC), Content-Type application/json, x-amz-meta-hookie-event-id and x-amz-meta-hookie-dataset, signed with AWS SigV4; the key is the event's, so a retry or replay overwrites the same object. All three share retries with backoff, pacing, the delivery allowance and holds, replay and the delivery log. The type is fixed at creation."
+      },
+      "DestinationConfigInput": {
+        "description": "A Slack or S3 destination's settings (DLV-13). Required on create for those types; refused for a webhook. Credentials are stored AES-256-GCM encrypted and never returned, exported or logged. On PATCH, a credential that is not sent keeps the stored one, and S3 settings that are not sent keep their stored values. On create, the Slack variant needs webhook_url.",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "Slack",
+            "additionalProperties": false,
+            "properties": {
+              "webhook_url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 500,
+                "description": "A Slack incoming-webhook URL: https://hooks.slack.com/services/T\u2026/B\u2026/\u2026 (also /workflows/ and /triggers/). Any other host is refused. The URL is the credential: it is shown back only masked (https://hooks.slack.com/services/\u2022\u2022\u2022\u2022abcd). Sending that masked value back unchanged keeps the stored URL."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "S3",
+            "additionalProperties": false,
+            "properties": {
+              "endpoint": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uri",
+                "description": "Origin of an S3-compatible service, https and a public host only, with no path: https://<account>.r2.cloudflarestorage.com for R2, https://storage.googleapis.com for GCS. Omitted or null: AWS S3 in `region`. Objects on a custom endpoint are addressed path-style (https://host/bucket/key)."
+              },
+              "region": {
+                "type": "string",
+                "description": "The signing region: us-east-1, eu-west-2, \u2026; `auto` for R2. Required for AWS; defaults to `auto` when an endpoint is given."
+              },
+              "bucket": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$"
+              },
+              "prefix": {
+                "type": "string",
+                "maxLength": 256,
+                "default": "",
+                "description": "Prepended to every key as is (end it with / for a folder). May not start with /, or contain . or .. segments, backslashes or control characters."
+              },
+              "access_key_id": {
+                "type": "string",
+                "description": "Returned in full: it identifies the key, it does not unlock it."
+              },
+              "secret_access_key": {
+                "type": "string",
+                "maxLength": 256,
+                "description": "Write-only. Never returned."
+              }
+            },
+            "description": "On create, bucket, access_key_id and secret_access_key are required, and region unless endpoint is set. On PATCH, send only what changes."
+          }
+        ]
+      },
+      "DestinationConfig": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The type's settings as returned (DLV-13): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3. No credential is ever included.",
+        "properties": {
+          "webhook_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Slack: the masked URL, e.g. https://hooks.slack.com/services/\u2022\u2022\u2022\u2022abcd."
+          },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bucket": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "access_key_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       }
     },
     "parameters": {
@@ -4804,7 +4914,7 @@
                     "type": "string",
                     "format": "uri",
                     "pattern": "^[Hh][Tt][Tt][Pp][Ss]://",
-                    "description": "Must be an https URL that parses. Validated exactly as the console validates a destination URL."
+                    "description": "Must be an https URL that parses. Validated exactly as the console validates a destination URL. A Slack incoming-webhook URL (hooks.slack.com) is refused (400): Slack accepts only its own message format, and the URL is a credential (#313)."
                   },
                   "dataset_filter": {
                     "type": "array",
@@ -4963,7 +5073,7 @@
                   "url": {
                     "type": "string",
                     "format": "uri",
-                    "description": "https only."
+                    "description": "https only. A Slack incoming-webhook URL (hooks.slack.com) is refused (400): Slack accepts only its own message format, and the URL is a credential (#313)."
                   },
                   "dataset_filter": {
                     "type": "array",
@@ -5117,7 +5227,7 @@
                   "url": {
                     "type": "string",
                     "format": "uri",
-                    "description": "https only."
+                    "description": "https only. A Slack incoming-webhook URL (hooks.slack.com) is refused (400): Slack accepts only its own message format, and the URL is a credential (#313)."
                   },
                   "dataset_filter": {
                     "type": "array",
@@ -5440,7 +5550,8 @@
                     "platform_admin",
                     "workspaceStatus",
                     "workspaceClosure",
-                    "retentionGrace"
+                    "retentionGrace",
+                    "signInMethod"
                   ],
                   "properties": {
                     "user": {
@@ -5502,6 +5613,23 @@
                     },
                     "platform_admin": {
                       "type": "boolean"
+                    },
+                    "signInMethod": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "email_code",
+                        "github",
+                        "google",
+                        "sso",
+                        "password",
+                        "passkey",
+                        "other",
+                        null
+                      ],
+                      "description": "How this console session was signed in (SEC-12, #314), from the sealed WorkOS session. null for an OAuth agent or an admin API key, which do not sign in, and when WorkOS did not record a method. It names the first factor only: whether a second factor ran is not recorded in the session."
                     },
                     "workspaceStatus": {
                       "type": "string",
@@ -12442,7 +12570,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default.",
+            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack or s3) and config holds its settings without any credential (DLV-13).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12472,7 +12600,8 @@
                           },
                           "url": {
                             "type": "string",
-                            "format": "uri"
+                            "format": "uri",
+                            "description": "Where deliveries go. For a webhook, the https URL it POSTs to. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix): display values, safe to show, never a credential."
                           },
                           "dataset_filter": {
                             "type": [
@@ -12657,6 +12786,23 @@
                               "null"
                             ],
                             "description": "Why Hookie switched it off, in words for a person."
+                          },
+                          "type": {
+                            "$ref": "#/components/schemas/DestinationType"
+                          },
+                          "config": {
+                            "$ref": "#/components/schemas/DestinationConfig"
+                          },
+                          "secrets_set": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "webhook_url",
+                                "secret_access_key"
+                              ]
+                            },
+                            "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
                           }
                         }
                       }
@@ -12758,7 +12904,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Created. signing_secret is returned here in plaintext; it is stored AES-256-GCM encrypted and can be read back later via the secret endpoint.",
+            "description": "Created. signing_secret is returned here in plaintext; it is stored AES-256-GCM encrypted and can be read back later via the secret endpoint. Every type gets a signing secret: a webhook's deliveries are signed with it, and for Slack and S3 it signs only the destination's alert_url notices.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12798,7 +12944,8 @@
                         },
                         "url": {
                           "type": "string",
-                          "format": "uri"
+                          "format": "uri",
+                          "description": "Where deliveries go. For a webhook, the https URL it POSTs to. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix): display values, safe to show, never a credential."
                         },
                         "dataset_filter": {
                           "type": [
@@ -12852,6 +12999,23 @@
                           ],
                           "format": "date-time",
                           "description": "While a rotated-out signing secret still signs (for 24 hours after a rotation): when it stops. null outside that window. The secret itself is never returned."
+                        },
+                        "type": {
+                          "$ref": "#/components/schemas/DestinationType"
+                        },
+                        "config": {
+                          "$ref": "#/components/schemas/DestinationConfig"
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "webhook_url",
+                              "secret_access_key"
+                            ]
+                          },
+                          "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
                         }
                       },
                       "description": "The created destination, as GET by id returns it (#201)."
@@ -12862,7 +13026,7 @@
             }
           },
           "400": {
-            "description": "Validation failure - name missing or over 80 characters, url missing, not absolute, or not https, an invalid datasetFilter entry, a reserved, malformed or duplicated header, a header value with a line break, an unknown auth type or a missing credential, a custom header that is also the authentication's header, an invalid transform (unknown type, bad mapping key, over 16 KB), or an alert_url that is not a public https URL.",
+            "description": "Validation failure - name missing or over 80 characters, url missing, not absolute, or not https, an invalid datasetFilter entry, a reserved, malformed or duplicated header, a header value with a line break, an unknown auth type or a missing credential, a custom header that is also the authentication's header, an invalid transform (unknown type, bad mapping key, over 16 KB), or an alert_url that is not a public https URL, an unknown type, a url, headers or auth on a Slack or S3 destination, config on a webhook, or a Slack or S3 config that is missing or invalid (a webhook_url not on https://hooks.slack.com/, an endpoint that is not a public https origin, a bad region, bucket, prefix or access key, a missing secret_access_key).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12937,8 +13101,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "name",
-                  "url"
+                  "name"
                 ],
                 "properties": {
                   "name": {
@@ -12949,7 +13112,7 @@
                   "url": {
                     "type": "string",
                     "format": "uri",
-                    "description": "Absolute https URL. http and relative URLs are rejected. Normalized through the URL parser before storing."
+                    "description": "webhook only, and required for it: an absolute https URL. http and relative URLs are rejected. Normalized through the URL parser before storing. Refused for Slack and S3, whose address is their config. A Slack incoming-webhook URL (hooks.slack.com) is refused here (400): it is a credential, stored encrypted only as a `slack` destination's config.webhook_url (#313)."
                   },
                   "datasetFilter": {
                     "type": [
@@ -12997,10 +13160,10 @@
                       },
                       "additionalProperties": false
                     },
-                    "description": "Custom headers sent with every delivery (DLV-7). Replaces the whole list; null clears it. Sent before Hookie's own headers, which always win."
+                    "description": "Custom headers sent with every delivery (DLV-7). Replaces the whole list; null clears it. Sent before Hookie's own headers, which always win. webhook only: refused for Slack and S3."
                   },
                   "auth": {
-                    "description": "Authentication (DLV-7), stored AES-256-GCM encrypted and never returned. null or {type:'none'} removes it. On PATCH, the same type with no credential keeps the stored credential (so an API key's header can be renamed without re-entering it).",
+                    "description": "Authentication (DLV-7), stored AES-256-GCM encrypted and never returned. null or {type:'none'} removes it. On PATCH, the same type with no credential keeps the stored credential (so an API key's header can be renamed without re-entering it). webhook only: refused for Slack and S3 (S3 is authenticated by SigV4 from config).",
                     "oneOf": [
                       {
                         "type": "null"
@@ -13144,6 +13307,12 @@
                     ],
                     "format": "uri",
                     "description": "OBS-2: a public https URL (no credentials, no private or internal host) that receives one signed POST when Hookie switches this destination off for failing. Body: {type:'destination.disabled', occurred_at, destination:{id,name,url,project_id}, reason, consecutive_dead, failing_since, last_failure}; headers Hookie-Signature (the destination's signing secret, same scheme as a delivery) and Hookie-Alert: destination.disabled. Sent once, never retried, redirects not followed. null or empty removes it."
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/DestinationType"
+                  },
+                  "config": {
+                    "$ref": "#/components/schemas/DestinationConfigInput"
                   }
                 }
               }
@@ -13232,7 +13401,8 @@
                         },
                         "url": {
                           "type": "string",
-                          "format": "uri"
+                          "format": "uri",
+                          "description": "Where deliveries go. For a webhook, the https URL it POSTs to. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix): display values, safe to show, never a credential."
                         },
                         "dataset_filter": {
                           "type": [
@@ -13286,6 +13456,23 @@
                           ],
                           "format": "date-time",
                           "description": "While a rotated-out signing secret still signs (for 24 hours after a rotation): when it stops. null outside that window. The secret itself is never returned."
+                        },
+                        "type": {
+                          "$ref": "#/components/schemas/DestinationType"
+                        },
+                        "config": {
+                          "$ref": "#/components/schemas/DestinationConfig"
+                        },
+                        "secrets_set": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "webhook_url",
+                              "secret_access_key"
+                            ]
+                          },
+                          "description": "Slack and S3 only: which credentials are stored (their values never leave the server)."
                         }
                       }
                     }
@@ -13331,7 +13518,7 @@
       },
       "patch": {
         "operationId": "updateDestination",
-        "summary": "Edit a destination: name, URL, on/off, dataset filter, request options, alert URL or delivery limits",
+        "summary": "Edit a destination: name, URL or type settings, on/off, dataset filter, request options, alert URL or delivery limits",
         "tags": [
           "Destinations"
         ],
@@ -13364,7 +13551,7 @@
             }
           },
           "400": {
-            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, or Nothing to update when no field was sent.",
+            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, a type other than the destination's own, url, headers or auth on a Slack or S3 destination, config on a webhook, an invalid Slack or S3 config, or Nothing to update when no field was sent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13465,7 +13652,7 @@
               "schema": {
                 "type": "object",
                 "minProperties": 1,
-                "description": "At least one of name, url, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`).",
+                "description": "At least one of name, url, config, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`). A destination's type cannot change (400 when type names another). Slack and S3 destinations change their address through config, never url, and take no headers or auth.",
                 "properties": {
                   "name": {
                     "type": "string",
@@ -13475,7 +13662,7 @@
                   "url": {
                     "type": "string",
                     "format": "uri",
-                    "description": "https only. Refused (409) for a destination that belongs to a customer portal - its URL is the customer's."
+                    "description": "https only. Refused (409) for a destination that belongs to a customer portal - its URL is the customer's. A Slack incoming-webhook URL (hooks.slack.com) is refused here (400): it is a credential, stored encrypted only as a `slack` destination's config.webhook_url (#313)."
                   },
                   "enabled": {
                     "type": "boolean"
@@ -13696,6 +13883,13 @@
                     ],
                     "format": "uri",
                     "description": "OBS-2: a public https URL (no credentials, no private or internal host) that receives one signed POST when Hookie switches this destination off for failing. Body: {type:'destination.disabled', occurred_at, destination:{id,name,url,project_id}, reason, consecutive_dead, failing_since, last_failure}; headers Hookie-Signature (the destination's signing secret, same scheme as a delivery) and Hookie-Alert: destination.disabled. Sent once, never retried, redirects not followed. null or empty removes it."
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/DestinationType",
+                    "description": "Optional; only the destination's own type is accepted."
+                  },
+                  "config": {
+                    "$ref": "#/components/schemas/DestinationConfigInput"
                   }
                 }
               }
@@ -29396,7 +29590,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Static, read-only catalog compiled into the Worker \u2014 identical for every workspace, with no plan or role gate. Currently: slack, datadog, email, generic, all `available: true` since destinations carry headers, authentication and a body template (DLV-7). Each preset carries the options its service needs \u2014 `transform` (the body template), `auth` (the kind of credential, never a value) and `headers` \u2014 for the console to prefill.",
+            "description": "Static, read-only catalog compiled into the Worker \u2014 identical for every workspace, with no plan or role gate. Currently: slack, datadog, email, generic, all `available: true` since destinations carry headers, authentication and a body template (DLV-7). The slack preset has `type: \"slack\"`: it creates a Slack destination (the URL goes in config.webhook_url, encrypted) with no template, so it posts the readable message. Each preset carries the options its service needs \u2014 `transform` (the body template), `auth` (the kind of credential, never a value) and `headers` \u2014 for the console to prefill.",
             "content": {
               "application/json": {
                 "schema": {
@@ -29438,6 +29632,14 @@
                           },
                           "url_hint": {
                             "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "webhook",
+                              "slack"
+                            ],
+                            "description": "The destination type the preset creates (#313). Absent: a webhook, addressed by `url`. `slack`: create with type 'slack' and config.webhook_url."
                           },
                           "headers": {
                             "type": "object",

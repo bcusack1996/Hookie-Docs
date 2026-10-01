@@ -26,6 +26,12 @@ Each role can do everything the role below it can:
 
 A `member` role, from before these four existed, reads as viewer. Single sign-on through your own identity provider (SAML or OIDC) is planned and not available yet, on any plan: **Settings → Single sign-on** says **Coming soon**. People sign in with an emailed code or with GitHub.
 
+### How you signed in
+
+The account panel, your profile in the console's top bar, shows **Signed in with** and the method this session used, such as **Emailed code** or **GitHub**. It also says what guards the account: anyone who can read your email can sign in with an emailed code, whichever method you used, so your account is as safe as your inbox. Protect that mailbox with its own two-step verification.
+
+Hookie does not offer multi-factor authentication (an authenticator-app step) yet. If an account is ever asked for one, sign-in stops with `mfa_required` and the message that this sign-in page does not support it yet; contact [support@hookie.ai](mailto:support@hookie.ai). Over the API, `GET /admin/api/me` reports the method as `signInMethod` (see [API reference](/api-reference)).
+
 ## API keys
 
 An **API key** (`hk_…`) lets a system with no browser, such as a CI job, a script or your own backend, call the admin API and the hosted MCP server at `/mcp`. Owners and admins create them in **Settings → API keys**, and only a person signed in to the console can: an agent or another key cannot.
