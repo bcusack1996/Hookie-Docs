@@ -23,7 +23,7 @@ Choose the type under **Type** when you choose **Add destination** on a project'
 
 A Slack destination posts each event to a channel through a Slack **incoming webhook**.
 
-1. In Slack, add an **Incoming Webhook** to a Slack app for the channel, and copy its URL. It starts `https://hooks.slack.com/services/`. Anyone who holds the URL can post to the channel, so treat it like a password.
+1. Install the [Hookie Slack app](/slack-app) to the channel, and copy its **Incoming Webhooks** URL. It starts `https://hooks.slack.com/services/`. Anyone who holds the URL can post to the channel, so treat it like a password. Any Slack app with an incoming webhook works too.
 2. In the console, open the project's **Connections** tab. Choose **Add destination**, then **Slack** under **Type**. Or choose **From preset**, then **Slack (Incoming Webhook)**.
 3. Paste the URL into **Slack incoming-webhook URL**, and give the destination a name.
 4. Optional: set a **Dataset filter**, so only the datasets you want in the channel are sent.
@@ -33,14 +33,16 @@ Only a `https://hooks.slack.com/` URL is accepted (`/services/…`, `/workflows/
 
 ### The message
 
-Each event becomes a message with:
+Each event becomes an alert card:
 
-- a header, **New event in** and the dataset;
-- the **Dataset**, the **Event id** and when the event was **Received**;
-- the payload as pretty-printed JSON in a code block. A payload over 2,500 characters is cut there, with a note of its full length, so Slack never refuses a large record;
-- a **Sent by Hookie** footer.
+- a title from the payload, such as its `title` or `summary`, or **New event in** and the dataset;
+- a severity badge and a coloured bar, when the payload's `severity`, `level`, `priority`, `status` or `state` says how bad it is;
+- up to 10 of the payload's fields;
+- the payload as pretty-printed JSON, only when the fields left something out. A payload over 2,500 characters is cut there, with a note of its full length, so Slack never refuses a large record;
+- a **View in Hookie** button that opens the dataset's records;
+- the dataset, the event id and when the event arrived.
 
-The notification text is `New <dataset> event <event id>`.
+The notification text is the severity, the title and the dataset. See [What a card shows](/slack-app#what-a-card-shows) for the details.
 
 To write your own message instead, choose **JSON template** under **Body**. A template replaces the default message, so it must be a Slack message body:
 

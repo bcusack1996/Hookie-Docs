@@ -1,0 +1,115 @@
+---
+title: "Slack app"
+description: "Install the Hookie Slack app and see each webhook submission as an alert card in a channel."
+icon: "slack"
+---
+
+The **Hookie Slack app** posts each event a Slack destination sends as a card: a title and severity taken from the payload, its fields, and a **View in Hookie** button. It ships with Hookie as a Slack app manifest, so you create it in a few clicks and own it in your Slack workspace.
+
+The app asks for one permission, `incoming-webhook`. It can post to the channel you install it to, and it can read nothing.
+
+## Install the app
+
+<Steps>
+  <Step title="Start a Slack destination">
+    In the console, open your project's **Connections** tab. Choose **Add destination**, then **Slack** under **Type**.
+  </Step>
+  <Step title="Create the app from its manifest">
+    Choose **Create the Hookie Slack app**. Slack opens **Create app from manifest** with the Hookie app filled in. Pick your Slack workspace, review it, and choose **Create**.
+  </Step>
+  <Step title="Install it to a channel">
+    Choose **Install to Workspace**, pick the channel the cards go to, and choose **Allow**.
+  </Step>
+  <Step title="Copy the channel's URL into Hookie">
+    Under **Incoming Webhooks**, copy the URL. It starts `https://hooks.slack.com/services/`. Paste it into **Slack incoming-webhook URL**, name the destination, and choose **Create**.
+  </Step>
+</Steps>
+
+Anyone who holds the URL can post to the channel, so treat it like a password. Hookie stores it encrypted and only ever shows a masked hint. See [Slack destinations](/destinations#slack).
+
+<Tip>
+If the link does not open, go to [api.slack.com/apps](https://api.slack.com/apps), choose **Create New App**, then **From a manifest**, and paste the manifest below.
+</Tip>
+
+<Accordion title="The app manifest">
+
+```json
+{
+  "_metadata": { "major_version": 1, "minor_version": 1 },
+  "display_information": {
+    "name": "Hookie",
+    "description": "Webhook submissions from Hookie, as alert cards in your channels.",
+    "long_description": "Hookie receives your webhooks, files them into datasets and delivers them onward. This app posts each event a Hookie Slack destination sends as a card: a title from the payload, a severity badge and colour, the payload's fields, and a View in Hookie button that opens the dataset's records in the console. Install it to a channel, copy the channel's incoming-webhook URL, and paste it into a Slack destination on your project's Connections tab."
+  },
+  "features": {
+    "bot_user": { "display_name": "Hookie", "always_online": false }
+  },
+  "oauth_config": {
+    "scopes": { "bot": ["incoming-webhook"] }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
+```
+
+</Accordion>
+
+To give the app Hookie's icon, open **Basic Information** in the app's settings and upload it under **Display Information**. A manifest cannot carry an icon.
+
+## Send cards to more than one channel
+
+One incoming webhook posts to one channel. For another channel, open the app's **Incoming Webhooks** page, choose **Add New Webhook to Workspace**, and pick the channel. Then create a second Slack destination with the new URL.
+
+Give each destination a **Dataset filter** so each channel gets only the datasets it wants. For example, send `alerts` to `#on-call` and `orders` to `#sales`.
+
+## What a card shows
+
+| Part | Where it comes from |
+| --- | --- |
+| **Title** | The payload's first non-empty `title`, `summary`, `subject`, `alertname`, `alert_name`, `message`, `name`, `event` or `type`. With none of these, **New event in** and the dataset. |
+| **Severity** | A badge and a coloured bar, when `severity`, `level`, `priority`, `status` or `state` holds a word Hookie recognizes. See [Severity](#severity). |
+| **Fields** | Up to 10 of the payload's other top-level values. Nested objects are flattened one level, such as `customer.email`. Each value is cut at 300 characters. |
+| **Payload** | The payload as pretty-printed JSON, only when the fields left something out: more than 10 values, a value that was cut, or a list of objects. It is cut at 2,500 characters. |
+| **View in Hookie** | A button that opens the dataset's records in the console. |
+| **Footer** | The dataset, the event id, and when the event arrived, in each reader's own time zone. |
+
+The notification text is the severity, the title and the dataset, such as `[CRITICAL] CPU above 90% on web-1 · alerts`.
+
+Everything from the payload is shown as text. A value such as `<!channel>` does not notify anyone.
+
+For example, this payload:
+
+```json
+{
+  "title": "CPU above 90% on web-1",
+  "severity": "critical",
+  "host": "web-1",
+  "labels": { "region": "us-east", "team": "infra" }
+}
+```
+
+becomes a card with a red bar, the title **CPU above 90% on web-1**, a **CRITICAL** badge, and the fields **host**, **labels.region** and **labels.team**. Every value fits on the card, so there is no JSON block.
+
+### Severity
+
+| Bar | Words |
+| --- | --- |
+| Red | `critical`, `fatal`, `emergency`, `alert`, `error`, `high`, `urgent`, `p1`, `sev1`, `failed`, `failure`, `down`, `firing`, `outage`, `triggered` |
+| Orange | `warning`, `warn`, `medium`, `moderate`, `p2`, `p3`, `sev2`, `sev3`, `degraded`, `pending`, `unstable`, `acknowledged` |
+| Green | `ok`, `resolved`, `success`, `succeeded`, `healthy`, `up`, `passed`, `recovered`, `closed` |
+| None (blue badge) | `info`, `informational`, `notice`, `low`, `debug`, `minor`, `p4`, `p5`, `sev4`, `sev5`, `open` |
+
+Matching ignores case and surrounding spaces. Any other value, such as `"status": "paid"`, is shown as an ordinary field and the card has no bar.
+
+## Write your own message
+
+To post something other than the card, choose **JSON template** under **Body** on the destination. A template replaces the card, so it must be a Slack message body:
+
+```json
+{ "text": "Order {{data.order_id}} paid by {{data.customer.email}}" }
+```
+
+See [Body](/destinations#body) for placeholders.

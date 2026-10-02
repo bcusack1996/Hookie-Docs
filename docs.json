@@ -50,6 +50,7 @@
           "signatures",
           "endpoint-verification",
           "destinations",
+          "slack-app",
           "database-sources",
           "ingest-keys",
           "streaming",
