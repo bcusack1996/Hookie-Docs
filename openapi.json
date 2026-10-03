@@ -6362,7 +6362,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Equal-width buckets ending now. 24h and 7d are hourly (24 and 168 buckets); 30d is daily (30 buckets). At most 50000 raw timestamps are scanned per request.",
+            "description": "Equal-width buckets ending now. 24h and 7d are hourly (24 and 168 buckets); 30d is daily (30 buckets). Counted in SQL, with no cap on volume.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6408,6 +6408,10 @@
                       "items": {
                         "type": "integer"
                       }
+                    },
+                    "previous_total": {
+                      "type": "integer",
+                      "description": "The metric's total over the window of the same length just before this one, for a change-on-previous-period figure."
                     }
                   }
                 }
