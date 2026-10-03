@@ -113,6 +113,8 @@ Two refusals carry no link, because widening would not help:
 
 **Settings → Connected agents** in the console lists everything you have connected, what each may do, and when it last acted. Revoking takes effect on the agent's next call, even though its token is still valid, because Hookie checks its own grant on every request.
 
+Agents that call Hookie with a user-delegated **WorkOS Agent Auth** token are listed here too, as **WorkOS agent**, and follow the same rules: read-only until you widen them, revocable at once. See [WorkOS Agent Auth](/workos-agent-auth).
+
 ## Tools
 
 Available with `hookie:read`:
