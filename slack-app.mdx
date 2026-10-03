@@ -1,6 +1,6 @@
 ---
 title: "Slack app"
-description: "Install the Hookie Slack app and see each webhook submission as an alert card in a channel."
+description: "Connect a Slack channel with Add to Slack, or install the Hookie Slack app, and see each webhook submission as an alert card."
 icon: "slack"
 ---
 
@@ -8,7 +8,29 @@ The **Hookie Slack app** posts each event a Slack destination sends as a card: a
 
 The app asks for one permission, `incoming-webhook`. It can post to the channel you install it to, and it can read nothing.
 
-## Install the app
+## Add to Slack
+
+The quickest way in. If your project's **Connections** tab shows **Add to Slack** above the destinations, Hookie's own Slack app connects a channel in one step, with no app to create and no URL to copy.
+
+<Steps>
+  <Step title="Choose Add to Slack">
+    In the console, open your project's **Connections** tab and choose **Add to Slack**. You need a role that can add destinations.
+  </Step>
+  <Step title="Pick the channel">
+    Slack asks you to allow Hookie to post to a channel in your Slack workspace. Pick the channel and choose **Allow**.
+  </Step>
+  <Step title="Back in Hookie, it is ready">
+    You return to **Connections** with a new Slack destination named after the channel, such as `Slack #alerts (Acme)`. It delivers every dataset until you give it a **Dataset filter**.
+  </Step>
+</Steps>
+
+Hookie keeps only the channel's webhook URL, encrypted and shown masked, and discards the access token Slack also sends. To connect another channel, choose **Add to Slack** again. The new destination counts toward your plan's destination limit.
+
+If you cancel on Slack's screen, or the connection is started in one browser and finished in another, nothing is created and Connections says why. Choose **Add to Slack** again.
+
+## Install your own copy of the app
+
+Use this when **Add to Slack** is not shown, or when you want the app to belong to your Slack workspace.
 
 <Steps>
   <Step title="Start a Slack destination">
@@ -16,6 +38,9 @@ The app asks for one permission, `incoming-webhook`. It can post to the channel 
   </Step>
   <Step title="Create the app from its manifest">
     Choose **Create the Hookie Slack app**. Slack opens **Create app from manifest** with the Hookie app filled in. Pick your Slack workspace, review it, and choose **Create**.
+  </Step>
+  <Step title="Give it the Hookie icon">
+    Download the [Hookie app icon](https://app.hookie.ai/brand/hookie-slack-icon.png). In the app's settings, open **Basic Information**, and upload it under **Display Information**. Every card posts under the app's name and icon, so this is what your team sees beside each alert.
   </Step>
   <Step title="Install it to a channel">
     Choose **Install to Workspace**, pick the channel the cards go to, and choose **Allow**.
@@ -39,7 +64,8 @@ If the link does not open, go to [api.slack.com/apps](https://api.slack.com/apps
   "display_information": {
     "name": "Hookie",
     "description": "Webhook submissions from Hookie, as alert cards in your channels.",
-    "long_description": "Hookie receives your webhooks, files them into datasets and delivers them onward. This app posts each event a Hookie Slack destination sends as a card: a title from the payload, a severity badge and colour, the payload's fields, and a View in Hookie button that opens the dataset's records in the console. Install it to a channel, copy the channel's incoming-webhook URL, and paste it into a Slack destination on your project's Connections tab."
+    "long_description": "Hookie receives your webhooks, files them into datasets and delivers them onward. This app posts each event a Hookie Slack destination sends as a card: a title from the payload, a severity badge and colour, the payload's fields, and a View in Hookie button that opens the dataset's records in the console. Install it to a channel, copy the channel's incoming-webhook URL, and paste it into a Slack destination on your project's Connections tab.",
+    "background_color": "#0B0F19"
   },
   "features": {
     "bot_user": { "display_name": "Hookie", "always_online": false }
@@ -57,11 +83,11 @@ If the link does not open, go to [api.slack.com/apps](https://api.slack.com/apps
 
 </Accordion>
 
-To give the app Hookie's icon, open **Basic Information** in the app's settings and upload it under **Display Information**. A manifest cannot carry an icon.
+The manifest sets the app's name, description and background colour. Slack does not let a manifest carry an icon, which is why you upload it yourself.
 
 ## Send cards to more than one channel
 
-One incoming webhook posts to one channel. For another channel, open the app's **Incoming Webhooks** page, choose **Add New Webhook to Workspace**, and pick the channel. Then create a second Slack destination with the new URL.
+One incoming webhook posts to one channel. With **Add to Slack**, choose it again and pick the next channel. With your own copy of the app, open the app's **Incoming Webhooks** page, choose **Add New Webhook to Workspace**, and pick the channel. Then create a second Slack destination with the new URL.
 
 Give each destination a **Dataset filter** so each channel gets only the datasets it wants. For example, send `alerts` to `#on-call` and `orders` to `#sales`.
 
@@ -74,7 +100,8 @@ Give each destination a **Dataset filter** so each channel gets only the dataset
 | **Fields** | Up to 10 of the payload's other top-level values. Nested objects are flattened one level, such as `customer.email`. Each value is cut at 300 characters. |
 | **Payload** | The payload as pretty-printed JSON, only when the fields left something out: more than 10 values, a value that was cut, or a list of objects. It is cut at 2,500 characters. |
 | **View in Hookie** | A button that opens the dataset's records in the console. |
-| **Footer** | The dataset, the event id, and when the event arrived, in each reader's own time zone. |
+| **Footer** | The Hookie logo, the dataset, the event id, and when the event arrived, in each reader's own time zone. |
+| **Bar colour** | Red, orange or green for a [severity](#severity). Hookie blue when the card has no severity or only `info`. |
 
 The notification text is the severity, the title and the dataset, such as `[CRITICAL] CPU above 90% on web-1 · alerts`.
 
@@ -100,9 +127,9 @@ becomes a card with a red bar, the title **CPU above 90% on web-1**, a **CRITICA
 | Red | `critical`, `fatal`, `emergency`, `alert`, `error`, `high`, `urgent`, `p1`, `sev1`, `failed`, `failure`, `down`, `firing`, `outage`, `triggered` |
 | Orange | `warning`, `warn`, `medium`, `moderate`, `p2`, `p3`, `sev2`, `sev3`, `degraded`, `pending`, `unstable`, `acknowledged` |
 | Green | `ok`, `resolved`, `success`, `succeeded`, `healthy`, `up`, `passed`, `recovered`, `closed` |
-| None (blue badge) | `info`, `informational`, `notice`, `low`, `debug`, `minor`, `p4`, `p5`, `sev4`, `sev5`, `open` |
+| Hookie blue (blue badge) | `info`, `informational`, `notice`, `low`, `debug`, `minor`, `p4`, `p5`, `sev4`, `sev5`, `open` |
 
-Matching ignores case and surrounding spaces. Any other value, such as `"status": "paid"`, is shown as an ordinary field and the card has no bar.
+Matching ignores case and surrounding spaces. Any other value, such as `"status": "paid"`, is shown as an ordinary field and the card has the Hookie blue bar.
 
 ## Write your own message
 
