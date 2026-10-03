@@ -1592,12 +1592,9 @@
                 "description": "The endpoint's redirect_url."
               }
             }
-          },
-          "422": {
-            "description": "The body has no fields, or (Hookie Forms, #344) it does not meet the endpoint's form_fields: reason form_invalid with fields: [{name, error}]. Nothing is stored or counted."
           }
         },
-        "description": "Public webhook URL, app.hookie.ai/{workspace}/{project}/{webhook}. POST, plus OPTIONS (the CORS preflight) and a GET carrying hub.challenge (Meta's URL verification); any other GET, and PUT, fall through to the console and never reach ingest. Only 3- or 4-segment paths match. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Hookie Forms (#341): an endpoint with a honeypot answers a submission that fills it 201 and drops it; one with a Turnstile secret refuses a submission without a valid cf-turnstile-response token 403 (reason turnstile_failed); one with form_fields refuses a payload below them 422 (reason form_invalid, fields: [{name, error}]); all three before the quota and the store. A browser's native form POST to an endpoint with no redirect_url is answered with an HTML thank-you page (200), or, for a 422 or a Turnstile refusal, an HTML page saying what to fix. Every other request is an ordinary event.",
+        "description": "Public webhook URL, app.hookie.ai/{workspace}/{project}/{webhook}. POST, plus OPTIONS (the CORS preflight) and a GET carrying hub.challenge (Meta's URL verification); any other GET, and PUT, fall through to the console and never reach ingest. Only 3- or 4-segment paths match. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Every other request is an ordinary event.",
         "parameters": [
           {
             "name": "workspace",
@@ -2225,12 +2222,9 @@
                 "description": "The endpoint's redirect_url."
               }
             }
-          },
-          "422": {
-            "description": "The body has no fields, or (Hookie Forms, #344) it does not meet the endpoint's form_fields: reason form_invalid with fields: [{name, error}]. Nothing is stored or counted."
           }
         },
-        "description": "Four-segment form of the public webhook URL. POST, plus the OPTIONS preflight and Meta's hub.challenge GET, which behave as on the three-segment URL; other methods fall through to the console. The fourth segment must be the endpoint's OWN dataset: any other value is refused with 403. It used to override the dataset with any dataset in the project, which let anyone holding a public endpoint URL (one embedded in an HTML form, say) write into every dataset in the project and set off its destinations, triggers and workflows. To route one source into several datasets, use an ingest key: POST /v1/ingest/{ingest_key}/{dataset}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Hookie Forms (#341): an endpoint with a honeypot answers a submission that fills it 201 and drops it; one with a Turnstile secret refuses a submission without a valid cf-turnstile-response token 403 (reason turnstile_failed); one with form_fields refuses a payload below them 422 (reason form_invalid, fields: [{name, error}]); all three before the quota and the store. A browser's native form POST to an endpoint with no redirect_url is answered with an HTML thank-you page (200), or, for a 422 or a Turnstile refusal, an HTML page saying what to fix. Every other request is an ordinary event.",
+        "description": "Four-segment form of the public webhook URL. POST, plus the OPTIONS preflight and Meta's hub.challenge GET, which behave as on the three-segment URL; other methods fall through to the console. The fourth segment must be the endpoint's OWN dataset: any other value is refused with 403. It used to override the dataset with any dataset in the project, which let anyone holding a public endpoint URL (one embedded in an HTML form, say) write into every dataset in the project and set off its destinations, triggers and workflows. To route one source into several datasets, use an ingest key: POST /v1/ingest/{ingest_key}/{dataset}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Every other request is an ordinary event.",
         "parameters": [
           {
             "name": "workspace",
@@ -9472,75 +9466,6 @@
                           "handshake_secret_set": {
                             "type": "boolean",
                             "description": "Whether a handshake secret is stored. The secret itself is never returned."
-                          },
-                          "form_fields": {
-                            "type": "array",
-                            "description": "Hookie Forms (#344): the declared fields, [] when none.",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "name",
-                                "type"
-                              ],
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "type": "string",
-                                  "description": "1-64 letters, digits, _ . - [ or ]"
-                                },
-                                "type": {
-                                  "type": "string",
-                                  "enum": [
-                                    "text",
-                                    "email",
-                                    "number",
-                                    "url",
-                                    "tel",
-                                    "textarea",
-                                    "select",
-                                    "checkbox",
-                                    "date",
-                                    "hidden"
-                                  ]
-                                },
-                                "required": {
-                                  "type": "boolean"
-                                },
-                                "max_length": {
-                                  "type": "integer",
-                                  "minimum": 1,
-                                  "maximum": 100000
-                                },
-                                "options": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
-                                  },
-                                  "description": "Required for select; for checkbox, limits the allowed values"
-                                },
-                                "label": {
-                                  "type": "string"
-                                }
-                              }
-                            }
-                          },
-                          "honeypot": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "Hookie Forms (#342): the honeypot field name, or null."
-                          },
-                          "turnstile_site_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "Hookie Forms (#342): the Turnstile site key, or null."
-                          },
-                          "turnstile_enabled": {
-                            "type": "boolean",
-                            "description": "Hookie Forms (#342): whether a Turnstile secret is stored, so submissions are verified. The secret itself is never returned."
                           }
                         }
                       }
@@ -10008,81 +9933,6 @@
                     "maxLength": 256,
                     "writeOnly": true,
                     "description": "Required with handshake zoom (the app's Secret Token, which signs the answer) or meta (the Verify Token compared with hub.verify_token), unless one is already stored for that same handshake. Refused with any other handshake. WRITE-ONLY: AES-256-GCM encrypted, never returned, never in the audit log (which records only that one was set)."
-                  },
-                  "form_fields": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#344): the fields a submission to the endpoint URL must meet, at most 50. A payload missing a required field, with a malformed email, url, number, tel or date, over max_length (default 5000) or outside a select's options is refused 422 with reason form_invalid and fields: [{name, error}], before it is stored or counted. Fields not declared are kept. [] or null declares none.",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "description": "1-64 letters, digits, _ . - [ or ]"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "text",
-                            "email",
-                            "number",
-                            "url",
-                            "tel",
-                            "textarea",
-                            "select",
-                            "checkbox",
-                            "date",
-                            "hidden"
-                          ]
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "max_length": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 100000
-                        },
-                        "options": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Required for select; for checkbox, limits the allowed values"
-                        },
-                        "label": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  },
-                  "honeypot": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): a form field hidden from people, such as _gotcha. A submission that fills it is answered 201 (or the redirect, or the thank-you page) but is not stored, counted or delivered, and is logged as reason honeypot. The field is stripped from what is stored. null: none."
-                  },
-                  "turnstile_site_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the site key of the customer's Cloudflare Turnstile widget. Public."
-                  },
-                  "turnstile_secret": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
                   }
                 }
               }
@@ -10632,81 +10482,6 @@
                     "maxLength": 256,
                     "writeOnly": true,
                     "description": "Required with handshake zoom (the app's Secret Token, which signs the answer) or meta (the Verify Token compared with hub.verify_token), unless one is already stored for that same handshake. Refused with any other handshake. WRITE-ONLY: AES-256-GCM encrypted, never returned, never in the audit log (which records only that one was set)."
-                  },
-                  "form_fields": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#344): the fields a submission to the endpoint URL must meet, at most 50. A payload missing a required field, with a malformed email, url, number, tel or date, over max_length (default 5000) or outside a select's options is refused 422 with reason form_invalid and fields: [{name, error}], before it is stored or counted. Fields not declared are kept. [] or null declares none.",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "description": "1-64 letters, digits, _ . - [ or ]"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "text",
-                            "email",
-                            "number",
-                            "url",
-                            "tel",
-                            "textarea",
-                            "select",
-                            "checkbox",
-                            "date",
-                            "hidden"
-                          ]
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "max_length": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 100000
-                        },
-                        "options": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Required for select; for checkbox, limits the allowed values"
-                        },
-                        "label": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  },
-                  "honeypot": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): a form field hidden from people, such as _gotcha. A submission that fills it is answered 201 (or the redirect, or the thank-you page) but is not stored, counted or delivered, and is logged as reason honeypot. The field is stripped from what is stored. null: none."
-                  },
-                  "turnstile_site_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the site key of the customer's Cloudflare Turnstile widget. Public."
-                  },
-                  "turnstile_secret": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
                   }
                 }
               }
@@ -10764,27 +10539,6 @@
                         "string",
                         "null"
                       ]
-                    },
-                    "form_fields": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "honeypot": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "turnstile_site_key": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "turnstile_enabled": {
-                      "type": "boolean"
                     }
                   }
                 }
@@ -34721,9 +34475,6 @@
                               "loop_detected",
                               "quota_exceeded",
                               "cors_origin_not_allowed",
-                              "honeypot",
-                              "turnstile_failed",
-                              "form_invalid",
                               null
                             ],
                             "description": "Rejected only."
