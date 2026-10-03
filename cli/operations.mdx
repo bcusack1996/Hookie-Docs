@@ -1,6 +1,6 @@
 ---
 title: "Operations"
-description: "Send a test event, find what failed, redeliver it, and open the console at a project, all through your account."
+description: "Add a form, send a test event, find what failed, redeliver it, and open the console at a project, all through your account."
 icon: "screwdriver-wrench"
 ---
 
@@ -15,6 +15,16 @@ jq -n '{type:"order.created"}' | hookie send --endpoint checkout --data @-
 ```
 
 `send` posts to the endpoint's **public URL**, the same one a provider posts to, so the event takes the same path through ingest, the endpoint's criteria and mappings, and delivery as any other. The answer says where it was routed. `--endpoint` takes an endpoint's readable base slug, its ID, its name, or a full `workspace/project/slug` path.
+
+## Add a form
+
+```bash
+hookie forms init contact --to slack --origin https://example.com
+hookie forms init waitlist --framework react --json
+hookie forms test contact-form
+```
+
+`forms init` creates the endpoint with the template's fields, a honeypot and the origins you give it, adds the destination you ask for, and writes the form into your project. `forms test` posts a sample submission and reports the record. Templates, flags and the checks Hookie runs are in [Forms](/forms).
 
 ## Find what arrived, and what failed
 

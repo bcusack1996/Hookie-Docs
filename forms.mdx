@@ -1,0 +1,156 @@
+---
+title: "Forms"
+description: "Put a contact, newsletter, waitlist, feedback or survey form on any site, with Hookie as its backend: spam protection, field checks, workflows and delivery to Slack."
+icon: "rectangle-list"
+---
+
+A form on any site can post straight to a Hookie endpoint. There is no backend to write and no JavaScript to add: the endpoint URL takes the browser's post, checks it, stores it, runs your rules and workflows, and delivers it to Slack, your own webhook or your customers' portal.
+
+## One command
+
+The CLI sets up the endpoint, its checks and the form itself:
+
+```bash
+hookie forms init contact --to slack --origin https://example.com
+```
+
+| Template | Fields |
+| --- | --- |
+| `contact` | `name`, `email`, `message` (all required) |
+| `newsletter` | `email` |
+| `waitlist` | `email`, then optional `name` and `company` |
+| `feedback` | `rating` (1-5), then optional `message` and `email` |
+| `survey` | `role`, `satisfaction` (1-5), then optional `comments` and `email` |
+
+`forms init` does four things:
+
+1. It creates the endpoint, with the template's fields as its [form fields](#check-the-fields), a [honeypot](#stop-bots) and the origins and redirect you give it. Run it again and it updates the same endpoint, found by its `--slug`.
+2. With `--to slack` or `--to webhook`, it adds the destination, filtered to the form's dataset. Slack with no `--destination-url` prints the link to **Add to Slack** on your project's **Connections** tab, which you press yourself.
+3. It writes the form into your project: plain HTML, a React component or an Astro component, chosen from your `package.json` (`--framework` to choose yourself, `--out` for the directory). It never replaces a file that exists unless you pass `--force`.
+4. It records the endpoint in `hookie-forms.json`, so `hookie forms test` knows which form you mean.
+
+`--json` prints one result object: the endpoint URL, the dataset, the destination, the files written, warnings and next steps. `--dry-run` shows the plan and changes nothing. Then check the whole path:
+
+```bash
+hookie forms test contact-form
+```
+
+It posts a sample submission built from the endpoint's fields and reports the record it made. An endpoint that requires Turnstile refuses it, because a terminal cannot pass a Turnstile check: test from your page in a browser.
+
+## The form
+
+What `forms init` writes for plain HTML is an ordinary form:
+
+```html
+<form action="https://app.hookie.ai/your-workspace/site/aBcXyz…" method="post">
+  <label for="hk-email">Email</label>
+  <input id="hk-email" name="email" type="email" required />
+  <label for="hk-message">Message</label>
+  <textarea id="hk-message" name="message" required></textarea>
+  <input name="_gotcha" type="text" tabindex="-1" autocomplete="off" aria-hidden="true"
+         style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" />
+  <button type="submit">Send message</button>
+</form>
+```
+
+The URL in `action` is public by design. It can only add submissions, and every check below runs on it. If it leaks to someone you would rather not hear from, [rotate it](/endpoints-and-keys#endpoints).
+
+**After a submit.** With no redirect URL, the visitor lands on Hookie's thank-you page, in light or dark to match their system, with a link back to your form. Give the endpoint a redirect URL (`--redirect https://example.com/thanks`, or **Redirect after a form submit** under **Edit…**) to send them to your own page instead. When a submission fails a check, the visitor sees a page that lists what to fix.
+
+**Without leaving the page.** The React component submits with `fetch()` and shows the result in place. That needs your site's origin in the endpoint's allowed origins (`--origin`, repeatable, or **Allowed browser origins** under **Edit…**), or the browser will not let the page read the answer. It sends one `Idempotency-Key` per submission and reuses it if the visitor presses **Send** again after an error, so a double click stores one submission.
+
+### `@hookie/forms`
+
+For your own markup, the `@hookie/forms` package does the submitting. It has no dependencies.
+
+```js
+import { enhanceForm, submitForm } from "@hookie/forms";
+
+// Progressive enhancement: works with no JavaScript, submits with fetch() when it can.
+enhanceForm(document.querySelector("form"), {
+  onSuccess: () => showThanks(),
+  onError: (r) => showErrors(r.fieldErrors), // { email: "must be an email address" }
+});
+
+// Or by hand:
+const result = await submitForm(url, { email, message });
+```
+
+In React, `useHookieForm(url)` from `@hookie/forms/react` gives you `submit`, `status`, `fieldErrors` and `error`. `defineFields([...] as const)` and `FieldsOf<typeof fields>` type a payload from the endpoint's fields, so a missing required field fails to compile.
+
+<Note>
+  `@hookie/forms` is not on the npm registry yet. Until it is, the files `hookie forms init` writes work on their own, with nothing to install.
+</Note>
+
+## Stop bots
+
+Both checks run before anything is stored or counted, so spam never uses your monthly events or reaches Slack.
+
+**Honeypot.** A field that people never see and bots fill in. Set its name with `honeypot` (`forms init` uses `_gotcha`). A submission that fills it is answered exactly as if it had worked, so the bot learns nothing, but it is not stored, counted or delivered. It shows under the endpoint's **Activity** as **Spam caught by the honeypot**. The empty field is removed from what is stored.
+
+**Cloudflare Turnstile.** For forms that attract more determined bots. Create a widget in your Cloudflare dashboard, then give the endpoint its keys: `turnstile_site_key` (public, for the widget) and `turnstile_secret`. With the secret set, every submission must carry the token the widget adds (`cf-turnstile-response`). Hookie checks it with Cloudflare before storing anything:
+
+| Result | Answer |
+| --- | --- |
+| No token | `403`, `turnstile: "missing"` |
+| A token Cloudflare rejects, such as an expired or reused one | `403`, `turnstile: "invalid"` and Cloudflare's error codes |
+| Cloudflare cannot be reached | `503`, `turnstile: "unavailable"`. Hookie does not let submissions through unchecked. |
+
+The secret is encrypted when stored and never shown again: the endpoint reports only `turnstile_enabled`. The token is removed from what is stored. With `forms init`, pass `--turnstile-site-key` and `--turnstile-secret`, and the form renders the widget.
+
+## Check the fields
+
+Give the endpoint `form_fields` and it refuses a submission that does not meet them, with `422`, before anything is stored or counted:
+
+```json
+[
+  { "name": "email", "type": "email", "required": true },
+  { "name": "message", "type": "textarea", "required": true, "max_length": 2000 },
+  { "name": "plan", "type": "select", "options": ["free", "pro"] }
+]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `name` | The form field's name, exactly as the form sends it. |
+| `type` | `text`, `email`, `number`, `url`, `tel`, `textarea`, `select`, `checkbox`, `date` (`YYYY-MM-DD`) or `hidden`. |
+| `required` | Refuse a submission without it. |
+| `max_length` | Longest value allowed. Every field has a limit of 5,000 characters unless you set one. |
+| `options` | A `select` must be one of these. On a `checkbox`, every value must be. |
+
+The answer names every problem at once:
+
+```json
+{
+  "error": "The submission does not match the form: email must be an email address; message is required. Nothing was stored.",
+  "reason": "form_invalid",
+  "fields": [
+    { "name": "email", "error": "must be an email address" },
+    { "name": "message", "error": "is required" }
+  ]
+}
+```
+
+Fields you did not declare are still stored, so a tracking field or a new input does not break anything. Up to 50 fields can be declared.
+
+## Where submissions go
+
+A submission is an ordinary event, so everything else in Hookie works on it:
+
+- **Rules and mappings** reshape or filter what is stored. See [Rules and mappings](/rules-and-mappings).
+- **Workflows** branch on a field, call AI to classify or summarise a message, wait, or call another API. See [Workflows](/workflows).
+- **Destinations** deliver it: a [Slack card](/slack-app), your own signed webhook, S3, SQS or Pub/Sub. See [Destinations](/destinations).
+- The **customer portal** lets your own customers subscribe to the form's dataset. See [Customer portal](/customer-portal).
+
+Each submission counts as one event, and each destination it is delivered to as one delivery. The Free plan's 1,000 events a month suit a contact form, and refused spam costs nothing. See [Limits and plans](/limits-and-plans).
+
+## Settings, wherever you work
+
+| Where | How |
+| --- | --- |
+| Console | **Endpoints** tab, **Edit…** in the endpoint's menu: honeypot, Turnstile keys, form fields, redirect and allowed origins |
+| CLI | `hookie forms init`, `hookie endpoints update --honeypot _gotcha`, or an endpoint's keys in `hookie apply`. A config file never carries the Turnstile secret. |
+| MCP | `create_webhook` and `update_webhook` take `form_fields`, `honeypot`, `turnstile_site_key` and `turnstile_secret` |
+| REST | The same fields on `POST` and `PATCH /admin/api/projects/{project_id}/webhooks`. See the [API reference](/api-reference). |
+
+A new version of an endpoint keeps its honeypot, Turnstile keys and form fields, so publishing one never opens the form to bots.

@@ -47,6 +47,7 @@
         "group": "Guides",
         "icon": "book-open",
         "pages": [
+          "forms",
           "signatures",
           "endpoint-verification",
           "destinations",
