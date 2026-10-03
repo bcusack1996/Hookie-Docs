@@ -148,7 +148,7 @@ Both form encodings work: `application/x-www-form-urlencoded` and `multipart/for
 
 ### Send visitors to a thank-you page
 
-Because the browser navigates to the endpoint on submit, a visitor would land on Hookie's JSON response. Give the endpoint a redirect URL instead: on the **Endpoints** tab, choose **Edit…** in the endpoint's menu and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
+Because the browser navigates to the endpoint on submit, a visitor lands on Hookie's own thank-you page, with a link back to your form. To send them to your page instead, give the endpoint a redirect URL: on the **Endpoints** tab, choose **Edit…** in the endpoint's menu and set **Redirect after a form submit** to your page (it must be `https://`). A native form post is then answered `303 See Other` to that page once the submission is stored. `fetch()` calls and server senders still get the JSON, and a resubmitted form that was already stored is sent to the same page.
 
 ### Submit with fetch()
 
@@ -165,6 +165,10 @@ if (res.ok) showThanks();
 
 <Tip>
   A `FormData` body needs no preflight, because it is a form encoding. Without an allowed origin the submission is still stored, but your page cannot read the answer, and `fetch()` rejects with "Failed to fetch".
+</Tip>
+
+<Tip>
+  `hookie forms init contact` sets all of this up in one command, with spam protection and field checks. See [Forms](/forms).
 </Tip>
 
 ## Safe retries

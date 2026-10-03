@@ -45,7 +45,7 @@ curl -X POST "https://app.hookie.ai/admin/api/projects/$PROJECT/webhooks/$ENDPOI
   -d '{"name":"Orders (paid only)","dataset":"orders","criteria":[{"path":"status","equals":"paid"}]}'
 ```
 
-A version is a new endpoint with the same readable slug, the next version number (`1.1`, `1.2`, or `2` with `"major": true`) and a URL of its own. The old version keeps its URL and keeps working, so senders move over when they are ready. A new version verifies the same provider signature, but starts without the IP allowlist, form redirect, allowed origins and URL verification: set those with **Edit…**. Each version has its own card and counts toward the 10 endpoints. Agents use `create_webhook_version`, and the CLI `hookie endpoints version`.
+A version is a new endpoint with the same readable slug, the next version number (`1.1`, `1.2`, or `2` with `"major": true`) and a URL of its own. The old version keeps its URL and keeps working, so senders move over when they are ready. A new version verifies the same provider signature and keeps the [form](/forms) honeypot, Turnstile keys and form fields, but starts without the IP allowlist, form redirect, allowed origins and URL verification: set those with **Edit…**. Each version has its own card and counts toward the 10 endpoints. Agents use `create_webhook_version`, and the CLI `hookie endpoints version`.
 
 ## Ingest keys
 
@@ -73,6 +73,7 @@ Every request passes these checks first. A refusal stores nothing and never coun
 | The [burst limit](/limits-and-plans#the-burst-limit) | `429` |
 | The body: at most 1,000,000 bytes, in a format Hookie reads, with a field | `413`; `400` or `415`; `422` |
 | The endpoint's provider signature, or the key's `X-Hookie-Signature` | `401` |
+| An endpoint's [form checks](/forms): a filled honeypot; Turnstile; form fields | `201` (dropped); `403` or `503`; `422` |
 | The loop guard: 8 passes through Hookie | `508` |
 | The monthly event quota | `429` |
 
