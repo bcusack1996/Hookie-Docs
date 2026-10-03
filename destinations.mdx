@@ -23,6 +23,8 @@ Choose the type under **Type** when you choose **Add destination** on a project'
 
 A Slack destination posts each event to a channel through a Slack **incoming webhook**.
 
+If the **Connections** tab shows **Add to Slack**, choose it and pick a channel on Slack's screen: Hookie creates the destination for you, with no URL to copy. See [Add to Slack](/slack-app#add-to-slack). Otherwise:
+
 1. Install the [Hookie Slack app](/slack-app) to the channel, and copy its **Incoming Webhooks** URL. It starts `https://hooks.slack.com/services/`. Anyone who holds the URL can post to the channel, so treat it like a password. Any Slack app with an incoming webhook works too.
 2. In the console, open the project's **Connections** tab. Choose **Add destination**, then **Slack** under **Type**. Or choose **From preset**, then **Slack (Incoming Webhook)**.
 3. Paste the URL into **Slack incoming-webhook URL**, and give the destination a name.

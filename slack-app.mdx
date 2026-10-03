@@ -1,6 +1,6 @@
 ---
 title: "Slack app"
-description: "Install the Hookie Slack app and see each webhook submission as an alert card in a channel."
+description: "Connect a Slack channel with Add to Slack, or install the Hookie Slack app, and see each webhook submission as an alert card."
 icon: "slack"
 ---
 
@@ -8,7 +8,29 @@ The **Hookie Slack app** posts each event a Slack destination sends as a card: a
 
 The app asks for one permission, `incoming-webhook`. It can post to the channel you install it to, and it can read nothing.
 
-## Install the app
+## Add to Slack
+
+The quickest way in. If your project's **Connections** tab shows **Add to Slack** above the destinations, Hookie's own Slack app connects a channel in one step, with no app to create and no URL to copy.
+
+<Steps>
+  <Step title="Choose Add to Slack">
+    In the console, open your project's **Connections** tab and choose **Add to Slack**. You need a role that can add destinations.
+  </Step>
+  <Step title="Pick the channel">
+    Slack asks you to allow Hookie to post to a channel in your Slack workspace. Pick the channel and choose **Allow**.
+  </Step>
+  <Step title="Back in Hookie, it is ready">
+    You return to **Connections** with a new Slack destination named after the channel, such as `Slack #alerts (Acme)`. It delivers every dataset until you give it a **Dataset filter**.
+  </Step>
+</Steps>
+
+Hookie keeps only the channel's webhook URL, encrypted and shown masked, and discards the access token Slack also sends. To connect another channel, choose **Add to Slack** again. The new destination counts toward your plan's destination limit.
+
+If you cancel on Slack's screen, or the connection is started in one browser and finished in another, nothing is created and Connections says why. Choose **Add to Slack** again.
+
+## Install your own copy of the app
+
+Use this when **Add to Slack** is not shown, or when you want the app to belong to your Slack workspace.
 
 <Steps>
   <Step title="Start a Slack destination">
@@ -65,7 +87,7 @@ The manifest sets the app's name, description and background colour. Slack does 
 
 ## Send cards to more than one channel
 
-One incoming webhook posts to one channel. For another channel, open the app's **Incoming Webhooks** page, choose **Add New Webhook to Workspace**, and pick the channel. Then create a second Slack destination with the new URL.
+One incoming webhook posts to one channel. With **Add to Slack**, choose it again and pick the next channel. With your own copy of the app, open the app's **Incoming Webhooks** page, choose **Add New Webhook to Workspace**, and pick the channel. Then create a second Slack destination with the new URL.
 
 Give each destination a **Dataset filter** so each channel gets only the datasets it wants. For example, send `alerts` to `#on-call` and `orders` to `#sales`.
 
