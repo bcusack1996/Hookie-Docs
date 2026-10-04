@@ -1,0 +1,42 @@
+---
+title: "Analytics"
+description: "Every project's traffic, deliveries, workflow runs and stored data on one page, broken down by project, endpoint, workflow and dataset."
+icon: "chart-line"
+---
+
+**Analytics** puts the numbers for every project in your workspace on one page. Open it from **Get started → Analytics** in the console's side navigation.
+
+Two filters at the top apply to everything below them:
+
+- **Project** narrows the page to one project. The default, **All projects**, adds them up.
+- **Time range** is the last 24 hours, 7 days or 30 days.
+
+## The summary
+
+The two charts show **Events received** and **Deliveries sent** over the range, each with its change on the range just before it. Under them, the cards give the totals: projects, endpoints (with the requests rejected before they were stored), the share of deliveries that failed, workflow runs, and datasets with the space they use.
+
+## Break it down
+
+Use the tabs to cut the same range four ways. Every table sorts by clicking a column header and has its own search.
+
+| Tab | One row per | What you see |
+| --- | --- | --- |
+| **Projects** | Project | Events, rejected requests, deliveries, delivery failure rate, average response time, workflow runs, stored size and the last event. |
+| **Endpoints** | Endpoint | Whether it is enabled, events received, requests rejected, rejection rate, the dataset it routes into and the last event. |
+| **Workflows** | Workflow | Whether it is active, runs started, completed and failed, failure rate, average duration and the dataset that starts it. |
+| **Datasets** | Dataset in a project | Records stored, records added in the range, size, its share of everything stored and the last record. |
+
+## How the figures are counted
+
+- **Events** are records stored in the range. An endpoint's events are the records that arrived through it.
+- **Rejected** are requests Hookie refused after it knew whose they were, such as a failed signature, an IP not on the allowlist or a rate limit. They never count against your event quota.
+- **Delivery failure rate** is failed deliveries as a share of finished ones (delivered plus failed). Deliveries still queued or retrying are in neither.
+- **Deliveries are counted per project, not per endpoint.** A delivery belongs to a destination, not to the endpoint that received the event, so the Endpoints tab has no delivery column.
+- **Workflow failure rate** is failed and timed-out runs as a share of completed plus failed. Runs still in progress are in neither. **Average duration** covers completed runs only.
+- **Dataset size** is the stored payload of every record kept in the dataset, in decimal units (1 MB is 1,000,000 bytes). It is the size of your data, not of the database's own indexes or the raw copy of each request, so it is smaller than the storage the database reports.
+
+Endpoints, workflows and datasets show their first 500 rows. The page says when a list was cut.
+
+## From the API
+
+The page reads `GET /admin/api/dashboard/analytics?window=24h|7d|30d`, and its charts read `GET /admin/api/dashboard/timeseries` with an optional `project_id`. Both are readable by any role, and by a connected agent with the read scope. Endpoint slugs, which are credentials, are never returned. See the [API reference](/api-reference).
