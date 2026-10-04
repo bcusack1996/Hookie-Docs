@@ -58,6 +58,7 @@
           "workflows",
           "customer-portal",
           "broadcast-logs",
+          "analytics",
           "team-members",
           "connected-agents",
           "agent-self-registration",
