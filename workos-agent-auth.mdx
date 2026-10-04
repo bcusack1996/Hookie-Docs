@@ -1,0 +1,84 @@
+---
+title: "WorkOS Agent Auth"
+description: "Sign an agent up for Hookie through WorkOS Agent Registration, or call Hookie with an Agent Auth token that acts for a person."
+icon: "id-badge"
+---
+
+Hookie signs people in with WorkOS, and it also accepts the credentials of **WorkOS Agent Auth**. An agent that already speaks Agent Auth can use it in two ways:
+
+- **Agent Registration.** The agent signs itself up with WorkOS and calls Hookie with the credential it gets. Hookie gives it its own workspace on the **Free** plan, the same account [agent self-registration](/agent-self-registration) makes.
+- **Delegated agent tokens.** An agent holding a WorkOS Agent Auth token that acts for a person reaches that person's workspace, as a [connected agent](/connected-agents) they control.
+
+<Note>
+  Agent Auth is optional. [Self-registration](/agent-self-registration) and [connected agents over OAuth](/connected-agents) keep working exactly as before, and an [API key](/api-keys) is still the simplest credential for a script.
+</Note>
+
+## Sign up with Agent Registration
+
+<Steps>
+  <Step title="Find Hookie's authorization server">
+    `GET https://app.hookie.ai/.well-known/oauth-protected-resource` and take `authorization_servers[0]`. That is Hookie's WorkOS AuthKit domain.
+  </Step>
+  <Step title="Find the identity endpoint">
+    `GET <authkit-domain>/.well-known/oauth-authorization-server`. Its `agent_auth` block names the identity endpoint.
+  </Step>
+  <Step title="Register">
+    `POST <authkit-domain>/agent/identity` with `{"type": "anonymous"}`. Keep the **claim token** it returns: the person responsible for you uses it to claim your workspace later.
+  </Step>
+  <Step title="Get a credential">
+    `POST <authkit-domain>/oauth2/token` with `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer` and your identity assertion. You get an access token, or an API key if Hookie's WorkOS environment issues those.
+  </Step>
+  <Step title="Call Hookie">
+    Send it as `Authorization: Bearer <credential>` to the [admin API](/api-reference), the hosted MCP server at `https://app.hookie.ai/mcp`, or the [CLI](/cli) as `HOOKIE_TOKEN`.
+  </Step>
+</Steps>
+
+```bash
+curl -s https://app.hookie.ai/admin/api/me -H "Authorization: Bearer $HOOKIE_TOKEN"
+```
+
+Your **first** request creates your workspace, with a Default project, on the Free plan. Every later request lands in the same workspace, so a new credential for the same registration never makes a second account. Refresh your credential with WorkOS before it expires.
+
+Using Hookie this way accepts the [Terms of Use](https://hookie.ai/legal/terms). Hookie records the version in force when your workspace is created.
+
+### What the account can do
+
+Until a person claims it, the account works like a self-registered one: you build and run your own projects over the API, MCP and the CLI, and the actions reserved for people answer `403` with the code `agent_not_permitted` and `claim_required: true`. Those include billing, inviting members, creating API keys and single sign-on.
+
+If your credential carries Hookie scopes in its `scope` claim (`hookie:read`, `hookie:write`, `hookie:manage`), you get at most what they allow. A credential with no `scope` claim gets the same admin role on your own workspace as a self-registration API key.
+
+### Limits
+
+The same controls apply as for self-registration:
+
+- New accounts are capped per day across Hookie. When the cap is reached, a first request is refused with `403` until 00:00 UTC.
+- The operator can pause new sign-ups. Accounts that already exist keep working.
+- New accounts from one network are rate limited.
+- Free plan quotas apply in full.
+
+### Claiming the workspace
+
+Give the claim token to the person responsible for you. They complete WorkOS's claim ceremony with it. Once they have signed in to Hookie at least once, the next request you make after the claim hands them the workspace: they become its owner, and your credential keeps working on their behalf, still limited to your scopes. They can then upgrade the plan and manage billing in the console.
+
+## Call Hookie with a delegated agent token
+
+If your agent holds a WorkOS Agent Auth token minted **for a person** (a user-delegated token, which names that person in its `act` claim), it can call Hookie as that person's agent.
+
+- It appears in the person's **Connected agents** list as **WorkOS agent**, one entry per agent instance.
+- It starts **read-only**. The person widens it to write or manage there, and can revoke it, which takes effect on the next request.
+- If the token's `permissions` claim lists Hookie scopes, they narrow what the person granted. They never widen it.
+
+An **autonomous** agent token, which acts for no person, is refused with `401`. To give an agent its own account, use Agent Registration or [self-registration](/agent-self-registration).
+
+## Errors
+
+| Status | Meaning |
+| --- | --- |
+| `401` | The credential is invalid, expired, issued for a different application, or an autonomous agent token. |
+| `403` | New agent sign-ups are paused, today's cap is reached, too many sign-ups came from your network, or your scopes do not allow the action. The message says which. |
+
+## Related
+
+- [Agent self-registration](/agent-self-registration): sign up directly with Hookie, with a proof of work instead of WorkOS.
+- [Connected agents](/connected-agents): act for a person's workspace over OAuth.
+- [Roles and agents](/roles-and-agents): what each role and scope can do.
