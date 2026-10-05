@@ -1592,12 +1592,9 @@
                 "description": "The endpoint's redirect_url."
               }
             }
-          },
-          "422": {
-            "description": "The body has no fields, or (Hookie Forms, #344) it does not meet the endpoint's form_fields: reason form_invalid with fields: [{name, error}]. Nothing is stored or counted."
           }
         },
-        "description": "Public webhook URL, app.hookie.ai/{workspace}/{project}/{webhook}. POST, plus OPTIONS (the CORS preflight) and a GET carrying hub.challenge (Meta's URL verification); any other GET, and PUT, fall through to the console and never reach ingest. Only 3- or 4-segment paths match. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Hookie Forms (#341): an endpoint with a honeypot answers a submission that fills it 201 and drops it; one with a Turnstile secret refuses a submission without a valid cf-turnstile-response token 403 (reason turnstile_failed); one with form_fields refuses a payload below them 422 (reason form_invalid, fields: [{name, error}]); all three before the quota and the store. A browser's native form POST to an endpoint with no redirect_url is answered with an HTML thank-you page (200), or, for a 422 or a Turnstile refusal, an HTML page saying what to fix. Every other request is an ordinary event.",
+        "description": "Public webhook URL, app.hookie.ai/{workspace}/{project}/{webhook}. POST, plus OPTIONS (the CORS preflight) and a GET carrying hub.challenge (Meta's URL verification); any other GET, and PUT, fall through to the console and never reach ingest. Only 3- or 4-segment paths match. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Every other request is an ordinary event.",
         "parameters": [
           {
             "name": "workspace",
@@ -2225,12 +2222,9 @@
                 "description": "The endpoint's redirect_url."
               }
             }
-          },
-          "422": {
-            "description": "The body has no fields, or (Hookie Forms, #344) it does not meet the endpoint's form_fields: reason form_invalid with fields: [{name, error}]. Nothing is stored or counted."
           }
         },
-        "description": "Four-segment form of the public webhook URL. POST, plus the OPTIONS preflight and Meta's hub.challenge GET, which behave as on the three-segment URL; other methods fall through to the console. The fourth segment must be the endpoint's OWN dataset: any other value is refused with 403. It used to override the dataset with any dataset in the project, which let anyone holding a public endpoint URL (one embedded in an HTML form, say) write into every dataset in the project and set off its destinations, triggers and workflows. To route one source into several datasets, use an ingest key: POST /v1/ingest/{ingest_key}/{dataset}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Hookie Forms (#341): an endpoint with a honeypot answers a submission that fills it 201 and drops it; one with a Turnstile secret refuses a submission without a valid cf-turnstile-response token 403 (reason turnstile_failed); one with form_fields refuses a payload below them 422 (reason form_invalid, fields: [{name, error}]); all three before the quota and the store. A browser's native form POST to an endpoint with no redirect_url is answered with an HTML thank-you page (200), or, for a 422 or a Turnstile refusal, an HTML page saying what to fix. Every other request is an ordinary event.",
+        "description": "Four-segment form of the public webhook URL. POST, plus the OPTIONS preflight and Meta's hub.challenge GET, which behave as on the three-segment URL; other methods fall through to the console. The fourth segment must be the endpoint's OWN dataset: any other value is refused with 403. It used to override the dataset with any dataset in the project, which let anyone holding a public endpoint URL (one embedded in an HTML form, say) write into every dataset in the project and set off its destinations, triggers and workflows. To route one source into several datasets, use an ingest key: POST /v1/ingest/{ingest_key}/{dataset}. Every stored submission keeps the request's method, a filtered header map, the query string, the Content-Type and the source IP (ING-3, #193), shown on the record (GET .../records/{id}) and on correlate as `request`. Credentials are never stored: Authorization, Proxy-Authorization, Cookie and any header or query parameter named like a credential (key, api-key, token, secret, password, session, auth) is stored as \"[redacted]\"; Cloudflare and proxy hop headers (cf-*, x-forwarded-*, x-real-ip, true-client-ip, cdn-loop, host) are dropped. HTML forms (ING-8, #193): when the endpoint has a redirect_url, a browser's native form POST (a form encoding with Sec-Fetch-Mode: navigate, or with an Accept that asks for text/html from an older browser) is answered 303 See Other to that URL once stored (a deduplicated retry too); fetch() calls and servers still get the JSON. CORS: when the request's Origin is in the endpoint's cors_origins (or they include \"*\"), every response carries Access-Control-Allow-Origin, Access-Control-Expose-Headers: Retry-After and Vary: Origin. URL verification (ING-10, #193): an endpoint whose handshake is slack, graph, zoom or twitch answers that provider's challenge with 200 before anything is stored or counted - Slack's url_verification body and Twitch's webhook_callback_verification (Twitch-Eventsub-Message-Type header) with the challenge as text/plain, Microsoft Graph's ?validationToken= with the token as text/plain, and Zoom's endpoint.url_validation with {plainToken, encryptedToken} (HMAC-SHA256 of plainToken under the endpoint's secret token). Every other request is an ordinary event.",
         "parameters": [
           {
             "name": "workspace",
@@ -6368,7 +6362,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Equal-width buckets ending now. 24h and 7d are hourly (24 and 168 buckets); 30d is daily (30 buckets). Counted in SQL, with no cap on volume.",
+            "description": "Equal-width buckets ending now. 24h and 7d are hourly (24 and 168 buckets); 30d is daily (30 buckets). At most 50000 raw timestamps are scanned per request.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6414,10 +6408,6 @@
                       "items": {
                         "type": "integer"
                       }
-                    },
-                    "previous_total": {
-                      "type": "integer",
-                      "description": "The metric's total over the window of the same length just before this one, for a change-on-previous-period figure."
                     }
                   }
                 }
@@ -6468,7 +6458,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Workspace-wide unless project_id is given. Readable by any role. Counted in SQL, one row per bucket: there is no cap on how many events a window may hold.",
+        "description": "Workspace-wide, not project-scoped. Readable by any role. Counted in SQL, one row per bucket: there is no cap on how many events a window may hold.",
         "parameters": [
           {
             "name": "window",
@@ -6498,304 +6488,6 @@
                 "agent_runs"
               ],
               "default": "events"
-            }
-          },
-          {
-            "name": "project_id",
-            "in": "query",
-            "required": false,
-            "description": "Count only this project's rows. Applied together with the workspace, so an id from another workspace matches nothing.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "session": []
-          },
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKey": []
-          }
-        ]
-      }
-    },
-    "/admin/api/dashboard/analytics": {
-      "get": {
-        "operationId": "getDashboardAnalytics",
-        "summary": "Analytics breakdown by project, endpoint, workflow and dataset",
-        "tags": [
-          "Dashboard"
-        ],
-        "responses": {
-          "200": {
-            "description": "The window's breakdown.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "window",
-                    "since",
-                    "projects",
-                    "endpoints",
-                    "workflows",
-                    "datasets",
-                    "truncated"
-                  ],
-                  "properties": {
-                    "window": {
-                      "type": "string",
-                      "enum": [
-                        "24h",
-                        "7d",
-                        "30d"
-                      ]
-                    },
-                    "since": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "truncated": {
-                      "type": "boolean"
-                    },
-                    "projects": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "endpoints": {
-                            "type": "integer"
-                          },
-                          "datasets": {
-                            "type": "integer"
-                          },
-                          "workflows": {
-                            "type": "integer"
-                          },
-                          "events": {
-                            "type": "integer"
-                          },
-                          "rejected": {
-                            "type": "integer"
-                          },
-                          "deliveries": {
-                            "type": "integer"
-                          },
-                          "delivered": {
-                            "type": "integer"
-                          },
-                          "failed": {
-                            "type": "integer"
-                          },
-                          "workflow_runs": {
-                            "type": "integer"
-                          },
-                          "workflow_failed": {
-                            "type": "integer"
-                          },
-                          "stored_bytes": {
-                            "type": "integer"
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "type": {
-                            "type": "string"
-                          },
-                          "avg_response_ms": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ]
-                          },
-                          "last_activity": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    },
-                    "endpoints": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "version": {
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "type": "boolean"
-                          },
-                          "dataset": {
-                            "type": "string"
-                          },
-                          "events": {
-                            "type": "integer"
-                          },
-                          "rejected": {
-                            "type": "integer"
-                          },
-                          "last_event": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    },
-                    "workflows": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "active": {
-                            "type": "boolean"
-                          },
-                          "entry_dataset": {
-                            "type": "string"
-                          },
-                          "runs": {
-                            "type": "integer"
-                          },
-                          "completed": {
-                            "type": "integer"
-                          },
-                          "failed": {
-                            "type": "integer"
-                          },
-                          "avg_seconds": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
-                          }
-                        }
-                      }
-                    },
-                    "datasets": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "project_id": {
-                            "type": "string"
-                          },
-                          "dataset": {
-                            "type": "string"
-                          },
-                          "records": {
-                            "type": "integer"
-                          },
-                          "events": {
-                            "type": "integer"
-                          },
-                          "bytes": {
-                            "type": "integer"
-                          },
-                          "last_record": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "bad window.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Email domain not allowed for the workspace, or an agent token granted no Hookie scope.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "description": "One response for the console's Analytics page: every project's traffic, delivery, workflow and storage figures for the window. Readable by any role. Endpoint slugs are never returned. Delivery figures exist per project only. A dataset's bytes are the stored record payload (SUM of LENGTH(payload)), not the database's own overhead. Endpoints, workflows and datasets are capped at 500 rows each; truncated says when one was.",
-        "parameters": [
-          {
-            "name": "window",
-            "in": "query",
-            "required": false,
-            "description": "Time window. Defaults to 7d.",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "24h",
-                "7d",
-                "30d"
-              ],
-              "default": "7d"
             }
           }
         ],
@@ -9774,75 +9466,6 @@
                           "handshake_secret_set": {
                             "type": "boolean",
                             "description": "Whether a handshake secret is stored. The secret itself is never returned."
-                          },
-                          "form_fields": {
-                            "type": "array",
-                            "description": "Hookie Forms (#344): the declared fields, [] when none.",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "name",
-                                "type"
-                              ],
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "type": "string",
-                                  "description": "1-64 letters, digits, _ . - [ or ]"
-                                },
-                                "type": {
-                                  "type": "string",
-                                  "enum": [
-                                    "text",
-                                    "email",
-                                    "number",
-                                    "url",
-                                    "tel",
-                                    "textarea",
-                                    "select",
-                                    "checkbox",
-                                    "date",
-                                    "hidden"
-                                  ]
-                                },
-                                "required": {
-                                  "type": "boolean"
-                                },
-                                "max_length": {
-                                  "type": "integer",
-                                  "minimum": 1,
-                                  "maximum": 100000
-                                },
-                                "options": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
-                                  },
-                                  "description": "Required for select; for checkbox, limits the allowed values"
-                                },
-                                "label": {
-                                  "type": "string"
-                                }
-                              }
-                            }
-                          },
-                          "honeypot": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "Hookie Forms (#342): the honeypot field name, or null."
-                          },
-                          "turnstile_site_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "Hookie Forms (#342): the Turnstile site key, or null."
-                          },
-                          "turnstile_enabled": {
-                            "type": "boolean",
-                            "description": "Hookie Forms (#342): whether a Turnstile secret is stored, so submissions are verified. The secret itself is never returned."
                           }
                         }
                       }
@@ -10310,81 +9933,6 @@
                     "maxLength": 256,
                     "writeOnly": true,
                     "description": "Required with handshake zoom (the app's Secret Token, which signs the answer) or meta (the Verify Token compared with hub.verify_token), unless one is already stored for that same handshake. Refused with any other handshake. WRITE-ONLY: AES-256-GCM encrypted, never returned, never in the audit log (which records only that one was set)."
-                  },
-                  "form_fields": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#344): the fields a submission to the endpoint URL must meet, at most 50. A payload missing a required field, with a malformed email, url, number, tel or date, over max_length (default 5000) or outside a select's options is refused 422 with reason form_invalid and fields: [{name, error}], before it is stored or counted. Fields not declared are kept. [] or null declares none.",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "description": "1-64 letters, digits, _ . - [ or ]"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "text",
-                            "email",
-                            "number",
-                            "url",
-                            "tel",
-                            "textarea",
-                            "select",
-                            "checkbox",
-                            "date",
-                            "hidden"
-                          ]
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "max_length": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 100000
-                        },
-                        "options": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Required for select; for checkbox, limits the allowed values"
-                        },
-                        "label": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  },
-                  "honeypot": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): a form field hidden from people, such as _gotcha. A submission that fills it is answered 201 (or the redirect, or the thank-you page) but is not stored, counted or delivered, and is logged as reason honeypot. The field is stripped from what is stored. null: none."
-                  },
-                  "turnstile_site_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the site key of the customer's Cloudflare Turnstile widget. Public."
-                  },
-                  "turnstile_secret": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
                   }
                 }
               }
@@ -10934,81 +10482,6 @@
                     "maxLength": 256,
                     "writeOnly": true,
                     "description": "Required with handshake zoom (the app's Secret Token, which signs the answer) or meta (the Verify Token compared with hub.verify_token), unless one is already stored for that same handshake. Refused with any other handshake. WRITE-ONLY: AES-256-GCM encrypted, never returned, never in the audit log (which records only that one was set)."
-                  },
-                  "form_fields": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#344): the fields a submission to the endpoint URL must meet, at most 50. A payload missing a required field, with a malformed email, url, number, tel or date, over max_length (default 5000) or outside a select's options is refused 422 with reason form_invalid and fields: [{name, error}], before it is stored or counted. Fields not declared are kept. [] or null declares none.",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "name",
-                        "type"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "description": "1-64 letters, digits, _ . - [ or ]"
-                        },
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "text",
-                            "email",
-                            "number",
-                            "url",
-                            "tel",
-                            "textarea",
-                            "select",
-                            "checkbox",
-                            "date",
-                            "hidden"
-                          ]
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "max_length": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 100000
-                        },
-                        "options": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Required for select; for checkbox, limits the allowed values"
-                        },
-                        "label": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  },
-                  "honeypot": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): a form field hidden from people, such as _gotcha. A submission that fills it is answered 201 (or the redirect, or the thank-you page) but is not stored, counted or delivered, and is logged as reason honeypot. The field is stripped from what is stored. null: none."
-                  },
-                  "turnstile_site_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the site key of the customer's Cloudflare Turnstile widget. Public."
-                  },
-                  "turnstile_secret": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
                   }
                 }
               }
@@ -11066,27 +10539,6 @@
                         "string",
                         "null"
                       ]
-                    },
-                    "form_fields": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "honeypot": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "turnstile_site_key": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "turnstile_enabled": {
-                      "type": "boolean"
                     }
                   }
                 }
@@ -11675,13 +11127,6 @@
                               "null"
                             ],
                             "format": "date-time"
-                          },
-                          "portal_customer_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                           }
                         }
                       }
@@ -11855,13 +11300,6 @@
                         },
                         "is_default": {
                           "type": "boolean"
-                        },
-                        "portal_customer_key": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                         }
                       }
                     }
@@ -12002,13 +11440,6 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Only the literal true counts. Setting it clears the default flag on every other view of the same webhook in the same batch."
-                  },
-                  "portal_customer_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                   }
                 }
               }
@@ -12145,13 +11576,6 @@
                             "null"
                           ],
                           "format": "date-time"
-                        },
-                        "portal_customer_key": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                         }
                       }
                     }
@@ -12266,13 +11690,6 @@
                         },
                         "is_default": {
                           "type": "boolean"
-                        },
-                        "portal_customer_key": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                         }
                       }
                     }
@@ -12414,13 +11831,6 @@
                   "is_default": {
                     "type": "boolean",
                     "description": "true clears the default flag on the webhook other views in the same batch."
-                  },
-                  "portal_customer_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "Share this view with the project's portal customers (#376, read-only). The payload field (a dotted path reads a nested one) that holds the portal customer's id: a customer sees only rows where it equals their own id, and only this view's columns. Null/omitted keeps the view private. Not a record meta column (_id, _received_at, _source)."
                   }
                 }
               }
@@ -35065,9 +34475,6 @@
                               "loop_detected",
                               "quota_exceeded",
                               "cors_origin_not_allowed",
-                              "honeypot",
-                              "turnstile_failed",
-                              "form_invalid",
                               null
                             ],
                             "description": "Rejected only."
@@ -39300,218 +38707,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/portal/api/views": {
-      "get": {
-        "security": [
-          {
-            "portalTokenHeader": []
-          },
-          {
-            "portalSession": []
-          }
-        ],
-        "operationId": "listPortalViews",
-        "summary": "Table views the provider shared in the portal",
-        "description": "Read-only (#376). The saved record views the developer shared with portal customers by setting `portal_customer_key`. Only the name, dataset, columns and sort are returned \u2014 never how records are matched to customers.",
-        "tags": [
-          "Customer Portal"
-        ],
-        "responses": {
-          "200": {
-            "description": "Shared views.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "views"
-                  ],
-                  "properties": {
-                    "views": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "name",
-                          "dataset",
-                          "columns",
-                          "sort_key",
-                          "sort_dir",
-                          "is_default"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "dataset": {
-                            "type": "string"
-                          },
-                          "columns": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "key",
-                                "label"
-                              ],
-                              "properties": {
-                                "key": {
-                                  "type": "string"
-                                },
-                                "label": {
-                                  "type": "string"
-                                }
-                              }
-                            }
-                          },
-                          "sort_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "sort_dir": {
-                            "type": "string",
-                            "enum": [
-                              "asc",
-                              "desc"
-                            ]
-                          },
-                          "is_default": {
-                            "type": "boolean"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/portal/api/views/{id}/records": {
-      "get": {
-        "security": [
-          {
-            "portalTokenHeader": []
-          },
-          {
-            "portalSession": []
-          }
-        ],
-        "operationId": "listPortalViewRecords",
-        "summary": "One page of a shared view, for the signed-in customer",
-        "description": "Read-only (#376). Returns only the rows whose `portal_customer_key` field equals the caller's customer id, shaped to the view's columns (no record id, no other fields), sorted by the view. At most 100 rows per page (default 25); `total` is capped at 10,000 (`total_capped`). 404 for a view that is unknown or not shared.",
-        "tags": [
-          "Customer Portal"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 25
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A page of the customer's rows.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "view",
-                    "columns",
-                    "rows",
-                    "count",
-                    "total",
-                    "total_capped",
-                    "limit",
-                    "offset"
-                  ],
-                  "properties": {
-                    "view": {
-                      "type": "object"
-                    },
-                    "columns": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "key",
-                          "label"
-                        ],
-                        "properties": {
-                          "key": {
-                            "type": "string"
-                          },
-                          "label": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "rows": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": true
-                      }
-                    },
-                    "count": {
-                      "type": "integer"
-                    },
-                    "total": {
-                      "type": "integer"
-                    },
-                    "total_capped": {
-                      "type": "boolean"
-                    },
-                    "limit": {
-                      "type": "integer"
-                    },
-                    "offset": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "View not found or not shared."
           }
         }
       }
