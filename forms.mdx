@@ -78,9 +78,7 @@ const result = await submitForm(url, { email, message });
 
 In React, `useHookieForm(url)` from `@hookieai/forms/react` gives you `submit`, `status`, `fieldErrors` and `error`. `defineFields([...] as const)` and `FieldsOf<typeof fields>` type a payload from the endpoint's fields, so a missing required field fails to compile.
 
-<Note>
-  `@hookieai/forms` is not on the npm registry yet. Until it is, the files `hookie forms init` writes work on their own, with nothing to install.
-</Note>
+Install it with `npm i @hookieai/forms`. You do not need it for the forms `hookie forms init` writes, which work on their own.
 
 ## Stop bots
 
