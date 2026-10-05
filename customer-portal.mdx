@@ -44,10 +44,23 @@ Everything is scoped to the customer's token: your workspace, the project, the p
 - **Verify signatures.** A guide to checking either signature every delivery carries (see [Verifying deliveries](#verifying-deliveries) below).
 - **Manage their endpoints.** Add one for chosen event types (HTTPS only, within the exposed datasets), edit its name, URL and event types, pause and resume it, and delete it. The event types must be a non-empty subset of what the portal exposes; an empty list is refused rather than read as "all".
 - **Manage signing secrets.** Show an endpoint's signing secret again, and **rotate** it. The old secret keeps signing alongside the new one for 24 hours so their receiver can move over, and they can end that overlap early.
+- **Read their own data in tables you design.** Any [saved view](#share-a-table-with-your-customers) you share appears as a read-only **Your data** table, with a picker when you share more than one, paged 25 rows at a time. They see only the columns you chose and only the rows that belong to them.
 - **Inspect deliveries.** The delivery log shows the destination, status, response code, error, the next retry and a preview of the first 300 characters of what their endpoint answered. Open a delivery for its full response, endpoint URL and content type.
 - **Replay a delivery.** A replay is a new delivery, charged to **your** monthly delivery allowance like a replay from the console. It is refused, not held, when the allowance is used up.
 
 Every change a customer makes, and every time they reveal a signing secret, is recorded in **Settings → Audit log** with `portal|{customer_id}` as the actor.
+
+## Share a table with your customers
+
+A saved view of a dataset (see [Datasets and records](/datasets-and-records)) can be shared in the portal as part of your service: an order history, a list of tickets, a usage report.
+
+1. Open the dataset in the console, then create or edit a view. Pick the columns, their headings and the sort as usual.
+2. Tick **Share in the customer portal** and choose the **customer id field**, the field in your records that holds the same customer ID you use when issuing a portal token (a dotted path such as `customer.id` reads a nested field).
+3. Save. Customers see the table the next time they open the portal. Clear the checkbox to stop sharing; the view stays in your console.
+
+A customer sees a row only when the customer id field equals their own ID, and only the columns of the view; the record ID and every other field stay private. The table is read-only, and a view with no customer id field is never shown in the portal, so there is no way to share a view with every customer unfiltered. Records whose customer id field is missing are shown to nobody.
+
+Over the API, set `portal_customer_key` when you [create or update a record view](/api-reference) (agents can pass the same field to `create_record_view`). Customers read the tables with `GET /portal/api/views` and `GET /portal/api/views/{id}/records`, which take the same portal token or session as the rest of the portal API.
 
 ## Verifying deliveries
 
