@@ -6468,7 +6468,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Workspace-wide, not project-scoped. Readable by any role. Counted in SQL, one row per bucket: there is no cap on how many events a window may hold.",
+        "description": "Workspace-wide unless project_id is given. Readable by any role. Counted in SQL, one row per bucket: there is no cap on how many events a window may hold.",
         "parameters": [
           {
             "name": "window",
@@ -6498,6 +6498,304 @@
                 "agent_runs"
               ],
               "default": "events"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "description": "Count only this project's rows. Applied together with the workspace, so an id from another workspace matches nothing.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
+      }
+    },
+    "/admin/api/dashboard/analytics": {
+      "get": {
+        "operationId": "getDashboardAnalytics",
+        "summary": "Analytics breakdown by project, endpoint, workflow and dataset",
+        "tags": [
+          "Dashboard"
+        ],
+        "responses": {
+          "200": {
+            "description": "The window's breakdown.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "window",
+                    "since",
+                    "projects",
+                    "endpoints",
+                    "workflows",
+                    "datasets",
+                    "truncated"
+                  ],
+                  "properties": {
+                    "window": {
+                      "type": "string",
+                      "enum": [
+                        "24h",
+                        "7d",
+                        "30d"
+                      ]
+                    },
+                    "since": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "projects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "endpoints": {
+                            "type": "integer"
+                          },
+                          "datasets": {
+                            "type": "integer"
+                          },
+                          "workflows": {
+                            "type": "integer"
+                          },
+                          "events": {
+                            "type": "integer"
+                          },
+                          "rejected": {
+                            "type": "integer"
+                          },
+                          "deliveries": {
+                            "type": "integer"
+                          },
+                          "delivered": {
+                            "type": "integer"
+                          },
+                          "failed": {
+                            "type": "integer"
+                          },
+                          "workflow_runs": {
+                            "type": "integer"
+                          },
+                          "workflow_failed": {
+                            "type": "integer"
+                          },
+                          "stored_bytes": {
+                            "type": "integer"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "avg_response_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "last_activity": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "events": {
+                            "type": "integer"
+                          },
+                          "rejected": {
+                            "type": "integer"
+                          },
+                          "last_event": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "workflows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "entry_dataset": {
+                            "type": "string"
+                          },
+                          "runs": {
+                            "type": "integer"
+                          },
+                          "completed": {
+                            "type": "integer"
+                          },
+                          "failed": {
+                            "type": "integer"
+                          },
+                          "avg_seconds": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "datasets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "dataset": {
+                            "type": "string"
+                          },
+                          "records": {
+                            "type": "integer"
+                          },
+                          "events": {
+                            "type": "integer"
+                          },
+                          "bytes": {
+                            "type": "integer"
+                          },
+                          "last_record": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Email domain not allowed for the workspace, or an agent token granted no Hookie scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "description": "One response for the console's Analytics page: every project's traffic, delivery, workflow and storage figures for the window. Readable by any role. Endpoint slugs are never returned. Delivery figures exist per project only. A dataset's bytes are the stored record payload (SUM of LENGTH(payload)), not the database's own overhead. Endpoints, workflows and datasets are capped at 500 rows each; truncated says when one was.",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "description": "Time window. Defaults to 7d.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "7d"
             }
           }
         ],
