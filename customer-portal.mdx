@@ -55,12 +55,12 @@ Every change a customer makes, and every time they reveal a signing secret, is r
 A saved view of a dataset (see [Datasets and records](/datasets-and-records)) can be shared in the portal as part of your service: an order history, a list of tickets, a usage report.
 
 1. Open the dataset in the console, then create or edit a view. Pick the columns, their headings and the sort as usual.
-2. Tick **Share in the customer portal** and choose the **customer id field**, the field in your records that holds the same customer ID you use when issuing a portal token (a dotted path such as `customer.id` reads a nested field).
+2. Tick **Share in the customer portal**.
 3. Save. Customers see the table the next time they open the portal. Clear the checkbox to stop sharing; the view stays in your console.
 
-A customer sees a row only when the customer id field equals their own ID, and only the columns of the view; the record ID and every other field stay private. The table is read-only, and a view with no customer id field is never shown in the portal, so there is no way to share a view with every customer unfiltered. Records whose customer id field is missing are shown to nobody.
+A project is one customer's space with one portal, so the customer sees the project's records of that dataset, and only the columns of the view; the record ID and every other field stay private. The table is read-only. The portal must expose the dataset (its event types), or the view stays hidden.
 
-Over the API, set `portal_customer_key` when you [create or update a record view](/api-reference) (agents can pass the same field to `create_record_view`). Customers read the tables with `GET /portal/api/views` and `GET /portal/api/views/{id}/records`, which take the same portal token or session as the rest of the portal API.
+Over the API, set `portal_shared: true` when you [create or update a record view](/api-reference) (agents can pass the same field to `create_record_view`). Customers read the tables with `GET /portal/api/views` and `GET /portal/api/views/{id}/records`, which take the same portal token or session as the rest of the portal API.
 
 ## Verifying deliveries
 
