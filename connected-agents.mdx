@@ -49,6 +49,8 @@ For Claude on the web or desktop, add Hookie as a custom connector: open [Settin
 
 No credential goes in that file, because there isn't one to put there. The first request your agent makes is refused with a pointer to Hookie's authorization server (WorkOS AuthKit, the same place you sign in). The agent registers itself there, opens a sign-in in your browser, and from then on holds a token it refreshes on its own. That is the standard OAuth 2.1 authorization-code flow with PKCE, the same one you would get from any well-behaved MCP client.
 
+You do not need a Hookie account first. If you have never signed in to Hookie, sign up on that same page (email code, Google or GitHub): the first time your agent calls Hookie, your account and a Free workspace are set up for you, exactly as a first console sign-in would, and the agent starts read-only. Sign in to the console with the same method later to widen what it may do.
+
 <Tip>
   For something that runs unattended, such as a CI job or your own backend, with nobody at a browser to sign in, create an [API key](/api-keys) instead. `/mcp` accepts it as a bearer token, and its role decides which tools it can call.
 </Tip>
