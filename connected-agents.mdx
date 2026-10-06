@@ -6,7 +6,7 @@ icon: "plug"
 
 Hookie runs a hosted [MCP](https://modelcontextprotocol.io) server. Point an AI coding agent (Claude Code, Cursor, or any MCP client) at one URL and it can do, on your behalf, the things you would otherwise do in the console: create endpoints, write routing rules, point events at a destination, read records back, and replay a failed delivery.
 
-Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only, and you decide in the console what more it may do. You can cut it off again in one click.
+Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only (unless you signed up through it), and you decide in the console what more it may do. You can cut it off again in one click.
 
 <Note>
   Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect an agent** in the top bar (next to the theme switch and your profile) shows your MCP URL, the Claude connector, and the Claude Code command in one place.
@@ -48,6 +48,8 @@ claude mcp add --transport http hookie https://app.hookie.ai/mcp
 For Claude on the web or desktop, add Hookie as a custom connector: open [Settings → Connectors](https://claude.ai/settings/connectors), choose **Add custom connector**, and paste the URL above. Claude then signs in to Hookie as you, the same way.
 
 No credential goes in that file, because there isn't one to put there. The first request your agent makes is refused with a pointer to Hookie's authorization server (WorkOS AuthKit, the same place you sign in). The agent registers itself there, opens a sign-in in your browser, and from then on holds a token it refreshes on its own. That is the standard OAuth 2.1 authorization-code flow with PKCE, the same one you would get from any well-behaved MCP client.
+
+You do not need a Hookie account first. If you have never signed in to Hookie, sign up on that same page (email code, Google or GitHub): the first time your agent calls Hookie, your account and a Free workspace are set up for you, exactly as a first console sign-in would. Because that agent is how you joined, it starts able to build (create and change endpoints, rules, destinations and the rest), not read-only; administering the workspace still needs the console. Any agent you connect after that starts read-only as usual. Sign in to the console with the same method to change what each agent may do.
 
 <Tip>
   For something that runs unattended, such as a CI job or your own backend, with nobody at a browser to sign in, create an [API key](/api-keys) instead. `/mcp` accepts it as a bearer token, and its role decides which tools it can call.
