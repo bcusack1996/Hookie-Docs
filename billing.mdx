@@ -11,6 +11,7 @@ A plan belongs to a workspace, and only the workspace's **owner** manages its bi
 | Plan | Billed | How to get it |
 | --- | --- | --- |
 | **Free** | Nothing, and no card needed | Every workspace starts on it. |
+| **Starter** | $2.99 a month, a flat price for the workspace | **Upgrade to Starter** on **Settings → Plan & billing**. |
 | **Pro** | $9.99 a month, a flat price for the workspace | **Upgrade to Pro** on **Settings → Plan & billing**, or **Add payment method** during a Pro trial. |
 | **Team** | $39.99 per member, per month: one seat for each person in the workspace | **Upgrade to Team** on **Settings → Plan & billing**, or **Add payment method** during a Team trial. |
 
@@ -30,13 +31,13 @@ These details are read live from Stripe. If Stripe cannot be reached, the tab sa
 
 ## Upgrade
 
-Choose **Upgrade to Pro**, or **Upgrade to Team**. Stripe's checkout page opens. A Team checkout starts with one seat for each member the workspace has. Once you have paid, you come back to **Plan & billing**, and the plan changes as soon as Stripe confirms the subscription to Hookie, normally within seconds.
+Choose **Upgrade to Starter**, **Upgrade to Pro** or **Upgrade to Team**. Stripe's checkout page opens. A Team checkout starts with one seat for each member the workspace has. Once you have paid, you come back to **Plan & billing**, and the plan changes as soon as Stripe confirms the subscription to Hookie, normally within seconds.
 
 - The new limits apply at once, to this month too: the events and deliveries already counted this month are measured against the new plan's numbers.
 - Destinations and database sources that an earlier downgrade paused are resumed, oldest first, as far as the new plan allows.
 - Deliveries held past the old allowance are not sent on their own. Choose **Send held deliveries** on each project's **Deliveries** tab.
 
-A workspace has one subscription at a time. While one is live, a second checkout is refused: change or cancel the plan from **Manage billing**. If a paying Pro workspace changes to Team there, Hookie sets its seat count to the number of members.
+A workspace has one subscription at a time. While one is live, a second checkout is refused: change or cancel the plan from **Manage billing**. If a paying Starter or Pro workspace changes to Team there, Hookie sets its seat count to the number of members.
 
 ## Team seats
 
@@ -46,7 +47,7 @@ Team is billed per seat, and every member of the workspace is one seat, the owne
 - Changing someone's role does not change the count.
 - If Stripe cannot be reached, the membership change still happens, and the audit log records `seat_sync_failed`. The count is corrected on the next membership change, or when Stripe next reports the subscription to Hookie. A successful update is recorded as `seats_updated`.
 
-Inviting people is covered in [Team members](/team-members). Pro allows up to 3 members and Free only the owner; neither is billed per seat.
+Inviting people is covered in [Team members](/team-members). Pro allows up to 3 members, and Free and Starter only the owner; neither is billed per seat.
 
 ## Cancel or downgrade
 
