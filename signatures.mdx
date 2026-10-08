@@ -331,7 +331,7 @@ To check one:
 3. Rebuild the signature base, three lines joined by newlines: `"@authority": <the host you received the request on>`, then `"signature-agent": "https://hookie.ai"` (the header's value, quotes included), then `"@signature-params": ` followed by the value of `Signature-Input` after `sig1=`.
 4. Verify the Ed25519 signature in `Signature` (the base64 between the colons) over that base with the key. Reject the request if `expires` has passed.
 
-Hookie signs a delivery to a **webhook** destination only. Slack, S3 and SQS destinations are not signed this way, and deliveries from a preview or test environment are never signed, so a test deployment cannot pass as Hookie's production sender. Each attempt of a delivery gets fresh headers, with its own `created`, `expires` and `nonce`. Hookie sets these headers after a destination's own custom headers, so a custom header with the same name is overridden.
+Hookie signs a delivery to a **webhook** destination only. Slack, S3 and SQS destinations are not signed this way, and deliveries from a preview or test environment are never signed, so a test deployment cannot pass as Hookie's production sender. Each attempt of a delivery gets fresh headers, with its own `created`, `expires` and `nonce`. If a destination sends its own `Signature`, `Signature-Input` or `Signature-Agent` header, Hookie sends none of the three on that destination's deliveries. The partner's header goes out unchanged, and those deliveries are not signed this way.
 
 ## Notes
 
