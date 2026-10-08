@@ -930,6 +930,7 @@
             "type": "string",
             "enum": [
               "free",
+              "starter",
               "standard",
               "team"
             ],
@@ -1475,7 +1476,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2110,7 +2111,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2521,7 +2522,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2867,7 +2868,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3207,7 +3208,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3554,7 +3555,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3912,7 +3913,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4291,7 +4292,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5851,6 +5852,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ]
@@ -6106,6 +6108,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ]
@@ -6293,7 +6296,7 @@
                     },
                     "plan_name": {
                       "type": "string",
-                      "description": "The plan's display name (Free, Pro, Team) - what users see. plan is the internal id."
+                      "description": "The plan's display name (Free, Starter, Pro, Team) - what users see. plan is the internal id."
                     },
                     "delivered_7d": {
                       "type": "integer"
@@ -29832,6 +29835,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ],
@@ -29854,6 +29858,7 @@
                         "plan": {
                           "type": "string",
                           "enum": [
+                            "starter",
                             "standard",
                             "team"
                           ]
@@ -29881,10 +29886,15 @@
                     "prices": {
                       "type": "object",
                       "required": [
+                        "starter",
                         "pro",
                         "team"
                       ],
                       "properties": {
+                        "starter": {
+                          "type": "string",
+                          "example": "2.99"
+                        },
                         "pro": {
                           "type": "string",
                           "example": "9.99"
@@ -29907,12 +29917,16 @@
                         }
                       }
                     },
+                    "starter_available": {
+                      "type": "boolean",
+                      "description": "True when a Starter price id (STRIPE_PRICE_STARTER) is configured, so the console may offer the Starter plan."
+                    },
                     "portal_url": {
                       "type": [
                         "string",
                         "null"
                       ],
-                      "description": "Stripe's hosted Customer Portal link. Non-null only on the standard/team plans and only when STRIPE_PORTAL_URL is configured. Cancel/update-payment-method happen there, not in this API."
+                      "description": "Stripe's hosted Customer Portal link. Non-null only on the starter/standard/team plans and only when STRIPE_PORTAL_URL is configured. Cancel/update-payment-method happen there, not in this API."
                     }
                   }
                 }
@@ -30084,6 +30098,7 @@
                   "plan": {
                     "type": "string",
                     "enum": [
+                      "starter",
                       "standard",
                       "team"
                     ],
@@ -30141,6 +30156,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ]
@@ -36685,6 +36701,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ]
@@ -37695,6 +37712,7 @@
                       "type": "string",
                       "enum": [
                         "free",
+                        "starter",
                         "standard",
                         "team"
                       ]
