@@ -314,6 +314,25 @@ app.post("/hook", express.raw({ type: "*/*" }), (req, res) => {
 });
 ```
 
+## Check that Hookie sent it (Web Bot Auth)
+
+Production deliveries to a webhook destination also carry three headers from the [Web Bot Auth](https://datatracker.ietf.org/wg/webbotauth/about/) scheme, which is HTTP Message Signatures ([RFC 9421](https://www.rfc-editor.org/rfc/rfc9421)) with an Ed25519 key. They prove the request came from Hookie's bot. They do not prove the body is intact: use the payload signatures above for that.
+
+```http
+Signature-Agent: "https://hookie.ai"
+Signature-Input: sig1=("@authority" "signature-agent");created=1718000000;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";expires=1718000300;nonce="…";tag="web-bot-auth"
+Signature: sig1=:…:
+```
+
+To check one:
+
+1. Fetch Hookie's key directory at `https://hookie.ai/.well-known/http-message-signatures-directory`. It is a JSON Web Key Set, served as `application/http-message-signatures-directory+json`.
+2. Find the key whose RFC 7638 thumbprint is the `keyid`. The `keyid` is the RFC 8037 thumbprint of the Ed25519 public key. Reject the request if no key matches.
+3. Rebuild the signature base, three lines joined by newlines: `"@authority": <the host you received the request on>`, then `"signature-agent": "https://hookie.ai"` (the header's value, quotes included), then `"@signature-params": ` followed by the value of `Signature-Input` after `sig1=`.
+4. Verify the Ed25519 signature in `Signature` (the base64 between the colons) over that base with the key. Reject the request if `expires` has passed.
+
+Hookie signs a delivery to a **webhook** destination only. Slack, S3 and SQS destinations are not signed this way, and deliveries from a preview or test environment are never signed, so a test deployment cannot pass as Hookie's production sender. Each attempt of a delivery gets fresh headers, with its own `created`, `expires` and `nonce`. Hookie sets these headers after a destination's own custom headers, so a custom header with the same name is overridden.
+
 ## Notes
 
 - Verify against the **raw bytes**. Re-serializing the JSON will change the signature.
