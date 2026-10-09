@@ -50,8 +50,9 @@ Each try is an **attempt**, and a delivery gets up to eight. After a failed one,
 | Your URL answers | Hookie |
 | --- | --- |
 | `2xx` | Marks the delivery `delivered`. |
-| `5xx` other than `508`, `404`, `408`, `409`, `425` or `429`, or nothing in time | Tries again on the schedule. |
+| `5xx` other than `508`, `530` with Cloudflare's "Origin DNS error", `404`, `408`, `409`, `425` or `429`, or nothing in time | Tries again on the schedule. |
 | `508` | Marks it `dead` at once. The event has already passed through Hookie eight times, so it is looping, and the delivery's error says so. |
+| `530` with Cloudflare's "Origin DNS error" (error 1016) | Marks it `dead` at once: the host does not resolve, and waiting will not change that. |
 | Any other `4xx` | Marks it `dead` at once: the receiver refused the request, and would again. |
 | A `3xx` | Marks it `dead` at once. Redirects are never followed: update the destination's URL. |
 
