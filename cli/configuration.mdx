@@ -46,7 +46,7 @@ Each kind is matched to what the project has by the field in the **Identity** co
 | `record_views` | `dataset` + `name` | `columns`, `sort_key`, `sort_dir`, `is_default` | — |
 | `rules` | `name` | `dataset`, `enabled`, `conditions`, `mappings` | — |
 | `endpoints` | `slug` | `name`, `dataset`, `enabled`, `ip_allowlist`, `verification` (same scheme, or `none`) | `criteria`, `mappings`: publish a new version of the endpoint; `verification` with another scheme: set it with its secret |
-| `destinations` | `name` | `name`, `url`, `enabled`, `dataset_filter`, `timeout_seconds`, `max_per_second`, `max_concurrency` | — |
+| `destinations` | `name` | `name`, `url` (or `endpoint: <slug>` to deliver into one of this project's endpoints), `enabled`, `dataset_filter`, `timeout_seconds`, `max_per_second`, `max_concurrency` | — |
 | `workflows` | `name` | the whole definition: `slug`, `active`, `entry_dataset`, `entry_conditions`, `steps` | — |
 | `triggers` (AI) | `name` | `enabled` | `match`, `action_type`, `config`: delete and recreate |
 | `cron_triggers` | `name` | `enabled`, `schedule`, `timezone`, `payload`, `dataset` | — |
@@ -110,7 +110,7 @@ hookie export --project staging --format json -o staging.json
 
 `hookie export [--project X] [--format yaml|json] [-o file]` writes a project's configuration in exactly the format `apply` and `diff` read, so `hookie export > hookie.yml && hookie diff -f hookie.yml` reports no changes. It is how you put an existing project under version control without retyping it.
 
-Nothing secret is in it. Endpoint URLs (they are credentials), signing secrets, ingest keys, and Slack and S3 destinations stay on the server, and the file lists what it left out under `not_exported`. Applying an export to a different project creates fresh URLs and signing secrets there. An AI agent is exported with a `ref`, its id in the source project, and `apply` points every workflow `agent_call` that names that ref at the agent of the same name in the target project, creating it first if need be.
+Nothing secret is in it. Endpoint URLs (they are credentials), signing secrets, ingest keys, and Slack and S3 destinations stay on the server, and the file lists what it left out under `not_exported`. A destination into one of the project's own endpoints is written as `endpoint: <slug>` in place of its URL, which `apply` resolves in the target project. A destination into any other endpoint is left out. Applying an export to a different project creates fresh URLs and signing secrets there. An AI agent is exported with a `ref`, its id in the source project, and `apply` points every workflow `agent_call` that names that ref at the agent of the same name in the target project, creating it first if need be.
 
 <Note>
   Endpoint slugs are unique across a workspace, not per project. Applying the same file to a second project in the same workspace still gets a `409` for its endpoints. To copy a project's setup within a workspace, use the console's **Clone project** or import, which name the copies `{slug}-copy`. See [Export, import and clone a project](/api-reference#export-import-and-clone-a-project).

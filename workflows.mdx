@@ -39,7 +39,7 @@ Hookie's API runs the same checks again when you save, so a workflow saved from 
 
 ## Runs on the graph
 
-Every workflow's builder has a **Run history** section. Choose a run and each step on the canvas shows what happened to it in that run: completed, running, waiting, failed or skipped. Steps inside a branch show which arm ran. Below the graph, a table lists every step with its start and finish times and any error.
+Every workflow's builder has a **Run history** section. Choose a run and each step on the canvas shows what happened to it in that run: completed, running, waiting, failed or skipped. Steps inside a branch show which arm ran. Below the graph, a table lists every step with its start and finish times and any error. An `emit_event` step's details also list the `delivery_ids` it queued, so you can open each delivery.
 
 A run that is pending, running or waiting can be stopped with **Cancel run**. A run that failed, was cancelled or timed out can be started again with **Retry run**. Both are also in the **Instances** dialog on the workflow list, which has a **Show on the graph** button for each run.
 
@@ -89,6 +89,8 @@ Every place Hookie takes conditions uses one shape and the same ten operators: r
 ```
 
 The second line is shorthand for the first. Every condition in a list must hold, and an empty list matches everything. A list holds at most 50 conditions.
+
+In a workflow's entry conditions, and in `branch` and `wait_for_event` conditions, a condition can also be a **group**. `{"any": [...]}` holds when one member holds, and `{"all": [...]}` holds when every member does. A member is a condition or another group, and groups nest at most two levels deep. A rule, an endpoint's criteria or a trigger refuses a group with `400`, because it tests one condition at a time.
 
 | Operator | Value | Matches when the field… |
 | --- | --- | --- |
@@ -221,7 +223,7 @@ An **AI agent** is a reusable, named LLM persona: a model, a system prompt, a bo
 
 `emit_event` payloads, `http`, `set` and `transform` read the instance context with `{{path}}`, and so do the values of `branch` and `wait_for_event` conditions. A value that is exactly `"{{entry.email}}"` keeps its type (a number stays a number, an object stays an object). Inside longer text, as in `"https://api.example.com/users/{{entry.id}}"` or `"Ticket {{entry.id}}: {{triage.summary}}"`, the value is inserted as text; in a URL it is also URL-encoded, and it may only appear after the host.
 
-In an `emit_event` payload, a placeholder that resolves to nothing for a run leaves that field out of the emitted record. A placeholder whose first part is not something the run can have (`entry`, `waited_event`, or a key an earlier step writes) is refused when you save, and the error lists the keys that do exist.
+In an `emit_event` payload, a field whose whole value is a placeholder that resolves to nothing for a run keeps the entry record's value for that field, or is left out when the entry record has none. The step's details list such placeholders under `unresolved_placeholders`. A placeholder whose first part is not something the run can have (`entry`, `waited_event`, or a key an earlier step writes) is refused when you save, and the error lists the keys that do exist.
 
 ## Durable execution
 

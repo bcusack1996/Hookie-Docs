@@ -95,7 +95,7 @@ A call above the agent's level is refused with what to do about it, not a bare "
 }
 ```
 
-Over MCP the same sentence comes back as the tool's error, so the agent can hand you the link. Widening applies to its very next call; an MCP client that cached its tool list sees the new tools once it lists them again.
+Over MCP the same sentence comes back as the tool's error, so the agent can hand you the link. Widening applies to its very next call, with no reconnect. Every agent is shown the full tool list whatever its scope, so a read-only agent can see the write tools; calling one before it is widened gets this refusal.
 
 Two refusals carry no link, because widening would not help:
 
@@ -119,7 +119,9 @@ Agents that call Hookie with a user-delegated **WorkOS Agent Auth** token are li
 
 ## Tools
 
-Available with `hookie:read`:
+Every agent is shown every tool. Each table names the scope a call needs, and a call above the agent's scope is refused as described under [When an agent is refused](#when-an-agent-is-refused).
+
+Needs `hookie:read`:
 
 | Tool | What it does |
 | --- | --- |
@@ -150,7 +152,7 @@ Available with `hookie:read`:
 | `list_workflow_runs · get_workflow_run` | Execution history, including which branch each instance took. |
 | `send_test_event` | POST a sample payload to a public endpoint URL. |
 
-Available with `hookie:write`:
+Needs `hookie:write`:
 
 | Tool | What it does |
 | --- | --- |
@@ -181,7 +183,7 @@ Available with `hookie:write`:
 
 The hosted server doesn't offer a tool that tails live events, because a tool call should return promptly rather than hold a connection open. To tail events, read the [live stream](/streaming) with an ingest key.
 
-Available with `hookie:manage` — the routes the console keeps to owners and admins:
+Needs `hookie:manage` — the routes the console keeps to owners and admins:
 
 | Tool | What it does |
 | --- | --- |
