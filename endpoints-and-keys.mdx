@@ -35,6 +35,8 @@ An endpoint can carry **criteria**, conditions every event must meet, and **mapp
 
 Criteria use the same [operators as rules](/rules-and-mappings#conditions). An endpoint accepts at most 10 criteria, the same limit as a rule's conditions, and 50 mappings; an 11th criterion is refused with `400` and `At most 10 criteria are allowed`. Set them when you create the endpoint: `criteria` and `mappings` on `POST /admin/api/projects/{project_id}/webhooks`, the `create_webhook` MCP tool, or `hookie endpoints create`. The console's **Add endpoint** creates an endpoint with neither.
 
+If an endpoint's stored criteria or mappings cannot be read, Hookie does not route the event as if nothing matched. It keeps the submission, marks it `failed` with `Endpoint rule is malformed` on the project's [Errors tab](/datasets-and-records#errors-tab), and routes it once the rule is fixed.
+
 ## Versions
 
 `PATCH` refuses an endpoint's criteria and mappings, because they decide what it has already stored. To change them, publish a new **version**:
@@ -78,3 +80,5 @@ Every request passes these checks first. A refusal stores nothing and never coun
 | The monthly event quota | `429` |
 
 A repeated `Idempotency-Key`, or a provider's delivery id seen before, returns the original submission with `200` and is not counted again. An endpoint's refusals are listed under **Activity** in its menu.
+
+An endpoint can also deduplicate on a field in its own body. Set `dedupe_path` to a payload path such as `event_id` or `data.id`, when you create the endpoint or publish a new version over the API or MCP. A POST whose body has the same value there as an earlier one to that endpoint returns the first submission with `200`, and stores and counts nothing. It is off by default. It applies only when the request has no `Idempotency-Key` header and no provider delivery-id header. The keys are kept as long as the submissions, for your plan's retention window. `PATCH` refuses `dedupe_path`: publish a new version to change it.

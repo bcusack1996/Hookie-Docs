@@ -12,7 +12,7 @@ Add one on a project's **Connections** tab with **Add destination**, or **From p
 
 - a **type**, fixed when you create it: **HTTPS webhook** (the default), **Slack** or **S3-compatible bucket**. See [Destination types and options](/destinations);
 - for a webhook, a **URL**, which must be `https`. A Slack destination has its incoming-webhook URL and an S3 destination its bucket settings instead, with the credential stored encrypted;
-- a **Dataset filter**: the datasets it receives, or all of them when it is empty;
+- a **Dataset filter**: the datasets it receives, or all of them when you leave it empty. An empty list is refused, since it would mean nothing rather than everything: to stop deliveries, disable the destination;
 - a **signing secret** (`whsec_…`), shown in full when you create it. Owners and admins can reveal it again at any time with **Reveal secret** on the destination, and rotate it; see [Verify signatures](/signatures);
 - optional [request options](/destinations): a body template, and for a webhook, custom headers and authentication;
 - **delivery settings**: a timeout (10 seconds by default), a send rate and a concurrency cap.
@@ -50,7 +50,9 @@ Each try is an **attempt**, and a delivery gets up to eight. After a failed one,
 | Your URL answers | Hookie |
 | --- | --- |
 | `2xx` | Marks the delivery `delivered`. |
-| `5xx`, `404`, `408`, `409`, `425` or `429`, or nothing in time | Tries again on the schedule. |
+| `5xx` other than `508`, `530` with Cloudflare's "Origin DNS error", `404`, `408`, `409`, `425` or `429`, or nothing in time | Tries again on the schedule. |
+| `508` | Marks it `dead` at once. The event has already passed through Hookie eight times, so it is looping, and the delivery's error says so. |
+| `530` with Cloudflare's "Origin DNS error" (error 1016) | Marks it `dead` at once: the host does not resolve, and waiting will not change that. |
 | Any other `4xx` | Marks it `dead` at once: the receiver refused the request, and would again. |
 | A `3xx` | Marks it `dead` at once. Redirects are never followed: update the destination's URL. |
 
@@ -82,4 +84,4 @@ To an S3 destination, a replay rewrites the same object, because the key comes f
 - **A downgrade.** When the workspace moves to a plan with fewer destinations (a downgrade, a cancellation or a trial ending), the newest over the new cap are paused and tagged **Paused: over plan limit**, and their deliveries wait as `paused`. When the plan rises again, Hookie resumes the ones it paused, oldest first, never one you switched off yourself. See [When your plan changes](/destinations#when-your-plan-changes).
 - **A suspended workspace.** Nothing is delivered until it is reinstated.
 
-Deleting a destination cancels what it has not sent.
+Deleting a destination cancels what it has not sent. Its queued, retrying and paused deliveries become `cancelled` and none of them is sent, including any that were paused while it was disabled.

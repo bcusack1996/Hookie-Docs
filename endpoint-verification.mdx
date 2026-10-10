@@ -20,7 +20,7 @@ A request that fails gets `401` and is **neither stored nor counted**. The body 
 
 Every refusal is written to your audit log as `ingest_signature_rejected`, with the scheme and reason, and appears in the endpoint's **Activity** as `signature_required`, `signature_invalid` or `signature_stale`. Neither ever includes the secret or the signature that was sent. Your provider's delivery log shows the `401` body, so it tells you which of the three went wrong.
 
-Where the check sits: a provider's URL-verification handshake (Slack, Meta, Microsoft Graph, Zoom, Twitch) is answered first, and a body Hookie cannot read is refused with `400`, `415` or `422` as usual. The signature is checked next, before duplicate detection, the quota and the store.
+Where the check sits: a provider's URL-verification handshake (Slack, Meta, Microsoft Graph, Zoom, Twitch) is answered first, and a body Hookie cannot read is refused with `400`, `415` or `422` as usual. The signature is checked next, before duplicate detection, the quota and the store. A body with no fields, `{}` included, is refused with `422` only after the signature passes, so an unsigned request is told to sign first.
 
 ## Schemes
 

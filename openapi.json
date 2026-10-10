@@ -405,9 +405,76 @@
         },
         "additionalProperties": false
       },
+      "ConditionGroup": {
+        "type": "object",
+        "description": "A group of workflow conditions, an element of an entry, branch or wait condition list. {\"any\": [...]} holds when one member holds (OR); {\"all\": [...]} when every member holds (AND). A member is a Condition or a ConditionSubgroup, and a group nests at most two levels. Each condition is checked as Condition says. Refused in rules, endpoint criteria, AI triggers and WebSocket triggers, which take plain conditions only. An empty list, or anything besides one of any and all, is refused with 400.",
+        "additionalProperties": false,
+        "properties": {
+          "any": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Condition"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionSubgroup"
+                }
+              ]
+            }
+          },
+          "all": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Condition"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionSubgroup"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "ConditionSubgroup": {
+        "type": "object",
+        "description": "A group inside a ConditionGroup: its members are Conditions. A group nested a third level is refused with 400.",
+        "additionalProperties": false,
+        "properties": {
+          "any": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            }
+          },
+          "all": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            }
+          }
+        }
+      },
+      "WorkflowCondition": {
+        "description": "One element of a workflow's entry_conditions, a branch's conditions or a wait_for_event's conditions: a Condition, or a ConditionGroup. The list itself is AND, so a list with no groups keeps its meaning. Paths in entry_conditions and in a wait_for_event's conditions are bare, because both read the arriving record; a path that starts with entry. is refused with 400, since it could never match. A branch's paths read the instance context, where the entry record is under entry. Only a branch and a wait_for_event may hold {{...}} placeholders in a value; a wait's are resolved from the instance context when the wait starts.",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Condition"
+          },
+          {
+            "$ref": "#/components/schemas/ConditionGroup"
+          }
+        ]
+      },
       "ProjectConfig": {
         "type": "object",
-        "description": "A project's configuration (DX-10, #201) \u2014 the hookie.yml shape, so `hookie apply` reads an export as it is. NOTHING SECRET IS IN IT: no endpoint URL (its slug is the credential), endpoint verification secret, destination signing secret or ingest key. Sources, WebSocket triggers and portals hold encrypted credentials and are listed under not_exported instead. Identity per kind: an endpoint's slug, a record view's dataset + name, everything else's name.",
+        "description": "A project's configuration (DX-10, #201) \u2014 the hookie.yml shape, so `hookie apply` reads an export as it is. NOTHING SECRET IS IN IT: no endpoint URL (its slug is the credential): a destination into one of the project's endpoints is written as `endpoint` (that endpoint's base slug) in place of its url, and an import points it at the endpoint's own new URL. Nor an endpoint verification secret, a destination signing secret or an ingest key. Sources, WebSocket triggers and portals hold encrypted credentials and are listed under not_exported instead. Identity per kind: an endpoint's slug, a record view's dataset + name, everything else's name.",
         "properties": {
           "version": {
             "type": "integer",
@@ -438,7 +505,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "description": "{name, url, enabled, dataset_filter?, timeout_seconds?, max_per_second?, max_concurrency?} \u2014 portal-owned destinations excluded."
+              "description": "{name, url | endpoint, enabled, dataset_filter?, timeout_seconds?, max_per_second?, max_concurrency?} \u2014 endpoint is the base slug of one of this project's endpoints, written in place of url for a destination into it; an import sets the url to that endpoint's URL, and an entry that names neither, or both, fails. Portal-owned destinations are excluded, and so are destinations into another project's endpoint, into an endpoint since deleted, or into one with a dataset segment in its URL: those are counted under not_exported."
             }
           },
           "ai_agents": {
@@ -1342,7 +1409,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota. ALSO 200 for an answered URL-verification challenge (ING-10): the challenge as text/plain, or Zoom's JSON {plainToken, encryptedToken}. Nothing is stored or counted.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota. ALSO 200 for an answered URL-verification challenge (ING-10): the challenge as text/plain, or Zoom's JSON {plainToken, encryptedToken}. Nothing is stored or counted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1980,7 +2047,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota. ALSO 200 for an answered URL-verification challenge (ING-10): the challenge as text/plain, or Zoom's JSON {plainToken, encryptedToken}. Nothing is stored or counted.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota. ALSO 200 for an answered URL-verification challenge (ING-10): the challenge as text/plain, or Zoom's JSON {plainToken, encryptedToken}. Nothing is stored or counted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2381,7 +2448,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2729,7 +2796,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3074,7 +3141,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3421,7 +3488,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3770,7 +3837,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4151,7 +4218,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
+            "description": "Duplicate - this endpoint (or, on /v1/ingest, this ingest key) already stored a submission with the same dedup key, so the retry is answered with the first submission's id and nothing is stored or counted (ING-9, #193). The dedup key is, in order: an Idempotency-Key header; else a provider delivery id kept the same across that provider's retries - webhook-id (Standard Webhooks), svix-id, X-GitHub-Delivery, X-Shopify-Webhook-Id, X-Gitlab-Event-UUID, I-Twilio-Idempotency-Token, Linear-Delivery, Twitch-Eventsub-Message-Id, X-Atlassian-Webhook-Identifier; else the body field the endpoint's dedupe_path names, when that field holds a non-empty string or a number (HK-006); else Stripe's event id (a body with object 'event' and an evt_ id) or Slack's event_id (type 'event_callback'). The key space is the ENDPOINT's, not the workspace's: two endpoints may receive the same key. `deduplicated_by` names which source matched. A request that loses the unique-index race has already been counted against the monthly quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9643,6 +9710,7 @@
                           "criteria",
                           "dataset",
                           "mappings",
+                          "dedupe_path",
                           "slug",
                           "require_signature",
                           "ip_allowlist",
@@ -9685,6 +9753,13 @@
                           "mappings": {
                             "type": "string",
                             "description": "JSON array of {path, key}."
+                          },
+                          "dedupe_path": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The body field this version deduplicates retries on (dedupe_path, HK-006), or null."
                           },
                           "slug": {
                             "type": "string",
@@ -10006,6 +10081,7 @@
                         "criteria",
                         "dataset",
                         "mappings",
+                        "dedupe_path",
                         "slug",
                         "require_signature",
                         "ip_allowlist",
@@ -10044,6 +10120,13 @@
                         "mappings": {
                           "type": "string",
                           "description": "JSON array of {path, key}."
+                        },
+                        "dedupe_path": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The body field this version deduplicates retries on (dedupe_path, HK-006), or null."
                         },
                         "slug": {
                           "type": "string",
@@ -10247,6 +10330,15 @@
                         }
                       }
                     }
+                  },
+                  "dedupe_path": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 200,
+                    "description": "Opt-in (HK-006): the payload field whose value identifies an event, as a mapping path names one (for example \"event_id\" or \"data.id\"; not $payload, $submission.id or $submission.received_at). A POST whose body has the same non-empty string, or the same number, there as an earlier POST to this endpoint is answered 200 with that submission's id, idempotent: true and deduplicated_by: \"body\", and creates no record or run. A missing field, or a value that is neither, deduplicates nothing. An Idempotency-Key header and a provider delivery id still take precedence. The window is the submission's retention: a repeat is deduplicated for as long as the first submission is kept (the plan's retention window), after which the submission is pruned and a repeat is stored again. This is not the 24-hour Idempotency-Key replay on /admin/api. Off when omitted or null. It is set per version (POST .../versions) and cannot be changed with PATCH.",
+                    "example": "event_id"
                   },
                   "ip_allowlist": {
                     "type": [
@@ -10602,6 +10694,15 @@
                       }
                     }
                   },
+                  "dedupe_path": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 200,
+                    "description": "Opt-in (HK-006): the payload field whose value identifies an event, as a mapping path names one (for example \"event_id\" or \"data.id\"; not $payload, $submission.id or $submission.received_at). A POST whose body has the same non-empty string, or the same number, there as an earlier POST to this endpoint is answered 200 with that submission's id, idempotent: true and deduplicated_by: \"body\", and creates no record or run. A missing field, or a value that is neither, deduplicates nothing. An Idempotency-Key header and a provider delivery id still take precedence. The window is the submission's retention: a repeat is deduplicated for as long as the first submission is kept (the plan's retention window), after which the submission is pruned and a repeat is stored again. This is not the 24-hour Idempotency-Key replay on /admin/api. Off when omitted or null. It is set per version (POST .../versions) and cannot be changed with PATCH.",
+                    "example": "event_id"
+                  },
                   "major": {
                     "type": "boolean",
                     "default": false,
@@ -10686,6 +10787,7 @@
                         "criteria",
                         "dataset",
                         "mappings",
+                        "dedupe_path",
                         "slug",
                         "require_signature",
                         "ip_allowlist",
@@ -10724,6 +10826,13 @@
                         "mappings": {
                           "type": "string",
                           "description": "JSON array of {path, key}."
+                        },
+                        "dedupe_path": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The body field this version deduplicates retries on (dedupe_path, HK-006), or null."
                         },
                         "slug": {
                           "type": "string",
@@ -11275,7 +11384,7 @@
         ],
         "responses": {
           "200": {
-            "description": "One page of the dataset's records, newest first unless the view sorts otherwise. Without a view, every row is the record meta columns plus its whole flattened payload and columns is the discovered key set. With a view, each row carries _id plus exactly the view columns (missing keys become null), sorted in SQL by the view sort key. available_columns is always the full discovered set; total is the dataset's record count up to 10,000, and total_capped is true when there are more. A view sorted by a payload field sorts only the newest 10,000 records (sort_window); a sort by arrival covers the whole dataset.",
+            "description": "One page of the dataset's records, newest first unless the view sorts otherwise. Without a view, every row is the record meta columns plus its whole flattened payload and columns is the discovered key set. With a view, each row carries _id plus exactly the view columns (missing keys become null), sorted in SQL by the view sort key. available_columns is the field set of the newest 500 records (at most 300 names, in name order, plus dotted nested paths), the same for any limit, offset or sort; total is the dataset's record count up to 10,000, and total_capped is true when there are more. A view sorted by a payload field sorts only the newest 10,000 records (sort_window); a sort by arrival covers the whole dataset.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11379,7 +11488,7 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "Includes the meta columns _id, _received_at and _source."
+                      "description": "Includes the meta columns _id, _received_at and _source. Taken from the newest 500 records, not from this page, so it does not change with limit, offset or view."
                     },
                     "rows": {
                       "type": "array",
@@ -16460,6 +16569,7 @@
                         "destination_name",
                         "destination_url",
                         "event_id",
+                        "record_id",
                         "dataset",
                         "status",
                         "response_code",
@@ -16493,7 +16603,12 @@
                           ]
                         },
                         "event_id": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "The delivery's label: the record id, or `<record id>#replay:<n>` for a replay. Use record_id to read the record."
+                        },
+                        "record_id": {
+                          "type": "string",
+                          "description": "The record this delivery sent, the `id` of the envelope the receiver got. For a replay, the original record (event_id without its `#replay:` marker). Read it with GET /admin/api/projects/{project_id}/records/{record_id}."
                         },
                         "dataset": {
                           "type": "string"
@@ -16995,7 +17110,7 @@
                   },
                   "q": {
                     "type": "string",
-                    "description": "Case-insensitive (ASCII) substring match against the raw payload JSON."
+                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example ß): a substring match against the raw payload JSON."
                   },
                   "since": {
                     "type": "string",
@@ -18254,7 +18369,7 @@
                 "properties": {
                   "q": {
                     "type": "string",
-                    "description": "Case-insensitive (ASCII) substring match against the raw submission payload."
+                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example ß): a substring match against the raw submission payload."
                   },
                   "source": {
                     "type": "string"
@@ -23461,7 +23576,7 @@
                     "items": {
                       "allOf": [
                         {
-                          "$ref": "#/components/schemas/Condition"
+                          "$ref": "#/components/schemas/WorkflowCondition"
                         }
                       ],
                       "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/gte/lt/lte with a non-number, contains or regex with a non-string, a regex that does not compile or is unbounded, in without a list of 1-100 scalars, any other object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text."
@@ -23568,7 +23683,7 @@
                               "items": {
                                 "allOf": [
                                   {
-                                    "$ref": "#/components/schemas/Condition"
+                                    "$ref": "#/components/schemas/WorkflowCondition"
                                   }
                                 ],
                                 "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/gte/lt/lte with a non-number, contains or regex with a non-string, a regex that does not compile or is unbounded, in without a list of 1-100 scalars, any other object or array value, an unknown key. A value may be a {{placeholder}} naming the instance context (e.g. \"{{entry.order_id}}\"), resolved when the wait is armed, so the wait matches this instance's record only; a placeholder that resolves to nothing fails the run."
@@ -23662,7 +23777,7 @@
                               "items": {
                                 "allOf": [
                                   {
-                                    "$ref": "#/components/schemas/Condition"
+                                    "$ref": "#/components/schemas/WorkflowCondition"
                                   }
                                 ],
                                 "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/gte/lt/lte with a non-number, contains or regex with a non-string, a regex that does not compile or is unbounded, in without a list of 1-100 scalars, any other object or array value, an unknown key. A value may be a {{placeholder}} naming the instance context (e.g. \"{{entry.order_id}}\"), resolved each time the branch is evaluated."
@@ -24082,7 +24197,7 @@
                     "items": {
                       "allOf": [
                         {
-                          "$ref": "#/components/schemas/Condition"
+                          "$ref": "#/components/schemas/WorkflowCondition"
                         }
                       ],
                       "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/gte/lt/lte with a non-number, contains or regex with a non-string, a regex that does not compile or is unbounded, in without a list of 1-100 scalars, any other object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text."
@@ -24238,38 +24353,7 @@
                   "entry_conditions": {
                     "type": "array",
                     "default": [],
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "path"
-                      ],
-                      "additionalProperties": false,
-                      "description": "One condition dialect (#165): {path, op, value}, or {path, equals} as shorthand for op \"equals\". Refused at save: both forms at once, a missing value (except exists), gt/lt with a non-number, contains with a non-string, an object or array value, an unknown key. A {{placeholder}} value is refused here: nothing resolves it, so it would be compared as literal text.",
-                      "properties": {
-                        "path": {
-                          "type": "string",
-                          "minLength": 1,
-                          "description": "Dot path. The empty path is rejected."
-                        },
-                        "op": {
-                          "type": "string",
-                          "enum": [
-                            "equals",
-                            "not_equals",
-                            "contains",
-                            "exists",
-                            "gt",
-                            "lt"
-                          ]
-                        },
-                        "value": {
-                          "description": "equals/not_equals compare with strict ===/!== (5 and \"5\" differ); contains needs a string; gt/lt need a number; exists takes none."
-                        },
-                        "equals": {
-                          "description": "Shorthand for op \"equals\" with this value. Not together with op or value."
-                        }
-                      }
-                    }
+                    "items": { "$ref": "#/components/schemas/WorkflowCondition" }
                   },
                   "steps": {
                     "type": "array",
@@ -34664,7 +34748,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
+        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A destination's `endpoint` (an endpoint's base slug) is resolved to that endpoint's URL, in the document or in the project; one that names neither fails by name. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
         "parameters": [
           {
             "name": "project_id",
@@ -35764,7 +35848,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
+        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. An endpoint's URL wherever a row holds one (a destination's url or alert URL, an endpoint's redirect URL, an audit row's details) is written as `endpoint:<row id>`, or `endpoint:removed` when no endpoint of the workspace holds its slug. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
         "security": [
           {
             "session": []
