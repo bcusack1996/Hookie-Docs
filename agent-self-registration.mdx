@@ -166,7 +166,7 @@ HOOKIE_TOKEN=$HOOKIE_KEY HOOKIE_ALLOW_REMOTE=1 hookie projects list
 
 ### What the key can do
 
-Everything an admin can do in a workspace, on `/admin/api/*`, `/mcp` and the CLI: create projects, endpoints, ingest keys, rules, destinations, sources, triggers and workflows, read records, and replay deliveries. See the [API reference](/api-reference) and the [MCP tools](/connected-agents#tools).
+Everything an admin can do in a workspace, on `/admin/api/*`, `/mcp` and the CLI: create projects, endpoints, ingest keys, rules, triggers and workflows, read records, and replay deliveries. A Free workspace allows one destination and no database sources; a person can upgrade it after claiming. See the [API reference](/api-reference), [limits and plans](/limits-and-plans) and the [MCP tools](/connected-agents#tools).
 
 ### What it cannot do
 
@@ -177,6 +177,7 @@ Some actions need a person. Until someone claims the workspace, the key is refus
 - inviting members
 - linking a Google Workspace domain
 - creating more API keys
+- minting Data API keys or changing what the Data API publishes
 
 Each answers `403` with `code: "agent_not_permitted"` and `claim_required: true`, and the message tells the agent to hand over its claim link:
 
