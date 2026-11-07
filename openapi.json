@@ -18,10 +18,6 @@
     {
       "url": "https://app.hookie.ai",
       "description": "Production"
-    },
-    {
-      "url": "https://app.preview.hookie.ai",
-      "description": "Preview"
     }
   ],
   "tags": [
@@ -38294,7 +38290,7 @@
       "get": {
         "operationId": "getHealth",
         "summary": "Is the API up?",
-        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai, https://www.hookie.ai and the preview site https://preview.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
+        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai and https://www.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
         "tags": [
           "Status"
         ],
@@ -38304,7 +38300,7 @@
             "description": "Every check passed.",
             "headers": {
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38395,7 +38391,7 @@
             "description": "At least one check failed: `status: \"degraded\"`, and the failed check is `error`.",
             "headers": {
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38492,7 +38488,7 @@
                 }
               },
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38544,7 +38540,7 @@
       "head": {
         "operationId": "headHealth",
         "summary": "Is the API up? (headers only)",
-        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai, https://www.hookie.ai and the preview site https://preview.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
+        "description": "Public and unauthenticated (#323): whether this deployment can answer, from fast checks with no side effects \u2014 a trivial D1 read with a 2-second timeout, and whether the outbound queue is bound (nothing is sent). The body carries only `status`, `checks` and `time`: never a version, tenant data, a database error message or a secret. Every answer is `Cache-Control: no-store`. CORS: only the marketing origins (https://hookie.ai and https://www.hookie.ai) may read it from a browser \u2014 the request's Origin is echoed in Access-Control-Allow-Origin for those and no other, with `Vary: Origin` always and never with credentials. Rate limited per client IP (about 20 a minute, a best-effort guard counted separately at each Cloudflare location; fails open if the limiter is unavailable). `health` is a reserved root, so nothing under /health is ever read as /{workspace}/{project}/{webhook} ingest. HEAD returns the same status and headers with no body; OPTIONS answers a CORS preflight with 204.",
         "tags": [
           "Status"
         ],
@@ -38554,7 +38550,7 @@
             "description": "Every check passed. No body.",
             "headers": {
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38583,7 +38579,7 @@
             "description": "At least one check failed: `status: \"degraded\"`, and the failed check is `error`. No body.",
             "headers": {
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38618,7 +38614,7 @@
                 }
               },
               "Access-Control-Allow-Origin": {
-                "description": "The request's Origin, echoed only when it is https://hookie.ai, https://www.hookie.ai or https://preview.hookie.ai. Absent for any other origin. Credentials are never allowed.",
+                "description": "The request's Origin, echoed only when it is https://hookie.ai or https://www.hookie.ai. Absent for any other origin. Credentials are never allowed.",
                 "schema": {
                   "type": "string"
                 }
@@ -38648,7 +38644,7 @@
       "options": {
         "operationId": "preflightHealth",
         "summary": "CORS preflight for /health",
-        "description": "Answers 204 without running any check. For an allowed origin (https://hookie.ai, https://www.hookie.ai, https://preview.hookie.ai) it carries Access-Control-Allow-Origin, Access-Control-Allow-Methods: GET, HEAD and Access-Control-Max-Age: 600; any other origin gets no CORS header.",
+        "description": "Answers 204 without running any check. For an allowed origin (https://hookie.ai, https://www.hookie.ai) it carries Access-Control-Allow-Origin, Access-Control-Allow-Methods: GET, HEAD and Access-Control-Max-Age: 600; any other origin gets no CORS header.",
         "tags": [
           "Status"
         ],
