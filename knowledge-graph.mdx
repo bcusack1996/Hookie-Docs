@@ -1,18 +1,66 @@
 ---
-title: "Knowledge graph"
-description: "Connect workspace knowledge, inject bounded context into AI agents, and review concurrent changes in a spreadsheet and execution canvas."
+title: "Workspace Brain"
+description: "Explore relationships across your workspace and choose which tables and records contribute to AI agent context."
 icon: "diagram-project"
 ---
 
 Pro and Team workspaces can turn their [table records](/data-workspace) into
-connected knowledge for people, workflows and AI agents. Open **Data workspace →
-Knowledge graph**. Your existing table records appear automatically, with the
-same IDs and revisions.
+connected knowledge for people, workflows and AI agents. Open **Workspace Brain**
+in the sidebar. Existing and new table records are included by default, with the
+same IDs and revisions. Webhooks and data sources contribute records through
+the table's **Inputs** mappings in [Data workspace](/data-workspace).
+
+## Explore your connected data
+
+**Graph** starts with a workspace overview. Each group represents an included
+table or standalone knowledge. Counts cover the entire workspace, even when it
+has more records than a single page can display. Dashed **contains** connections
+show membership in the Brain. Other connections summarize saved relationships;
+a loop represents relationships between records in the same group. Relationships
+are created explicitly by people, workflows or agents.
+
+Select a group or use **Find a record** to browse its records. Select a record,
+then choose **Explore connections** to follow its relationships across tables and
+record pages. Use **Relationship** and **Direction** to narrow the view. Select a
+neighbor and explore again to continue through the graph. **Workspace overview**
+returns to the map, and **Arrange** restores an automatic layout.
+
+Record pages show up to 100 records. Connection exploration shows up to 100 nodes
+and 200 edges within 64 KiB; notices identify truncated views. The overview shows
+up to 500 relationship groups while its total still counts all included saved
+relationships. Complete properties load when you select an individual record.
+
+## Choose what belongs in your Brain
+
+Choose **Manage included data** to include or exclude whole tables. An excluded
+table contributes neither existing nor future records to Brain discovery and
+agent context. To omit a single record, select it in **Graph** or **Grid** and
+choose **Exclude from Brain**.
+
+Excluded records and their saved connections remain stored. Table records still
+work in their original tables, views, dashboards and table workflows. Including
+a table again restores eligible records and preserves your individual exclusions.
+To restore a record, open **Grid**, choose **Brain inclusion → Excluded**, select
+the record, then choose **Include in Brain**. Its table must also be included.
+The excluded-record count is a shortcut to that filter.
+
+Writers can change these choices; readers can inspect them. Inclusion changes
+have their own revision, so ordinary record edits do not overwrite them. If
+someone else changes inclusion first, refresh and review before saving again.
+
+<Note>
+Inclusion controls Brain discovery and context retrieval, including every hop of
+a graph workflow or agent query. Excluded records cannot bridge other records.
+It does not change existing table permissions or prevent authorized curation
+queries from reading excluded data. Context already sent to an agent stays with
+that agent.
+</Note>
 
 ## Edit and connect knowledge
 
 **Grid** gives you a spreadsheet. Choose a table to edit its typed fields, or
-choose **All knowledge** to inspect names, types, JSON properties and revisions.
+choose **Entire workspace** to inspect names, types, JSON properties and revisions.
+The **Brain inclusion** filter lets you review included, excluded or all records.
 Double-click a cell to edit it. Select a record and choose **Edit node** for the
 full editor. Table-backed edits also update the original table and its dashboards.
 
@@ -144,13 +192,24 @@ workspace read/write grants:
 
 | Tool | Purpose |
 | --- | --- |
+| `get_brain_overview` | Read complete workspace counts, table choices and grouped relationships |
+| `set_brain_inclusion` | Include or exclude a table or record using its inclusion revision |
 | `list_graph_nodes` / `get_graph_node` | Discover nodes and read complete current properties |
 | `query_graph_context` | Fetch bounded context for inference |
 | `queue_graph_mutations` | Queue versioned knowledge changes |
 | `get_graph_mutation` | Poll queued, applied, errored or conflicting changes |
 | `list_graph_conflicts` / `resolve_graph_conflict` | Review and resolve saved proposals |
 
-The API lives under `/admin/api/data-workspace/graph`. Queued operations require
+Node discovery defaults to included data. Curation tools can explicitly request
+`membership: "excluded"` or `"all"` when listing nodes, or `include_excluded: true`
+when reading a node. Context queries always honor inclusion. To change a choice,
+send `kind: "table"` or `"node"`, its `resource_id`, boolean `included`, and the
+current inclusion `expected_version` (zero if no choice has been saved). Table
+versions are in the overview; node versions are in `node.membership.version`.
+They are independent of the record's content revision.
+
+The API lives under `/admin/api/data-workspace/graph`. `GET /overview` and
+`POST /inclusion` expose the same controls. Queued operations require
 stable `mutation_id` and `node_id` UUIDs. Updates replace the complete properties
 object and require `expected_version`. Supported operations are `create_node`,
 `update_node`, `delete_node`, `upsert_edge`, and `delete_edge`. For an edge,
@@ -168,7 +227,7 @@ also apply.
 
 System traces and completed/resolved receipts become eligible for cleanup after
 30 days. Curated knowledge and unresolved conflicts persist. Workspace export
-includes graph records, relationships, receipts and pending proposals, including
+includes graph records, relationships, inclusion choices, receipts and pending proposals, including
 after downgrade. Workspace deletion clears both the dedicated database and its
 pending mutation queue.
 
