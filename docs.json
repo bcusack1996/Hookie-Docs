@@ -56,6 +56,7 @@
           "ingest-keys",
           "streaming",
           "workflows",
+          "data-workspace",
           "customer-portal",
           "broadcast-logs",
           "analytics",
@@ -193,7 +194,7 @@
       }
     ]
   },
-  "description": "Capture, route and deliver webhooks on Cloudflare — ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
+  "description": "Capture, route and deliver webhooks on Cloudflare \u2014 ingest anything, route it into datasets with rules, and deliver signed events with retries, AI triggers and multi-step workflows.",
   "api": {
     "openapi": "openapi.json",
     "playground": {

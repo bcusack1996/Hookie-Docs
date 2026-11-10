@@ -4,7 +4,7 @@
     "title": "Hookie API",
     "version": "1.0.0",
     "summary": "Capture, route and deliver webhooks.",
-    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key, revoking an invite, removing a member or leaving, accepting an invite to another workspace, switching workspaces and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\n**Agent self-registration.** An AI agent can create its own account with no person involved (#331): `GET /v1/agents/register/challenge` returns a signed proof-of-work challenge, and `POST /v1/agents/register` with the solution, the agent's name, an optional operator contact and `accept_terms` set to the current Terms version creates a WorkOS identity for the agent, a workspace on the Free plan with its Default project, and an admin API key (`hk_\u2026`, role admin) returned once, with a one-time claim token a person uses later to take ownership (`POST /admin/api/agent-accounts/claim`). The key works on `/admin/api/*`, on the hosted MCP server at `/mcp` and with the CLI (`HOOKIE_TOKEN`). Until a person claims the workspace, billing, SSO and organization requests, invites, Google Workspace linking and creating more API keys are refused to it (`agent_not_permitted`), and Free-plan quotas apply in full. The registration is rate limited per IP (an IPv6 address by its /64), capped per day across the platform with no one network taking more than a tenth of the cap, asks for more proof of work as the day's cap fills, and can be switched off by the operator.\n\nThis document is generated from the request handlers and adversarially verified against them.",
+    "description": "Hookie exposes three HTTP surfaces.\n\n**Ingest + streaming** is the public plane. A path-form endpoint URL authenticates by its own high-entropy slug \u2014 there is no key, token or cookie \u2014 and an `ik_live_\u2026` ingest key authenticates the `/v1/*` routes. An endpoint URL files each payload into the endpoint's own dataset through the endpoint's own criteria and mappings (none means the whole payload, as one record); `/v1/ingest/{ingest_key}/{dataset}` stores the payload whole into the named dataset. Project mapping rules are evaluated on exactly one shape, `POST /v1/ingest/{ingest_key}` with no dataset segment, and never on an endpoint URL.\n\n**The customer portal API** is a separate, token-authed surface for your end customers, scoped to one portal and one customer.\n\n**The admin API** drives the console. It accepts either a browser session or an OAuth bearer token from a connected coding agent \u2014 the same routes, the same validation, the same audit trail. An agent's authority is its user's workspace role narrowed to the scopes granted in the console. It also accepts an **admin API key** (`hk_\u2026`, Settings \u2192 API keys) for CI, infrastructure-as-code and vendor backends: the key acts as the member who created it, capped at the key's role (viewer, developer or admin \u2014 never billing or platform administration), optionally limited to one project, with an optional expiry and IP allowlist. Keys are stored as a SHA-256 hash and shown once; if their creator leaves the workspace they stop working. The same key works on the hosted MCP server at `/mcp`.\n\n**A refused agent is told how to proceed.** An agent's grant is one rung of a ladder \u2014 `hookie:read` < `hookie:write` < `hookie:manage` \u2014 and a call above it answers 403 with `code: \"agent_scope_insufficient\"`, the `required_scope`, the `granted_scopes` and a `manage_url` to the console page where its user widens it. When the user's own role is the limit the code is `insufficient_role` and there is no link, because no grant can exceed the user; billing, platform admin, managing connected agents and destination signing secrets answer `agent_not_permitted` at every scope. A human in the console still reads `Insufficient role`.\n\n**A suspended workspace** (an operator action, for abuse or non-payment) answers every surface with 403 and `reason: \"workspace_suspended\"`: ingest (endpoint URLs and ingest keys), `/v1/data` and `/v1/stream` refuse before anything is stored or counted, and every admin API write \u2014 console, OAuth agent or hosted MCP alike \u2014 is refused except billing, platform admin, connected-agent management, revoking an API key, revoking an invite, removing a member or leaving, accepting an invite to another workspace, switching workspaces and the POST-bodied searches. The customer portal API is read-only in the same way: destination writes answer 403 `workspace_suspended`. Reads keep working. Nothing is sent while it is suspended: pending deliveries are paused, workflow runs already under way are paused, open `/v1/stream` connections are closed, and cron triggers, database sources and WebSocket listeners stop. Reinstating sends the paused deliveries, resumes the paused workflow runs where they stopped, and resumes the rest; no stored data is lost.\n\n**Rate limits.** `/admin/api/*` and `/mcp` allow about 100 requests every 10 seconds per credential \u2014 per API key, per connected agent, or per signed-in person. Over that, the answer is 429 with `Retry-After` (seconds). Like every burst limit here, ingest's included, it is a best-effort guard rather than an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. The monthly event quota is the exact count.\n\n**Idempotency.** A `POST` to `/admin/api/*` may carry an `Idempotency-Key` header (1\u2013255 printable characters, e.g. a UUID). The first request runs and its response is stored for 24 hours; a retry with the same key from the same credential, with the same path and body, gets that response back with `Idempotent-Replayed: true` and runs nothing. The same key with a different path, body or credential is refused with 422; a retry while the first request is still running gets 409. 5xx responses are not stored. `POST /admin/api/api-keys` refuses the header, because its response is a secret shown once and is never stored.\n\n**Versioning.** Every `/admin/api/*` and `/mcp` response carries `Hookie-Version` (currently `2026-09-29`). Additive changes \u2014 a new route, a new response field, a new optional parameter \u2014 ship under the current version, so clients must ignore fields they do not know. A breaking change gets a new dated version, announced in the changelog, and the previous version stays available for at least 12 months; a client pins one by sending `Hookie-Version` on its requests. A version this deployment does not serve is refused with 400 and the list of `supported_versions`.\n\n**Agent self-registration.** An AI agent can create its own account with no person involved (#331): `GET /v1/agents/register/challenge` returns a signed proof-of-work challenge, and `POST /v1/agents/register` with the solution, the agent's name, an optional operator contact and `accept_terms` set to the current Terms version creates a WorkOS identity for the agent, a workspace on the Free plan with its Default project, and an admin API key (`hk_\u2026`, role admin) returned once, with a one-time claim token a person uses later to take ownership (`POST /admin/api/agent-accounts/claim`). The key works on `/admin/api/*`, on the hosted MCP server at `/mcp` and with the CLI (`HOOKIE_TOKEN`). Until a person claims the workspace, billing, SSO and organization requests, invites, Google Workspace linking and creating more API keys are refused to it (`agent_not_permitted`), and Free-plan quotas apply in full. The registration is rate limited per IP (an IPv6 address by its /64), capped per day across the platform with no one network taking more than a tenth of the cap, asks for more proof of work as the day's cap fills, and can be switched off by the operator.\n\n**Request limits (#450).** Admin API mutating request bodies (methods other than GET and HEAD) and hosted MCP request bodies are limited to 1 MiB, measured from the stream whether or not `Content-Length` is sent. HTTP 413 means reduce the body before retrying. The hosted MCP accepts legacy JSON-RPC batches of at most 20 messages; an over-limit batch returns HTTP 400 with JSON-RPC error `-32600`, so split it into smaller batches. Other HTTP 400 responses are malformed or invalid requests and should be corrected, not retried unchanged. The hosted MCP transport is not modeled as an OpenAPI path.\n\nThis document is generated from the request handlers and adversarially verified against them.",
     "contact": {
       "name": "Hookie",
       "url": "https://hookie.ai"
@@ -1336,6 +1336,237 @@
             "description": "Set on a change request: the approved request it would replace. Approving the change updates the same WorkOS organization (its domains are set to the change's) instead of creating a second one."
           }
         }
+      },
+      "WorkspaceField": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "boolean",
+              "date",
+              "select",
+              "json"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type"
+        ]
+      },
+      "WorkspaceTableInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceField"
+            },
+            "minItems": 1,
+            "maxItems": 40
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "fields"
+        ]
+      },
+      "WorkspaceRowInput": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "values"
+        ]
+      },
+      "WorkspaceViewInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "ne",
+                    "contains",
+                    "gt",
+                    "lt",
+                    "empty"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ]
+            }
+          },
+          "sort": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "name",
+          "columns"
+        ]
+      },
+      "WorkspaceConnectionInput": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataset": {
+            "type": "string"
+          },
+          "mappings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allow_workflows": {
+            "type": "boolean",
+            "description": "Explicitly allows this project\u2019s workflows to read and write this table. Default false."
+          }
+        },
+        "required": [
+          "project_id",
+          "dataset",
+          "mappings"
+        ]
+      },
+      "WorkspaceWidget": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "table_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "count",
+              "sum",
+              "average",
+              "bar"
+            ]
+          },
+          "field": {
+            "type": "string"
+          },
+          "view_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "title",
+          "table_id",
+          "kind"
+        ]
+      },
+      "WorkspaceDashboardInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceWidget"
+            },
+            "maxItems": 12
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "widgets"
+        ]
       }
     },
     "parameters": {
@@ -4086,7 +4317,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "Webhook slug within the key's project; a slug of another project, even in the same workspace, is 404. A bare slug selects the most recently created enabled webhook with that base slug; a versioned slug of the form '<base>-v<version>' (version = 1+ digits, optionally .digits, e.g. 'orders-v2' or 'orders-v2.1') pins that exact enabled version. When the slug names only a disabled webhook the answer is 503.",
+            "description": "Webhook slug within the key's project; a slug of another project, even in the same workspace, is 404. A bare slug selects the most recently created enabled webhook with that base slug; a versioned slug of the form '<base>-v<version>' (version = 1+ digits, optionally .digits, e.g. 'orders-v2' or 'orders-v2.1') pins that exact enabled version. A new endpoint's base slug may not itself end in '-v<number>' (creating one answers 400), because that form names a version; an endpoint stored that way earlier is still reached when no such version exists. When the slug names only a disabled webhook the answer is 503.",
             "schema": {
               "type": "string"
             }
@@ -9684,7 +9915,7 @@
         ],
         "responses": {
           "200": {
-            "description": "All webhook versions in the project, ordered by base_slug then version. slug is the high-entropy public URL credential used at app.hookie.ai/{workspace}/{project}/{slug}; base_slug plus version is the human identity. criteria, mappings and ip_allowlist are JSON-encoded strings as stored. After a rotation, previous_public_url is the replaced URL, still accepted until previous_url_expires_at; both are null outside an overlap. verification is the endpoint's signature check: scheme, settings, has_secret and previous_secret_expires_at, never the secret.",
+            "description": "All webhook versions in the project, ordered by base_slug then version. base_slug plus version is the readable identity. Read-only callers do not receive the high-entropy URL credential (`slug`, `webhook_slug`, `public_path`, `public_url` or `previous_public_url`); write-capable callers receive it, and create/rotate disclose a new URL to the actor making the change. criteria, mappings and ip_allowlist are JSON-encoded strings as stored. previous_url_expires_at remains available while an old URL overlaps. verification is the endpoint's signature check: scheme, settings, has_secret and previous_secret_expires_at, never the secret.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9707,7 +9938,6 @@
                           "dataset",
                           "mappings",
                           "dedupe_path",
-                          "slug",
                           "require_signature",
                           "ip_allowlist",
                           "created_at",
@@ -9759,7 +9989,7 @@
                           },
                           "slug": {
                             "type": "string",
-                            "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                            "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                             "example": "aBcXyz0123456789abcdefgh"
                           },
                           "require_signature": {
@@ -9783,18 +10013,18 @@
                           },
                           "webhook_slug": {
                             "type": "string",
-                            "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                            "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                             "example": "aBcXyz0123456789abcdefgh"
                           },
                           "public_path": {
                             "type": "string",
-                            "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                            "description": "Only returned to write-capable callers. The endpoint's public location `{workspace}/{project}/{webhook_slug}` contains the credential; treat it as a secret.",
                             "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                           },
                           "public_url": {
                             "type": "string",
                             "format": "uri",
-                            "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                            "description": "Only returned to write-capable callers. `public_path` as an absolute URL on this deployment; contains the credential, so treat it as a secret.",
                             "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                           },
                           "previous_public_url": {
@@ -9803,7 +10033,7 @@
                               "null"
                             ],
                             "format": "uri",
-                            "description": "The URL a rotation replaced, while it is still accepted. It contains the old credential - treat it as a secret."
+                            "description": "Only returned to write-capable callers while the old URL is still accepted. It contains the old credential; treat it as a secret."
                           },
                           "previous_url_expires_at": {
                             "type": [
@@ -9821,7 +10051,7 @@
                               "string",
                               "null"
                             ],
-                            "description": "ING-8 (#193): where a browser form POST is sent once stored."
+                            "description": "ING-8 (#193): where a browser form POST is sent once stored. Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
                           },
                           "cors_origins": {
                             "type": "array",
@@ -10126,7 +10356,7 @@
                         },
                         "slug": {
                           "type": "string",
-                          "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                          "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                           "example": "aBcXyz0123456789abcdefgh"
                         },
                         "require_signature": {
@@ -10149,18 +10379,18 @@
                         },
                         "webhook_slug": {
                           "type": "string",
-                          "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                          "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                           "example": "aBcXyz0123456789abcdefgh"
                         },
                         "public_path": {
                           "type": "string",
-                          "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                          "description": "Only returned to write-capable callers. The endpoint's public location `{workspace}/{project}/{webhook_slug}` contains the credential; treat it as a secret.",
                           "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                         },
                         "public_url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                          "description": "Only returned to write-capable callers. `public_path` as an absolute URL on this deployment; contains the credential, so treat it as a secret.",
                           "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                         },
                         "previous_public_url": {
@@ -10169,7 +10399,7 @@
                             "null"
                           ],
                           "format": "uri",
-                          "description": "The URL a rotation replaced, while it is still accepted. It contains the old credential - treat it as a secret."
+                          "description": "Only returned to write-capable callers while the old URL is still accepted. It contains the old credential; treat it as a secret."
                         },
                         "previous_url_expires_at": {
                           "type": [
@@ -10729,7 +10959,7 @@
         "tags": [
           "Webhooks"
         ],
-        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
+        "description": "The object as one row of the list returns it, or 404. Read-only callers receive metadata without the endpoint URL credential; write-capable callers receive the URL fields. Readable by any role.",
         "parameters": [
           {
             "name": "project_id",
@@ -10784,7 +11014,6 @@
                         "dataset",
                         "mappings",
                         "dedupe_path",
-                        "slug",
                         "require_signature",
                         "ip_allowlist",
                         "created_at"
@@ -10832,7 +11061,7 @@
                         },
                         "slug": {
                           "type": "string",
-                          "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                          "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                           "example": "aBcXyz0123456789abcdefgh"
                         },
                         "require_signature": {
@@ -10855,18 +11084,18 @@
                         },
                         "webhook_slug": {
                           "type": "string",
-                          "description": "The high-entropy public URL segment. THIS IS THE CREDENTIAL \u2014 anyone holding it can post events. Never log it.",
+                          "description": "Only returned to write-capable callers. The high-entropy public URL segment is a credential: anyone holding it can post events. Never log it.",
                           "example": "aBcXyz0123456789abcdefgh"
                         },
                         "public_path": {
                           "type": "string",
-                          "description": "The endpoint's public location, `{workspace}/{project}/{webhook_slug}`. Pass this straight to a POST; it needs no assembly. It contains the credential, so treat it as a secret.",
+                          "description": "Only returned to write-capable callers. The endpoint's public location `{workspace}/{project}/{webhook_slug}` contains the credential; treat it as a secret.",
                           "example": "acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                         },
                         "public_url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "`public_path` as an absolute URL on this deployment. Contains the credential \u2014 treat it as a secret.",
+                          "description": "`public_path` as an absolute URL on this deployment; returned only to write-capable callers and contains the credential.",
                           "example": "https://app.hookie.ai/acme-3f9a/orders/aBcXyz0123456789abcdefgh"
                         },
                         "previous_public_url": {
@@ -10875,7 +11104,7 @@
                             "null"
                           ],
                           "format": "uri",
-                          "description": "The URL a rotation replaced, while it is still accepted. It contains the old credential - treat it as a secret."
+                          "description": "Only returned to write-capable callers while the old URL is still accepted. It contains the old credential; treat it as a secret."
                         },
                         "previous_url_expires_at": {
                           "type": [
@@ -11785,9 +12014,9 @@
                             "format": "date-time"
                           },
                           "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                            "type": "boolean",
+                            "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                          }
                         }
                       }
                     },
@@ -11962,9 +12191,9 @@
                           "type": "boolean"
                         },
                         "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                          "type": "boolean",
+                          "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                        }
                       }
                     }
                   }
@@ -12106,9 +12335,9 @@
                     "description": "Only the literal true counts. Setting it clears the default flag on every other view of the same webhook in the same batch."
                   },
                   "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                    "type": "boolean",
+                    "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                  }
                 }
               }
             }
@@ -12246,9 +12475,9 @@
                           "format": "date-time"
                         },
                         "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                          "type": "boolean",
+                          "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                        }
                       }
                     }
                   }
@@ -12364,9 +12593,9 @@
                           "type": "boolean"
                         },
                         "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                          "type": "boolean",
+                          "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                        }
                       }
                     }
                   }
@@ -12509,9 +12738,9 @@
                     "description": "true clears the default flag on the webhook other views in the same batch."
                   },
                   "portal_shared": {
-"type": "boolean",
-"description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
-}
+                    "type": "boolean",
+                    "description": "Share this view with the project's portal customer (#376, read-only). A project is one customer's space with one portal, so this is a flag: the customer sees this view's columns over the project's rows of the dataset, provided the portal exposes it. Default false (private)."
+                  }
                 }
               }
             }
@@ -13576,7 +13805,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack, s3, sqs or pubsub) and config holds its settings without any credential (DLV-13).",
+            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. Endpoint URLs embedded in destination settings are replaced by `endpoint:<id>` for read-only callers. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack, s3, sqs or pubsub) and config holds its settings without any credential (DLV-13).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13606,8 +13835,7 @@
                           },
                           "url": {
                             "type": "string",
-                            "format": "uri",
-                            "description": "Where deliveries go. For a webhook, the https URL it POSTs to. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix): display values, safe to show, never a credential."
+                            "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>` for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
                           },
                           "dataset_filter": {
                             "type": [
@@ -13654,6 +13882,90 @@
                             "maximum": 100,
                             "description": "Most requests in flight to this destination at once (1-100). null: no cap. A delivery over it waits on the queue; it is not failed and is not counted as an attempt."
                           },
+                          "retry_strategy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "default",
+                              "linear",
+                              "exponential",
+                              null
+                            ],
+                            "description": "How a failed delivery is retried (#468). default (or null): the built-in schedule, 8 attempts over about 27 hours. linear waits retry_interval_seconds x n after the nth failure; exponential waits retry_interval_seconds x 2^(n-1); both are jittered +-20%, capped at 12 hours a wait, and honour a receiver's Retry-After as a floor. linear and exponential are Pro and Team only (400 below); a stored policy is clamped to the plan at send time, so a downgrade keeps the setting and an upgrade gives it back."
+                          },
+                          "retry_max_attempts": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 50,
+                            "description": "Total attempts, the first included, under a linear or exponential strategy (Pro and Team: up to 50; null: 8). Attempts past the eighth are charged to the monthly delivery allowance like a new delivery; when it is used up the delivery dead-letters and can be replayed."
+                          },
+                          "retry_window_seconds": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 60,
+                            "maximum": 604800,
+                            "description": "The longest a delivery keeps retrying, in seconds, counted from its creation or from the moment a pause released it (Pro and Team: up to 7 days). A retry that would fall outside it dead-letters the delivery instead."
+                          },
+                          "retry_interval_seconds": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 3600,
+                            "description": "The base wait between retries, in seconds. null: 30."
+                          },
+                          "circuit_threshold": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 2,
+                            "maximum": 1000,
+                            "description": "Circuit breaker (#468): after this many CONSECUTIVE failed attempts the destination is paused (enabled 0, paused_reason 'circuit_open', one destination_circuit_opened audit row). Events for it keep being recorded as held deliveries (status paused), never dropped. Hookie then lets one held delivery through as a probe, 5 minutes after the pause and doubling after each failed probe up to 6 hours; a 2xx closes the circuit and sends everything held. enabled: true resumes it at once. null: no circuit breaker."
+                          },
+                          "alert_email": {
+                            "type": "integer",
+                            "enum": [
+                              0,
+                              1
+                            ],
+                            "description": "Email the workspace's owners and admins when this destination is paused by its circuit breaker or a delivery to it dead-letters (#468). At most one alert an hour per destination and kind; the next one says how many were held back. Default off."
+                          },
+                          "alert_slack_destination_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "id of a Slack destination in the same project to post the same alerts to (#468). It must be of type slack (400 otherwise) and not this destination. null: none."
+                          },
+                          "circuit_failures": {
+                            "type": "integer",
+                            "description": "Consecutive failed attempts counted toward circuit_threshold right now."
+                          },
+                          "circuit_opened_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When the circuit breaker paused this destination; null while it is closed."
+                          },
+                          "circuit_probe_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When Hookie may next probe a paused destination with one held delivery; null while the circuit is closed."
+                          },
                           "previous_secret_expires_at": {
                             "type": [
                               "string",
@@ -13690,9 +14002,10 @@
                             ],
                             "enum": [
                               "over_plan_limit",
+                              "circuit_open",
                               null
                             ],
-                            "description": "Why the row is off when its user did not turn it off (#212). `over_plan_limit`: the workspace's plan dropped below what it runs, so the newest rows beyond the new plan's cap were paused (enabled 0); they resume by themselves, oldest first, when the plan allows them again. null for a running row or one a user disabled, which no plan change ever turns back on. Toggling `enabled` clears it."
+                            "description": "Why the row is off when its user did not turn it off (#212). `over_plan_limit`: the workspace's plan dropped below what it runs, so the newest rows beyond the new plan's cap were paused (enabled 0); they resume by themselves, oldest first, when the plan allows them again. `circuit_open` (#468): its circuit breaker paused it after circuit_threshold consecutive failed attempts; events for it are held, and it resumes when a probe delivery succeeds or when `enabled: true` is sent. null for a running row or one a user disabled, which no plan change ever turns back on. Toggling `enabled` clears it."
                           },
                           "headers": {
                             "type": "array",
@@ -13753,7 +14066,7 @@
                               "string",
                               "null"
                             ],
-                            "format": "uri"
+                            "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
                           },
                           "failing": {
                             "type": "boolean",
@@ -13998,6 +14311,90 @@
                           "minimum": 1,
                           "maximum": 100,
                           "description": "Most requests in flight to this destination at once (1-100). null: no cap. A delivery over it waits on the queue; it is not failed and is not counted as an attempt."
+                        },
+                        "retry_strategy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "default",
+                            "linear",
+                            "exponential",
+                            null
+                          ],
+                          "description": "How a failed delivery is retried (#468). default (or null): the built-in schedule, 8 attempts over about 27 hours. linear waits retry_interval_seconds x n after the nth failure; exponential waits retry_interval_seconds x 2^(n-1); both are jittered +-20%, capped at 12 hours a wait, and honour a receiver's Retry-After as a floor. linear and exponential are Pro and Team only (400 below); a stored policy is clamped to the plan at send time, so a downgrade keeps the setting and an upgrade gives it back."
+                        },
+                        "retry_max_attempts": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 50,
+                          "description": "Total attempts, the first included, under a linear or exponential strategy (Pro and Team: up to 50; null: 8). Attempts past the eighth are charged to the monthly delivery allowance like a new delivery; when it is used up the delivery dead-letters and can be replayed."
+                        },
+                        "retry_window_seconds": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 60,
+                          "maximum": 604800,
+                          "description": "The longest a delivery keeps retrying, in seconds, counted from its creation or from the moment a pause released it (Pro and Team: up to 7 days). A retry that would fall outside it dead-letters the delivery instead."
+                        },
+                        "retry_interval_seconds": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 3600,
+                          "description": "The base wait between retries, in seconds. null: 30."
+                        },
+                        "circuit_threshold": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 2,
+                          "maximum": 1000,
+                          "description": "Circuit breaker (#468): after this many CONSECUTIVE failed attempts the destination is paused (enabled 0, paused_reason 'circuit_open', one destination_circuit_opened audit row). Events for it keep being recorded as held deliveries (status paused), never dropped. Hookie then lets one held delivery through as a probe, 5 minutes after the pause and doubling after each failed probe up to 6 hours; a 2xx closes the circuit and sends everything held. enabled: true resumes it at once. null: no circuit breaker."
+                        },
+                        "alert_email": {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ],
+                          "description": "Email the workspace's owners and admins when this destination is paused by its circuit breaker or a delivery to it dead-letters (#468). At most one alert an hour per destination and kind; the next one says how many were held back. Default off."
+                        },
+                        "alert_slack_destination_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "id of a Slack destination in the same project to post the same alerts to (#468). It must be of type slack (400 otherwise) and not this destination. null: none."
+                        },
+                        "circuit_failures": {
+                          "type": "integer",
+                          "description": "Consecutive failed attempts counted toward circuit_threshold right now."
+                        },
+                        "circuit_opened_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the circuit breaker paused this destination; null while it is closed."
+                        },
+                        "circuit_probe_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When Hookie may next probe a paused destination with one held delivery; null while the circuit is closed."
                         },
                         "previous_secret_expires_at": {
                           "type": [
@@ -14347,7 +14744,7 @@
         "tags": [
           "Destinations"
         ],
-        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
+        "description": "The object as one row of the list returns it, or 404. Endpoint URLs embedded in the destination settings are replaced by `endpoint:<id>` for read-only callers. Readable by any role.",
         "parameters": [
           {
             "name": "project_id",
@@ -14409,8 +14806,7 @@
                         },
                         "url": {
                           "type": "string",
-                          "format": "uri",
-                          "description": "Where deliveries go. For a webhook, the https URL it POSTs to. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix): display values, safe to show, never a credential."
+                          "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>` for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
                         },
                         "dataset_filter": {
                           "type": [
@@ -14456,6 +14852,90 @@
                           "minimum": 1,
                           "maximum": 100,
                           "description": "Most requests in flight to this destination at once (1-100). null: no cap. A delivery over it waits on the queue; it is not failed and is not counted as an attempt."
+                        },
+                        "retry_strategy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "default",
+                            "linear",
+                            "exponential",
+                            null
+                          ],
+                          "description": "How a failed delivery is retried (#468). default (or null): the built-in schedule, 8 attempts over about 27 hours. linear waits retry_interval_seconds x n after the nth failure; exponential waits retry_interval_seconds x 2^(n-1); both are jittered +-20%, capped at 12 hours a wait, and honour a receiver's Retry-After as a floor. linear and exponential are Pro and Team only (400 below); a stored policy is clamped to the plan at send time, so a downgrade keeps the setting and an upgrade gives it back."
+                        },
+                        "retry_max_attempts": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 50,
+                          "description": "Total attempts, the first included, under a linear or exponential strategy (Pro and Team: up to 50; null: 8). Attempts past the eighth are charged to the monthly delivery allowance like a new delivery; when it is used up the delivery dead-letters and can be replayed."
+                        },
+                        "retry_window_seconds": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 60,
+                          "maximum": 604800,
+                          "description": "The longest a delivery keeps retrying, in seconds, counted from its creation or from the moment a pause released it (Pro and Team: up to 7 days). A retry that would fall outside it dead-letters the delivery instead."
+                        },
+                        "retry_interval_seconds": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 3600,
+                          "description": "The base wait between retries, in seconds. null: 30."
+                        },
+                        "circuit_threshold": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 2,
+                          "maximum": 1000,
+                          "description": "Circuit breaker (#468): after this many CONSECUTIVE failed attempts the destination is paused (enabled 0, paused_reason 'circuit_open', one destination_circuit_opened audit row). Events for it keep being recorded as held deliveries (status paused), never dropped. Hookie then lets one held delivery through as a probe, 5 minutes after the pause and doubling after each failed probe up to 6 hours; a 2xx closes the circuit and sends everything held. enabled: true resumes it at once. null: no circuit breaker."
+                        },
+                        "alert_email": {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ],
+                          "description": "Email the workspace's owners and admins when this destination is paused by its circuit breaker or a delivery to it dead-letters (#468). At most one alert an hour per destination and kind; the next one says how many were held back. Default off."
+                        },
+                        "alert_slack_destination_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "id of a Slack destination in the same project to post the same alerts to (#468). It must be of type slack (400 otherwise) and not this destination. null: none."
+                        },
+                        "circuit_failures": {
+                          "type": "integer",
+                          "description": "Consecutive failed attempts counted toward circuit_threshold right now."
+                        },
+                        "circuit_opened_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the circuit breaker paused this destination; null while it is closed."
+                        },
+                        "circuit_probe_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When Hookie may next probe a paused destination with one held delivery; null while the circuit is closed."
                         },
                         "previous_secret_expires_at": {
                           "type": [
@@ -14560,7 +15040,7 @@
             }
           },
           "400": {
-            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, a type other than the destination's own, url, headers or auth on a Slack, S3, SQS or Pub/Sub destination, config on a webhook, an invalid Slack, S3, SQS or Pub/Sub config, or Nothing to update when no field was sent.",
+            "description": "A name or url that create would refuse (blank name, non-https url), enabled must be a boolean, dataset_filter must be an array of dataset names or null, an invalid dataset name, more than 50 datasets, a delivery limit out of its bounds (timeout_seconds 1-30 whole, max_per_second 0.1-1000, max_concurrency 1-100 whole), a retry setting out of its bounds or a linear or exponential retry policy below Pro (retry_max_attempts 1-50, retry_window_seconds 60-604800, retry_interval_seconds 1-3600), circuit_threshold outside 2-1000, alert_email that is not a boolean, an alert_slack_destination_id that is not a Slack destination of this project, a reserved, malformed or duplicated header, a secret header with no value and none stored, an invalid auth or transform, a custom header that is also the authentication's header, an alert_url that is not a public https URL, a type other than the destination's own, url, headers or auth on a Slack, S3, SQS or Pub/Sub destination, config on a webhook, an invalid Slack, S3, SQS or Pub/Sub config, or Nothing to update when no field was sent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14661,7 +15141,7 @@
               "schema": {
                 "type": "object",
                 "minProperties": 1,
-                "description": "At least one of name, url, config, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak and any automatic disable (OBS-2), and sends the deliveries it held (the response's `resumed`). A destination's type cannot change (400 when type names another). Slack, S3, SQS and Pub/Sub destinations change their address through config, never url, and take no headers or auth.",
+                "description": "At least one of name, url, config, enabled, dataset_filter, timeout_seconds, max_per_second, max_concurrency, retry_strategy, retry_max_attempts, retry_window_seconds, retry_interval_seconds, circuit_threshold, alert_email, alert_slack_destination_id, headers, auth, transform or alert_url. null on a limit restores its default. name and url are validated as on create (url must be https). The signing secret does not change with the URL - the signature covers the timestamp and body, not the address; rotate it on its own route. enabled: true also clears a failing destination's streak, any automatic disable (OBS-2) and an open circuit breaker (#468), and sends the deliveries it held (the response's `resumed`). A destination's type cannot change (400 when type names another). Slack, S3, SQS and Pub/Sub destinations change their address through config, never url, and take no headers or auth.",
                 "properties": {
                   "name": {
                     "type": "string",
@@ -14714,6 +15194,66 @@
                     "minimum": 1,
                     "maximum": 100,
                     "description": "Most requests in flight to this destination at once (1-100). null: no cap. A delivery over it waits on the queue; it is not failed and is not counted as an attempt."
+                  },
+                  "retry_strategy": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "default",
+                      "linear",
+                      "exponential",
+                      null
+                    ],
+                    "description": "How a failed delivery is retried (#468). default (or null): the built-in schedule, 8 attempts over about 27 hours. linear waits retry_interval_seconds x n after the nth failure; exponential waits retry_interval_seconds x 2^(n-1); both are jittered +-20%, capped at 12 hours a wait, and honour a receiver's Retry-After as a floor. linear and exponential are Pro and Team only (400 below); a stored policy is clamped to the plan at send time, so a downgrade keeps the setting and an upgrade gives it back."
+                  },
+                  "retry_max_attempts": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "Total attempts, the first included, under a linear or exponential strategy (Pro and Team: up to 50; null: 8). Attempts past the eighth are charged to the monthly delivery allowance like a new delivery; when it is used up the delivery dead-letters and can be replayed."
+                  },
+                  "retry_window_seconds": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 60,
+                    "maximum": 604800,
+                    "description": "The longest a delivery keeps retrying, in seconds, counted from its creation or from the moment a pause released it (Pro and Team: up to 7 days). A retry that would fall outside it dead-letters the delivery instead."
+                  },
+                  "retry_interval_seconds": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1,
+                    "maximum": 3600,
+                    "description": "The base wait between retries, in seconds. null: 30."
+                  },
+                  "circuit_threshold": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 2,
+                    "maximum": 1000,
+                    "description": "Circuit breaker (#468): after this many CONSECUTIVE failed attempts the destination is paused (enabled 0, paused_reason 'circuit_open', one destination_circuit_opened audit row). Events for it keep being recorded as held deliveries (status paused), never dropped. Hookie then lets one held delivery through as a probe, 5 minutes after the pause and doubling after each failed probe up to 6 hours; a 2xx closes the circuit and sends everything held. enabled: true resumes it at once. null: no circuit breaker."
+                  },
+                  "alert_email": {
+                    "type": "boolean",
+                    "description": "Email the workspace's owners and admins when this destination is paused by its circuit breaker or a delivery to it dead-letters (#468). At most one alert an hour per destination and kind; the next one says how many were held back. Default off."
+                  },
+                  "alert_slack_destination_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "id of a Slack destination in the same project to post the same alerts to (#468). It must be of type slack (400 otherwise) and not this destination. null: none."
                   },
                   "headers": {
                     "type": [
@@ -15356,7 +15896,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The project's deliveries, newest first, joined to their destination for name and URL, optionally filtered by status and destination. With `limit`/`offset` the list is paged and `total` counts every match; without them it is the 500 newest. The stored response body is deliberately omitted here - fetch one delivery for it.",
+            "description": "The project's deliveries, newest first, joined to their destination for name and URL, optionally filtered by status and destination. Endpoint URLs are represented as `endpoint:<id>` for read-only callers. With `limit`/`offset` the list is paged and `total` counts every match; without them it is the 500 newest. The stored response body is deliberately omitted here - fetch one delivery for it.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15403,7 +15943,8 @@
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
                           },
                           "event_id": {
                             "type": "string",
@@ -16546,7 +17087,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The delivery, including the captured response body (the only endpoint that returns it), and `attempts`: every attempt it made, oldest first. A failed attempt is kept as its own row; the successful one is the delivery itself.",
+            "description": "The delivery, including the captured response body (the only endpoint that returns it), and `attempts`: every attempt it made, oldest first. Endpoint URLs are represented as `endpoint:<id>` for read-only callers, including when echoed in a response body. A failed attempt is kept as its own row; the successful one is the delivery itself.",
             "content": {
               "application/json": {
                 "schema": {
@@ -16596,7 +17137,8 @@
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
                         },
                         "event_id": {
                           "type": "string",
@@ -17106,7 +17648,7 @@
                   },
                   "q": {
                     "type": "string",
-                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example ß): a substring match against the raw payload JSON."
+                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example \u00df): a substring match against the raw payload JSON."
                   },
                   "since": {
                     "type": "string",
@@ -18365,7 +18907,7 @@
                 "properties": {
                   "q": {
                     "type": "string",
-                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example ß): a substring match against the raw submission payload."
+                    "description": "Case-insensitive for common accented letters, as well as ASCII (full Unicode case folding is not supported, for example \u00df): a substring match against the raw submission payload."
                   },
                   "source": {
                     "type": "string"
@@ -19021,7 +19563,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Newest first. JSON by default; with format=csv the body is a text/csv attachment (hookie-audit.csv) with the header at,actor_email,actor_sub,actor_agent,action,target,details.",
+            "description": "Newest first. JSON by default; endpoint URLs within details are represented as `endpoint:<id>` for read-only callers, while write-capable callers retain the original details. With format=csv the body is a text/csv attachment (hookie-audit.csv) with the header at,actor_email,actor_sub,actor_agent,action,target,details (owner/admin only).",
             "content": {
               "application/json": {
                 "schema": {
@@ -23249,7 +23791,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow definitions, newest first. Soft-deleted workflows (active = 0) are still listed.",
+            "description": "Workflow definitions, newest first. Soft-deleted workflows (active = 0) are still listed. All HTTP-step header values are returned as `[redacted]`; sending a marker back in an update keeps the stored value. New and updated values are AES-256-GCM encrypted at rest; legacy plaintext definitions remain executable and are encrypted when next saved.",
             "content": {
               "application/json": {
                 "schema": {
@@ -23292,7 +23834,7 @@
                           },
                           "steps": {
                             "type": "string",
-                            "description": "Raw JSON string of the normalized step array."
+                            "description": "Raw JSON string of the normalized step array. Every HTTP-step header value is `[redacted]` on reads; new and updated values use AES-256-GCM at rest; legacy plaintext remains executable until the next save."
                           },
                           "created_at": {
                             "type": "string"
@@ -23389,7 +23931,7 @@
             "apiKey": []
           }
         ],
-        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201)."
+        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array. All HTTP-step header values are masked as `[redacted]`; round-tripping the marker in an update preserves the stored value (DX-6, #201)."
       },
       "post": {
         "operationId": "createWorkflow",
@@ -23900,6 +24442,51 @@
                               "default": "transformed"
                             }
                           }
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "table"
+                              ]
+                            },
+                            "action": {
+                              "type": "string",
+                              "enum": [
+                                "read",
+                                "insert"
+                              ]
+                            },
+                            "table_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "values": {
+                              "type": "object"
+                            },
+                            "view_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "limit": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100,
+                              "default": 20
+                            },
+                            "output_key": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "action",
+                            "table_id"
+                          ],
+                          "title": "table",
+                          "description": "Read workspace records into context before an AI/agent call, or insert templated typed values. The project must have an explicit table workflow grant. Inserts are idempotent per workflow instance and step."
                         }
                       ]
                     }
@@ -23931,7 +24518,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The definition. `entry_conditions` and `steps` are raw JSON strings.",
+            "description": "The definition. `entry_conditions` and `steps` are raw JSON strings; all HTTP-step header values are `[redacted]`. Sending those markers back in an update preserves stored values, new and updated values are AES-256-GCM encrypted at rest; legacy plaintext is encrypted on next save.",
             "content": {
               "application/json": {
                 "schema": {
@@ -23969,7 +24556,8 @@
                           "type": "string"
                         },
                         "steps": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Raw JSON string of the normalized step array. All HTTP header values are `[redacted]` on reads; new and updated values are AES-256-GCM encrypted at rest; legacy plaintext is encrypted on next save."
                         },
                         "created_at": {
                           "type": "string"
@@ -24349,7 +24937,9 @@
                   "entry_conditions": {
                     "type": "array",
                     "default": [],
-                    "items": { "$ref": "#/components/schemas/WorkflowCondition" }
+                    "items": {
+                      "$ref": "#/components/schemas/WorkflowCondition"
+                    }
                   },
                   "steps": {
                     "type": "array",
@@ -24991,7 +25581,8 @@
                               "branch",
                               "http",
                               "set",
-                              "transform"
+                              "transform",
+                              "table"
                             ]
                           },
                           "status": {
@@ -25498,6 +26089,1138 @@
           },
           "503": {
             "description": "`Cloudflare Workflows is not configured` (a Cloudflare instance on a Worker without the WORKFLOW binding).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/transforms": {
+      "get": {
+        "operationId": "listTransforms",
+        "summary": "List scripted transforms in a project",
+        "tags": [
+          "Transforms"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transforms, newest first, each with its current source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "transforms"
+                  ],
+                  "properties": {
+                    "transforms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "language": {
+                            "type": "string",
+                            "enum": [
+                              "jsonata"
+                            ],
+                            "description": "A JSONata expression, interpreted under hard limits. It is data to an interpreter, never JavaScript the Worker runs."
+                          },
+                          "target": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                            "required": [
+                              "kind",
+                              "id"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "endpoint",
+                                  "destination"
+                                ]
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "description": "The version that runs. Editing the source adds the next version; a PATCH naming an older one restores it."
+                          },
+                          "source": {
+                            "type": "string",
+                            "description": "The current version's expression."
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTransform",
+        "summary": "Create a scripted transform",
+        "tags": [
+          "Transforms"
+        ],
+        "description": "A sandboxed JSONata expression that reshapes a payload on one endpoint's ingest or one destination's delivery. The raw submission is always kept: a failing ingest transform marks it `failed` with the reason (it is listed in Errors and re-routed once the script is fixed), and a drop marks it `filtered`. A failing destination transform fails that delivery visibly and is retried. Plan limits apply (Free 1 transform, Starter 3, Pro 20, Team 100).",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "source"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "A JSONata expression over `{ headers, body, method, query }` (an endpoint) or the record `{ id, dataset, received_at, data }` (a destination). It returns an object with `body` (replaces the payload; for a destination, what is sent), `headers` (destination only: string values; Hookie's own, framing and credential headers are ignored), `drop: true` (filter the event out, with an optional `reason`). Regular expressions, `$eval` and open-ended ranges are refused; `$log(value, label)` records a line in the test panel. Length and step budget depend on the plan."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "target": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "endpoint",
+                          "destination"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Shown beside the version."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created, as version 1.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "ok"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "transform": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": [
+                            "jsonata"
+                          ],
+                          "description": "A JSONata expression, interpreted under hard limits. It is data to an interpreter, never JavaScript the Worker runs."
+                        },
+                        "target": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "endpoint",
+                                "destination"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "description": "The version that runs. Editing the source adds the next version; a PATCH naming an older one restores it."
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "The current version's expression."
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Transform source refused (syntax|unsupported|size): \u2026` with `reason: \"transform_source_invalid\"` and `source_error: { code, message, position? }`; or a body field that is the wrong type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "`Plan limit reached: \u2026` with `reason: \"plan_limit\"` and `limit`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Project not found`, or `Endpoint not found in this project` / `Destination not found in this project` for a target that is not this project's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That target already has a transform.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/transforms/test": {
+      "post": {
+        "operationId": "testTransform",
+        "summary": "Run a transform against a sample, with no side effects",
+        "tags": [
+          "Transforms"
+        ],
+        "description": "Runs a script (inline `source`, or a saved transform by `transform_id`) over a sample and returns its output, `$log` lines, step count against the limit, and timing. Writes nothing: no submission, record, delivery, version or audit row. A script that fails answers 200 with `ok: false` and the error, because failing is what a test is for.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sample"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "transform_id": {
+                    "type": "string",
+                    "description": "Used when `source` is not sent."
+                  },
+                  "target": {
+                    "type": "string",
+                    "enum": [
+                      "endpoint",
+                      "destination"
+                    ],
+                    "default": "endpoint",
+                    "description": "Which shape the sample takes."
+                  },
+                  "sample": {
+                    "type": "object",
+                    "description": "endpoint: `{ body, headers?, method?, query? }`. destination: `{ id?, dataset?, received_at?, data }`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "steps",
+                    "step_limit",
+                    "ms",
+                    "logs"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "output": {
+                      "type": "object",
+                      "description": "`{ body?, headers?, drop?, reason? }`, when ok."
+                    },
+                    "error": {
+                      "type": "object",
+                      "description": "When not ok: `{ code: syntax|unsupported|runtime|steps|size|depth|output, message, position? }`."
+                    },
+                    "steps": {
+                      "type": "integer"
+                    },
+                    "step_limit": {
+                      "type": "integer"
+                    },
+                    "ms": {
+                      "type": "number"
+                    },
+                    "logs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "skipped_headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Destination only: output headers that would be ignored."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Send source (the script) or transform_id (a saved transform)`, `sample must be an object`, or a bad `target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Transform not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/transforms/{transform_id}": {
+      "get": {
+        "operationId": "getTransform",
+        "summary": "Get a scripted transform",
+        "tags": [
+          "Transforms"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The transform, with its current source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transform": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": [
+                            "jsonata"
+                          ],
+                          "description": "A JSONata expression, interpreted under hard limits. It is data to an interpreter, never JavaScript the Worker runs."
+                        },
+                        "target": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "endpoint",
+                                "destination"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "description": "The version that runs. Editing the source adds the next version; a PATCH naming an older one restores it."
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "The current version's expression."
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Transform not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateTransform",
+        "summary": "Change a scripted transform",
+        "tags": [
+          "Transforms"
+        ],
+        "description": "Only the fields sent change. A new `source` adds the next version (older versions are kept); `version` restores an older one; the two are not combined. `target` attaches or (null) detaches; `enabled: false` switches it off without losing it.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "A JSONata expression over `{ headers, body, method, query }` (an endpoint) or the record `{ id, dataset, received_at, data }` (a destination). It returns an object with `body` (replaces the payload; for a destination, what is sent), `headers` (destination only: string values; Hookie's own, framing and credential headers are ignored), `drop: true` (filter the event out, with an optional `reason`). Regular expressions, `$eval` and open-ended ranges are refused; `$log(value, label)` records a line in the test panel. Length and step budget depend on the plan."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "target": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "endpoint",
+                          "destination"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Shown beside the version."
+                  },
+                  "version": {
+                    "type": "integer",
+                    "description": "Restore this version as the one that runs."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "transform": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": [
+                            "jsonata"
+                          ],
+                          "description": "A JSONata expression, interpreted under hard limits. It is data to an interpreter, never JavaScript the Worker runs."
+                        },
+                        "target": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "description": "What the transform runs on: one endpoint (at ingest, before its criteria, mappings and the record) or one destination (on that delivery's body). null is a draft: it can be tested, not run. One transform per target.",
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "endpoint",
+                                "destination"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "description": "The version that runs. Editing the source adds the next version; a PATCH naming an older one restores it."
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "The current version's expression."
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`Transform source refused (syntax|unsupported|size): \u2026` with `reason: \"transform_source_invalid\"` and `source_error: { code, message, position? }`; or a body field that is the wrong type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Transform not found`, `No such version`, a target that is not this project's, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That target already has a transform.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTransform",
+        "summary": "Delete a scripted transform and its versions",
+        "tags": [
+          "Transforms"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Transform not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`Internal error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/transforms/{transform_id}/versions": {
+      "get": {
+        "operationId": "listTransformVersions",
+        "summary": "A transform's versions, newest first",
+        "tags": [
+          "Transforms"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to the latest 50 versions, each with its source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "current": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`Transform not found`, or `Project not found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`Insufficient role`, or `Missing X-Requested-With header`. Also `reason: \"workspace_suspended\"` while the workspace is suspended. For an OAuth-connected agent the body also carries `code`, `required_scope` and `granted_scopes`, plus `manage_url` when widening its grant in Settings \u2192 Connected agents would let the call through (see Error).",
             "content": {
               "application/json": {
                 "schema": {
@@ -29945,7 +31668,7 @@
                         },
                         "quantity": {
                           "type": "integer",
-                          "description": "Seat count (Team is per seat)."
+                          "description": "Subscription quantity: 1 on every plan (nothing is billed per seat)."
                         },
                         "current_period_end": {
                           "type": [
@@ -29973,15 +31696,15 @@
                       "properties": {
                         "starter": {
                           "type": "string",
-                          "example": "2.99"
+                          "example": "4.00"
                         },
                         "pro": {
                           "type": "string",
-                          "example": "9.99"
+                          "example": "10.00"
                         },
                         "team": {
                           "type": "string",
-                          "example": "39.99"
+                          "example": "30.00"
                         }
                       },
                       "description": "Display only, overridable from platform_settings. What Stripe charges is fixed by the price ids."
@@ -30000,6 +31723,10 @@
                     "starter_available": {
                       "type": "boolean",
                       "description": "True when a Starter price id (STRIPE_PRICE_STARTER) is configured, so the console may offer the Starter plan."
+                    },
+                    "team_available": {
+                      "type": "boolean",
+                      "description": "True when the Team price id (STRIPE_PRICE_TEAM) is configured, so the console may offer the Team plan: $30.00 a month flat for up to 10 members (#470, #487). Team checkout answers 501 until it is."
                     },
                     "portal_url": {
                       "type": [
@@ -30183,7 +31910,7 @@
                       "team"
                     ],
                     "default": "standard",
-                    "description": "Only the exact string 'team' selects Team; every other value, and an absent or unparseable body, means 'standard' (Pro). Team quantity is set server-side to the workspace's current membership count."
+                    "description": "Only the exact string 'team' selects Team; every other value, and an absent or unparseable body, means 'standard' (Pro). Team checks out on one flat price (STRIPE_PRICE_TEAM, $30.00 a month for up to 10 members) at quantity 1; it answers 501 `No Team plan configured` until that price id is set."
                   }
                 }
               }
@@ -31185,6 +32912,25 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque next_cursor from a previous cursor-mode page (or X-Next-Cursor from CSV). Cursor pages order by received_at DESC, rowid ASC, using the records time index's implicit rowid tie-break.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pagination",
+            "in": "query",
+            "description": "Set to cursor on the first page to opt into keyset pagination and bounded totals; continuation requests use cursor and remain bounded.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cursor"
+              ]
+            }
+          },
+          {
             "name": "since",
             "in": "query",
             "description": "Only records received at or after this ISO 8601 time.",
@@ -31205,7 +32951,7 @@
           {
             "name": "format",
             "in": "query",
-            "description": "csv for a UTF-8 CSV (with BOM, formula-safe) instead of JSON; the total is in X-Total-Count.",
+            "description": "csv for a UTF-8 CSV (with BOM, formula-safe) instead of JSON; X-Total-Count is exact for legacy offset requests and capped at 10,000 in cursor mode, X-Total-Count-Truncated marks the cap, and cursor mode returns X-Next-Cursor.",
             "schema": {
               "type": "string",
               "enum": [
@@ -31217,7 +32963,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Newest first.",
+            "description": "Legacy offset pages are newest first by received_at DESC, id DESC and return exact totals. Cursor pages use received_at DESC, rowid ASC to seek in the existing time index; set pagination=cursor on the first request. Cursor-mode totals are capped at 10,000 with total_truncated=true when larger.",
             "content": {
               "application/json": {
                 "schema": {
@@ -31227,8 +32973,10 @@
                     "columns",
                     "rows",
                     "total",
+                    "total_truncated",
                     "limit",
-                    "offset"
+                    "offset",
+                    "next_cursor"
                   ],
                   "properties": {
                     "dataset": {
@@ -31249,13 +32997,25 @@
                       }
                     },
                     "total": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Exact for requests without cursor mode. In cursor mode, capped at 10,000."
+                    },
+                    "total_truncated": {
+                      "type": "boolean",
+                      "description": "True only in cursor mode when the dataset has more than 10,000 matching rows."
                     },
                     "limit": {
                       "type": "integer"
                     },
                     "offset": {
                       "type": "integer"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Cursor-mode continuation position, or null for legacy offset requests and the last cursor page."
                     }
                   }
                 }
@@ -31265,10 +33025,34 @@
                   "type": "string"
                 }
               }
+            },
+            "headers": {
+              "X-Total-Count": {
+                "description": "Exact for legacy offset requests; capped at 10,000 in cursor mode.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Total-Count-Truncated": {
+                "description": "True only in cursor mode when the matching dataset contains more than 10,000 rows.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              },
+              "X-Next-Cursor": {
+                "description": "Opaque cursor for the next CSV page in cursor mode; empty for legacy requests and the last cursor page.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "400": {
-            "description": "since or until is not a timestamp."
+            "description": "since or until is not a timestamp, pagination is unsupported, the cursor is invalid, or a positive offset was combined with cursor mode."
           },
           "401": {
             "description": "Missing, invalid or revoked Data API key."
@@ -34661,7 +36445,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "The project's configuration as JSON, or as YAML with ?format=yaml (the subset `hookie apply` reads). Readable by any role (DX-10, #201).",
+        "description": "The project's configuration as JSON, or as YAML with ?format=yaml (the subset `hookie apply` reads). All workflow HTTP header maps are empty in project configuration exports; `not_exported` counts every omitted header value. Readable by any role (DX-10, #201).",
         "parameters": [
           {
             "name": "project_id",
@@ -35844,7 +37628,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. An endpoint's URL wherever a row holds one (a destination's url or alert URL, an endpoint's redirect URL, an audit row's details) is written as `endpoint:<row id>`, or `endpoint:removed` when no endpoint of the workspace holds its slug. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
+        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. Every workflow HTTP-step header value is replaced with `[redacted]`. An endpoint's URL wherever a row holds one (a destination's url or alert URL, an endpoint's redirect URL, an audit row's details) is written as `endpoint:<row id>`, or `endpoint:removed` when no endpoint of the workspace holds its slug. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
         "security": [
           {
             "session": []
@@ -36250,7 +38034,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner or admin, in the console (#308). Hookie sends no email: the response carries the link, which is shown this once and never again, and whoever opens it signed in joins the workspace with `role`. The token is 32 random bytes (base64url); only its SHA-256 is stored. The link works once and expires after seven days. Nobody grants above their own role: only the owner can invite an admin. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat). At the limit the invite is refused. At most 50 invites may be pending at once. Audited as `member_invited` (never the token). Refused while the workspace is suspended. An `Idempotency-Key` is refused with 400: the response holds a link shown once, which is never stored for replay.",
+        "description": "Owner or admin, in the console (#308). Hookie sends no email: the response carries the link, which is shown this once and never again, and whoever opens it signed in joins the workspace with `role`. The token is 32 random bytes (base64url); only its SHA-256 is stored. The link works once and expires after seven days. Nobody grants above their own role: only the owner can invite an admin. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team 10 (one flat price). At the limit the invite is refused. At most 50 invites may be pending at once. Audited as `member_invited` (never the token). Refused while the workspace is suspended. An `Idempotency-Key` is refused with 400: the response holds a link shown once, which is never stored for replay.",
         "security": [
           {
             "session": []
@@ -36444,7 +38228,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Any signed-in person, in the console (#308); never an agent or an API key. The workspace joined is the one the invite belongs to, never one named in the request. This route is resolved WITHOUT the automatic workspace every other admin route creates for someone who has none, so an invitee joins this workspace without first getting an empty one of their own. The link is used once: accepting creates the membership with the invite's role, marks the invite accepted in the same transaction (two accepts racing for one link make one member), makes the workspace the caller's active one, and is audited as `member_invite_accepted`. A person who is already a member gets 200 with `joined: false` and is switched to the workspace; a pending link they open is not spent. A token that is wrong, expired, revoked or already used answers the same 404 with the same words, and so does an invite whose creator could no longer create it (removed, demoted below admin, or, for an admin invite, no longer the owner): an invite is only as good as its creator's authority when it is accepted. The console calls POST /admin/api/invites/preview first and accepts only when the person clicks Join; opening a link never joins by itself. The deployment's email-domain pin applies. On Team, the subscription's seat count follows (best-effort). Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat).",
+        "description": "Any signed-in person, in the console (#308); never an agent or an API key. The workspace joined is the one the invite belongs to, never one named in the request. This route is resolved WITHOUT the automatic workspace every other admin route creates for someone who has none, so an invitee joins this workspace without first getting an empty one of their own. The link is used once: accepting creates the membership with the invite's role, marks the invite accepted in the same transaction (two accepts racing for one link make one member), makes the workspace the caller's active one, and is audited as `member_invite_accepted`. A person who is already a member gets 200 with `joined: false` and is switched to the workspace; a pending link they open is not spent. A token that is wrong, expired, revoked or already used answers the same 404 with the same words, and so does an invite whose creator could no longer create it (removed, demoted below admin, or, for an admin invite, no longer the owner): an invite is only as good as its creator's authority when it is accepted. The console calls POST /admin/api/invites/preview first and accepts only when the person clicks Join; opening a link never joins by itself. The deployment's email-domain pin applies. On a legacy per-seat Team subscription, its seat count follows (best-effort); the flat Team price is never changed. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team 10 (one flat price).",
         "security": [
           {
             "session": []
@@ -36718,7 +38502,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Any role, and an agent or admin API key at `hookie:read` (MCP: `list_members`) (#308). Owner first, then by when each joined. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team unlimited (billed per seat).",
+        "description": "Any role, and an agent or admin API key at `hookie:read` (MCP: `list_members`) (#308). Owner first, then by when each joined. Members per plan, the owner included: Free 1 (the owner only), Pro 3, Team 10 (one flat price).",
         "security": [
           {
             "session": []
@@ -36775,7 +38559,7 @@
                         "integer",
                         "null"
                       ],
-                      "description": "The plan's member limit, the owner included. Null: unlimited (Team)."
+                      "description": "The plan's member limit, the owner included. Null: unlimited (no plan since #470)."
                     },
                     "plan": {
                       "type": "string",
@@ -36950,7 +38734,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "An owner or admin removes a member; any member removes themselves (leaves) (#308). The owner can neither leave nor be removed: they transfer ownership first. The removed member's admin API keys for this workspace stop working at once (a key acts as its creator, who must still be a member), the pending invite links they created are revoked (so a link they kept cannot bring them, or anyone else, back in), and if this was their active workspace their next sign-in lands in another. Audited as `member_removed` or `member_left`. On Team, the subscription's seat count follows (best-effort). Allowed while the workspace is suspended.",
+        "description": "An owner or admin removes a member; any member removes themselves (leaves) (#308). The owner can neither leave nor be removed: they transfer ownership first. The removed member's admin API keys for this workspace stop working at once because a key acts as its creator, who must still be a member. Their active Data API keys for this workspace are explicitly revoked in the same D1 batch; those rows are retained for history and keys created by other members are unaffected. The pending invite links they created are also revoked (so a link they kept cannot bring them, or anyone else, back in), and if this was their active workspace their next sign-in lands in another. Audited as `member_removed` or `member_left`. On a legacy per-seat Team subscription, its seat count follows (best-effort); the flat Team price is never changed. Allowed while the workspace is suspended.",
         "security": [
           {
             "session": []
@@ -37343,7 +39127,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Any member, an agent or API key included. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on Team the subscription's seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
+        "description": "Any member, an agent or API key included. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on a legacy per-seat Team subscription its seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
         "security": [
           {
             "session": []
@@ -37438,7 +39222,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner only, in the console, from a Google sign-in whose Google Workspace domain Google verified; never through an OAuth-connected agent or an API key. The domain linked is ALWAYS the session's, never one chosen by the request: `domain` in the body is only a check, refused with 409 `google_workspace_domain_mismatch` when it differs. Linking another domain replaces this workspace's link (members who joined stay); linking the same one again changes only `default_role` (PATCH changes the role without a Google sign-in). Audited as `google_workspace_linked` (or `google_workspace_updated`). Refused while the workspace is suspended. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on Team the subscription's seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
+        "description": "Owner only, in the console, from a Google sign-in whose Google Workspace domain Google verified; never through an OAuth-connected agent or an API key. The domain linked is ALWAYS the session's, never one chosen by the request: `domain` in the body is only a check, refused with 409 `google_workspace_domain_mismatch` when it differs. Linking another domain replaces this workspace's link (members who joined stay); linking the same one again changes only `default_role` (PATCH changes the role without a Google sign-in). Audited as `google_workspace_linked` (or `google_workspace_updated`). Refused while the workspace is suspended. Google Workspace teams (#326). A workspace can be linked to one Google Workspace domain, and a domain to one workspace. Anyone who then signs in to the console with Google using an account in that domain joins the workspace automatically with the link's `default_role`, before Hookie would create an empty workspace for them, and, when it is their first workspace, it becomes their active one (someone already in other workspaces joins this one as well but is not moved: it appears in their workspace switcher). No WorkOS organization is created: the grouping is Hookie's. Linking is first come, first served among the domain's own Google accounts; a platform operator can unlink a domain or reassign it to another workspace, audited in both workspaces' logs. The domain is Google's `hd` claim, read once at sign-in from Google's OpenID Connect userinfo endpoint with the Google access token WorkOS returns, and sealed into an HttpOnly cookie bound to that session. It is never taken from the email address: a personal Google account on a company address, an email-code sign-in and a GitHub sign-in never join, and gmail.com / googlemail.com can never be linked. A join respects the plan's member limit (at the limit the person is not added, and GET /admin/api/me carries `googleWorkspaceNotice`, which names only their own domain, never the workspace or its headcount), never happens for a suspended or closing workspace, and never re-adds someone who left or was removed, including before this feature shipped (an invite still can). Joins are audited as `member_joined_google_workspace`, and on a legacy per-seat Team subscription its seat count follows. Requires the WorkOS environment's Google provider to return OAuth tokens; without that no domain is ever verified, so nothing links and nobody joins.",
         "security": [
           {
             "session": []
@@ -39594,6 +41378,1367 @@
             "description": "View not found or not shared."
           }
         }
+      }
+    },
+    "/admin/api/data-workspace": {
+      "get": {
+        "operationId": "getDataWorkspace",
+        "summary": "Read data workspace eligibility and provisioning status",
+        "description": "Available on all plans. Returns eligible, configured, state, last_error, and schema_version; never exposes a Cloudflare database ID or credential.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/provision": {
+      "post": {
+        "operationId": "provisionDataWorkspace",
+        "summary": "Provision or resume this workspace\u2019s dedicated D1 database",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "202": {
+            "description": "Another provisioning request is in progress; poll workspace status."
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables": {
+      "get": {
+        "operationId": "listWorkspaceTables",
+        "summary": "List typed workspace tables",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWorkspaceTable",
+        "summary": "Create a table",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceTableInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}": {
+      "get": {
+        "operationId": "getWorkspaceTable",
+        "summary": "Read a table schema",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateWorkspaceTable",
+        "summary": "Rename a table or add fields",
+        "description": "Requires current table version. Existing keys, types, and select options must be retained. Labels can change and new fields/options can be added.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceTableInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/rows": {
+      "get": {
+        "operationId": "queryWorkspaceTable",
+        "summary": "Read records using a saved view",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "insertWorkspaceRecord",
+        "summary": "Insert a typed record",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceRowInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/rows/{record_id}": {
+      "patch": {
+        "operationId": "updateWorkspaceRecord",
+        "summary": "Replace a record using its current version",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceRowInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceRecord",
+        "summary": "Delete a record using its current version",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/views": {
+      "get": {
+        "operationId": "listWorkspaceViews",
+        "summary": "List saved table views",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createWorkspaceView",
+        "summary": "Create a table view",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceViewInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/views/{view_id}": {
+      "patch": {
+        "operationId": "updateWorkspaceView",
+        "summary": "Edit visible fields, filters and sort",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceViewInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceView",
+        "summary": "Delete a saved view",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/preview": {
+      "post": {
+        "operationId": "previewWorkspaceMapping",
+        "summary": "Preview source field mapping",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payload": {},
+                  "mappings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "payload",
+                  "mappings"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/inputs": {
+      "get": {
+        "operationId": "listWorkspaceInputs",
+        "summary": "List dataset connections and mapping errors",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createWorkspaceInput",
+        "summary": "Connect a project dataset to a table",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceConnectionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/inputs/{input_id}": {
+      "patch": {
+        "operationId": "updateWorkspaceInput",
+        "summary": "Update a dataset connection",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "input_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceConnectionInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceInput",
+        "summary": "Disconnect a dataset",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "input_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/inputs/{input_id}/import": {
+      "post": {
+        "operationId": "importWorkspaceRecords",
+        "summary": "Import one page of existing dataset records",
+        "description": "Processes up to 100 records from this workspace/project/dataset. Returns imported, failed, and next (null when complete). Pass next as after to continue. Safe to repeat: ingestion never overwrites manual edits or resurrects deleted records. Mapping errors are shown on the connection; correct and replay before the source retention expires.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "input_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "after": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/dashboards": {
+      "get": {
+        "operationId": "listWorkspaceDashboards",
+        "summary": "List saved dashboards",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWorkspaceDashboard",
+        "summary": "Create a dashboard",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDashboardInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/dashboards/{dashboard_id}": {
+      "get": {
+        "operationId": "getWorkspaceDashboard",
+        "summary": "Compute a dashboard across table records",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateWorkspaceDashboard",
+        "summary": "Edit a dashboard using its current version",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDashboardInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceDashboard",
+        "summary": "Delete a dashboard",
+        "description": "Dedicated workspace database. Pro or Team required. Workspace-scoped credentials only; mutations require the write capability. All reads and writes resolve the database from the authenticated workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     }
   },
