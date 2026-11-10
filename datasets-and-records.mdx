@@ -76,3 +76,14 @@ The window covers records, submissions, deliveries and their attempts, held deli
 After a downgrade to a plan with a shorter window, your previous plan's window still applies for 7 days. After that, the next cleanup deletes data older than the new plan's window. **Home** shows the date until then. See [Retention after a downgrade](/limits-and-plans#retention-after-a-downgrade). A delivery whose record has been pruned cannot be replayed.
 
 To delete data sooner, one record or a whole dataset, or to export everything, see [Delete, export and close](/data-deletion).
+
+## Read consistency
+
+Webhook processing and API requests can use regional database replicas after an
+initial query against the latest primary state. Reads within an operation see
+that operation's committed writes. Each new request starts fresh so prior
+permission changes and credential revocations are visible. You do not need to
+send replication bookmarks or special headers.
+
+Writes still commit on the primary database. Delivery and workflow fan-out remain
+asynchronous; an accepted webhook does not mean every downstream job has finished.
