@@ -1,0 +1,94 @@
+---
+title: "Data workspace"
+description: "Turn incoming data into editable tables, saved views, dashboards, and reusable context for workflows and AI agents."
+icon: "table"
+---
+
+Pro and Team include a dedicated database for your workspace. Open **Data workspace**
+in the console to create tables, edit records, and build dashboards. Your tables
+persist independently of the raw events in project datasets.
+
+## Create a table
+
+Click **Create table**, give it a name, and add fields. Fields support text, numbers,
+booleans, dates, select options, and JSON. A field's label is what people see;
+its key is what data mappings, workflows, and API clients use.
+
+Use **Add record** to enter data or click a cell to edit its record. Changes use
+record versions, so an outdated edit returns a conflict instead of overwriting
+someone else's work. You can change field labels and add fields or select options.
+Existing keys and types stay stable for automation.
+
+## Save views and build dashboards
+
+Click **New view** to choose visible fields, reorder columns, add filters, and sort
+records. All filters must match. Sorting and filtering cover the entire table,
+including records on other pages. **Edit view** changes a saved view.
+
+Create a dashboard from the sidebar. Add widgets for record counts, sums,
+averages, or grouped bar charts. Choose the table for each widget and optionally
+select a saved view to filter its data. Grouped charts show the top 20 groups.
+Use **Refresh** to recalculate the dashboard.
+
+## Connect webhooks and data sources
+
+1. Configure a [webhook](/endpoints-and-keys) or [data source](/database-sources)
+   to populate a project dataset.
+2. Open the table and choose **Connect data & workflows → Connect dataset**.
+3. Select the project and dataset. Map each destination field to an incoming path,
+   such as `customer.email`. Leave a mapping empty for an empty field.
+4. Preview a sample JSON payload, then save the connection.
+
+New matching dataset records populate the table automatically. Workflow and AI
+output that is delivered into the ingestion pipeline can use the same connection.
+Numeric strings convert to numbers, and `"true"` / `"false"` convert to booleans.
+Other invalid values appear as a connection error.
+
+**Import existing records** processes up to 100 source records at a time. Continue
+with **Import next 100** when more records remain. Imports are safe to repeat:
+they preserve existing table records, human edits, and deletions. Correct mapping
+errors and replay while the original records are still within dataset retention.
+
+## Use records in workflows and agents
+
+On a data connection, enable **Allow this project's workflows to read and write
+this table**. A project's credentials cannot use its workflows to access a table
+without this grant.
+
+In the [workflow builder](/workflows), add a **Table records** step:
+
+- **Read records:** choose a table, optional saved view, and a limit of 1–100.
+  The default result is available at `table_result.rows`. Place an AI or Agent
+  call after this step to use the records as context.
+- **Insert record:** map field keys to values or workflow placeholders, for example
+  `{"summary": "{{analysis.summary}}"}`. Retried steps do not create duplicates.
+
+[Connected agents](/connected-agents) can use `list_workspace_tables`,
+`query_workspace_table`, `insert_workspace_record`, and `update_workspace_record`.
+These tools require a workspace-scoped credential and honor its read/write grant.
+Updating a record requires the current version and the complete desired values.
+
+## Limits and lifecycle
+
+| Resource | Pro | Team |
+| --- | ---: | ---: |
+| Tables | 50 | 200 |
+| Active records across the workspace | 100,000 | 1,000,000 |
+| Fields per table | 40 | 40 |
+| Views per table | 50 | 50 |
+| Dataset connections | 200 | 200 |
+| Dashboards | 20 | 20 |
+| Widgets per dashboard | 12 | 12 |
+
+Each record supports up to 64 KiB of serialized values. The underlying database's
+storage limit also applies. Workflow results retain the platform's existing size
+limits; read fewer records if a workflow result is too large.
+
+Downgrading below Pro pauses dedicated-data operations without deleting the
+database. Upgrading restores access. Owners and admins can still use
+**Settings → Export & closure** to export the data after a downgrade. Workspace
+closure deletes the dedicated database along with the rest of the workspace.
+
+Tables, views, dashboards, and records are included in the workspace JSONL export.
+A complete export ends with `"complete": true`; a missing final marker means the
+download did not finish.
