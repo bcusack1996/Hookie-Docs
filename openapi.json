@@ -72,6 +72,10 @@
     {
       "name": "Agents",
       "description": "Agent self-registration (#331): an AI agent creates its own Hookie account, with no person involved, and gets an admin API key for the admin API, the hosted MCP server and the CLI. The account starts on the Free plan; a person can later claim it with the one-time claim token. See docs.hookie.ai \u2192 Agents and the design note docs/design/agent-self-registration.md."
+    },
+    {
+      "name": "Knowledge graph",
+      "description": "Dedicated workspace knowledge, bounded agent context, asynchronous mutations and execution lineage."
     }
   ],
   "components": {
@@ -1566,6 +1570,336 @@
         "required": [
           "name",
           "widgets"
+        ]
+      },
+      "GraphMutation": {
+        "type": "object",
+        "properties": {
+          "mutation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "node_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "enum": [
+              "create_node",
+              "update_node",
+              "delete_node",
+              "upsert_edge",
+              "delete_edge"
+            ]
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "node_type": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]{0,63}$"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "relation_type": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "edge_weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "required": [
+          "mutation_id",
+          "node_id",
+          "operation"
+        ],
+        "description": "Stable UUIDs are required on queued writes. create_node requires display_name, node_type and properties; update_node requires complete properties and expected_version >= 1; delete_node requires expected_version >= 1. Edge operations require target_id, relation_type and expected_version (0 creates an edge). Node properties: at most 64 KiB and 20 levels. table: and system: types and system: relations are reserved."
+      },
+      "GraphNode": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "node_type": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated_at": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "table_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "provenance": {},
+          "origin_dag_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "system": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "deleted": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "required": [
+          "node_id",
+          "node_type",
+          "display_name",
+          "properties",
+          "version"
+        ]
+      },
+      "GraphEdge": {
+        "type": "object",
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "relation_type": {
+            "type": "string"
+          },
+          "edge_weight": {
+            "type": "number"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "origin_dag_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "system": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "required": [
+          "source_id",
+          "target_id",
+          "relation_type",
+          "version"
+        ]
+      },
+      "GraphReceipt": {
+        "type": "object",
+        "properties": {
+          "mutation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "node_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "flushing",
+              "error",
+              "applied",
+              "conflict"
+            ]
+          },
+          "proposal": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "result_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actor": {
+            "type": "string"
+          },
+          "origin_dag_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "resolved_by": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "mutation_id",
+          "node_id",
+          "status"
+        ]
+      },
+      "GraphContext": {
+        "type": "object",
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 10
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "node_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "node_type": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "updated_at": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "properties": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "properties_omitted": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "maxItems": 200
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "maxItems": 500
+          },
+          "truncated": {
+            "type": "object",
+            "properties": {
+              "nodes": {
+                "type": "boolean"
+              },
+              "edges": {
+                "type": "boolean"
+              },
+              "properties": {
+                "type": "boolean"
+              },
+              "expansion": {
+                "type": "boolean"
+              }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "properties": {
+              "max_depth": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_nodes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_edges": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "serialized_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "roots",
+          "nodes",
+          "edges",
+          "truncated",
+          "budget",
+          "serialized_bytes"
         ]
       }
     },
@@ -24123,7 +24457,7 @@
                   "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Ordered steps. Total count INCLUDING nested branch sub-steps must be <= 32, and the steps serialized at most 262144 bytes. New instances run on Cloudflare Workflows: each step is a durable step with retries, so emit_event is keyed on (instance, step) and never emits twice.",
+                    "description": "Ordered steps. Total count INCLUDING nested branch sub-steps must be <= 32, and the steps serialized at most 262144 bytes. New instances run on Cloudflare Workflows: each step is a durable step with retries, so emit_event is keyed on (instance, step) and never emits twice. Knowledge graph steps: {type:\"graph\",action:\"context\",roots:[\"{{entry.node_id}}\"],depth:2,max_nodes:40,max_bytes:16384,properties:[\"summary\"],output_key:\"graph_result\"} fetches bounded context; {type:\"graph\",action:\"mutate\",mutations:[{operation:\"create_node\",node_type:\"knowledge\",display_name:\"Summary\",properties:{summary:\"{{ai_result.summary}}\"}}]} queues changes with deterministic IDs. Project graph grants are required. Queued changes are eventually visible; receipt IDs are returned.",
                     "items": {
                       "oneOf": [
                         {
@@ -24790,7 +25124,7 @@
                   "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized).",
+                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized). Knowledge graph steps: {type:\"graph\",action:\"context\",roots:[\"{{entry.node_id}}\"],depth:2,max_nodes:40,max_bytes:16384,properties:[\"summary\"],output_key:\"graph_result\"} fetches bounded context; {type:\"graph\",action:\"mutate\",mutations:[{operation:\"create_node\",node_type:\"knowledge\",display_name:\"Summary\",properties:{summary:\"{{ai_result.summary}}\"}}]} queues changes with deterministic IDs. Project graph grants are required. Queued changes are eventually visible; receipt IDs are returned.",
                     "items": {
                       "type": "object"
                     }
@@ -24944,7 +25278,7 @@
                   "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized).",
+                    "description": "Same nine step types and same limits as createWorkflow (<= 32 steps including branch sub-steps; branch depth <= 3; no delay/wait_for_event inside a branch; delay and wait timeout <= 365 days; steps <= 262144 bytes serialized). Knowledge graph steps: {type:\"graph\",action:\"context\",roots:[\"{{entry.node_id}}\"],depth:2,max_nodes:40,max_bytes:16384,properties:[\"summary\"],output_key:\"graph_result\"} fetches bounded context; {type:\"graph\",action:\"mutate\",mutations:[{operation:\"create_node\",node_type:\"knowledge\",display_name:\"Summary\",properties:{summary:\"{{ai_result.summary}}\"}}]} queues changes with deterministic IDs. Project graph grants are required. Queued changes are eventually visible; receipt IDs are returned.",
                     "items": {
                       "type": "object"
                     }
@@ -42736,6 +43070,1451 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph": {
+      "get": {
+        "operationId": "getKnowledgeGraph",
+        "summary": "Read graph schema and limits",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/nodes": {
+      "get": {
+        "operationId": "listGraphNodes",
+        "summary": "List knowledge nodes",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphNode"
+                      }
+                    },
+                    "next": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createGraphNode",
+        "summary": "Create a knowledge node immediately",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Stable mutation_id and node_id UUIDs are recommended for safe retries. Creates standalone knowledge; table records are projected automatically.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "node_type": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]{0,63}$"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "display_name",
+                  "node_type",
+                  "properties"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/nodes/{node_id}": {
+      "get": {
+        "operationId": "getGraphNode",
+        "summary": "Read a knowledge node",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "node": {
+                      "$ref": "#/components/schemas/GraphNode"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateGraphNode",
+        "summary": "Edit a node against its current revision",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Saves immediately. A stale revision returns 409 with code graph_version_conflict and a saved mutation proposal. Table-backed edits update the table in the same transaction; their type and display name follow the table schema. System trace nodes are read-only.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "node_type": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]{0,63}$"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "expected_version",
+                  "properties"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGraphNode",
+        "summary": "Delete a node and its connections",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Also deletes a backing table record. Clears payloads and retains minimal tombstone and idempotency metadata.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "expected_version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/edges": {
+      "get": {
+        "operationId": "listGraphEdges",
+        "summary": "Read connections among selected nodes",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphEdge"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "nodes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated node UUIDs, at most 200. Returns at most 500 edges."
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "upsertGraphEdge",
+        "summary": "Create or revise a relationship",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. expected_version=0 creates; a positive current revision updates the weight. At most 256 active incoming and 256 outgoing edges per node. Self edges and system: relations are refused.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "target_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "relation_type": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "edge_weight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "source_id",
+                  "target_id",
+                  "relation_type",
+                  "expected_version"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGraphEdge",
+        "summary": "Remove a relationship against its current revision",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. expected_version must be positive. Recreation keeps revisions increasing so a stale edit cannot match a new edge.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "target_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "relation_type": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "edge_weight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "source_id",
+                  "target_id",
+                  "relation_type",
+                  "expected_version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/context": {
+      "get": {
+        "operationId": "queryGraphContext",
+        "summary": "Fetch bounded deterministic agent context",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Recursive traversal expands at most 1,001 node/depth pairs, then hydrates selected payloads. Stable depth/ID ordering, bounded hops/nodes/edges/serialized bytes, explicit truncation flags. A live multi-query read is not a historical snapshot; revisions accompany every returned node.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "roots",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated node UUIDs (1\u201310)."
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4,
+              "default": 2
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "outbound",
+                "inbound",
+                "both"
+              ],
+              "default": "outbound"
+            }
+          },
+          {
+            "name": "relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated relation names (at most 20)."
+            }
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated property names (at most 40). Empty selects metadata only; omitted includes all properties that fit."
+            }
+          },
+          {
+            "name": "max_nodes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 80
+            }
+          },
+          {
+            "name": "max_edges",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500,
+              "default": 160
+            }
+          },
+          {
+            "name": "max_bytes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 131072,
+              "default": 32768
+            }
+          },
+          {
+            "name": "include_system",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph/mutations": {
+      "post": {
+        "operationId": "queueGraphMutations",
+        "summary": "Queue asynchronous knowledge changes",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. At most 256 KiB per request, 500 pending mutations or 16 MiB per workspace. One durable coordinator per workspace schedules batches after 15 seconds. Acknowledgement means queued, not applied; poll mutation status. Database outages and backlog can delay visibility. Applied/resolved receipts are retained for at least 30 days; keep IDs stable across retries.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mutations": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/GraphMutation"
+                    },
+                    "maxItems": 25,
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "mutations"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/mutations/{mutation_id}": {
+      "get": {
+        "operationId": "getGraphMutation",
+        "summary": "Read a queued mutation or durable receipt",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mutation": {
+                      "$ref": "#/components/schemas/GraphReceipt"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mutation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph/pending": {
+      "get": {
+        "operationId": "listPendingGraphMutations",
+        "summary": "List the first 100 pending changes",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "mutations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphReceipt"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/pending/{mutation_id}": {
+      "delete": {
+        "operationId": "cancelGraphMutation",
+        "summary": "Cancel a queued or errored change",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. An in-flight flush returns 409. Cancellation removes the pending payload.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mutation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph/conflicts": {
+      "get": {
+        "operationId": "listGraphConflicts",
+        "summary": "List unresolved conflict proposals",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphReceipt"
+                      }
+                    },
+                    "next": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph/conflicts/{mutation_id}/resolve": {
+      "post": {
+        "operationId": "resolveGraphConflict",
+        "summary": "Discard or apply a reviewed conflict",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Applying requires an explicit reviewed current expected_version and complete properties for node updates. A new collision is preserved as a new proposal. The old proposal is resolved only when the reviewed write commits.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mutation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "apply",
+                      "discard"
+                    ]
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "mutation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "properties": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "edge_weight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/grants": {
+      "get": {
+        "operationId": "listGraphGrants",
+        "summary": "List explicit project workflow permissions",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "setGraphGrant",
+        "summary": "Set project workflow access to the entire workspace graph",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Graph traversal can reach records from other projects. Grants are workspace-wide and distinct from table input grants. Queued workflow writes recheck the grant before flushing.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "can_read": {
+                    "type": "boolean"
+                  },
+                  "can_write": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "project_id",
+                  "can_read",
+                  "can_write"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/grants/{project_id}": {
+      "delete": {
+        "operationId": "revokeGraphGrant",
+        "summary": "Revoke a project workflow graph grant",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/graph/runs": {
+      "get": {
+        "operationId": "listGraphRuns",
+        "summary": "List the latest 50 workflow executions",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/runs/{run_id}": {
+      "get": {
+        "operationId": "getGraphRun",
+        "summary": "Read bounded execution lineage",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Reads authoritative workflow step metadata, up to 400 events and 200 tasks plus the run root. Includes step paths, attempts, statuses and branch connections. Prompts, HTTP headers and payloads are excluded.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphNode"
+                      }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GraphEdge"
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ]

@@ -331,3 +331,20 @@ Every call is logged in the project's **Observability → AI calls**. Each entry
 Search matches the text of the instructions, input or output. The log is kept for your plan's retention window, and the audit log gets a daily summary of each day's AI usage.
 
 Workflows are built in the console. [Sign in](https://app.hookie.ai/) and open a project's **Workflows** tab. For end-to-end patterns, see the [use cases](https://hookie.ai/use-cases).
+
+## Knowledge graph steps
+
+Use a **Knowledge graph** step to fetch bounded context before an AI or Agent call, or queue versioned knowledge changes after it. Grant the project access in **Data workspace → Knowledge graph → Workflow access**. Queued writes are asynchronous; poll their receipts before depending on visibility. See the [knowledge graph guide](/knowledge-graph) for examples and conflict review.
+
+## Working on the canvas
+
+The workflow canvas fills the available width. Choose **Add step** to open the
+searchable step library; choose where the new step belongs, then select its type.
+Select a step on the canvas to open its **Properties**. Close that panel to make
+more room, and reopen it without losing the values you were editing.
+
+Choose **Expand canvas** to build across the screen. Your unsaved changes,
+selection and undo history stay available, and you can save from the expanded
+view. Press Escape or **Exit expanded view** to return to the project page. Drag
+the background to pan, use Ctrl/Cmd + scroll to zoom, or choose **Fit to screen**.
+**Auto-layout** arranges connected steps, and Undo can restore the previous layout.

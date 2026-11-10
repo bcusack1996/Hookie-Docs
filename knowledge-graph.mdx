@@ -1,0 +1,176 @@
+---
+title: "Knowledge graph"
+description: "Connect workspace knowledge, inject bounded context into AI agents, and review concurrent changes in a spreadsheet and execution canvas."
+icon: "diagram-project"
+---
+
+Pro and Team workspaces can turn their [table records](/data-workspace) into
+connected knowledge for people, workflows and AI agents. Open **Data workspace →
+Knowledge graph**. Your existing table records appear automatically, with the
+same IDs and revisions.
+
+## Edit and connect knowledge
+
+**Grid** gives you a spreadsheet. Choose a table to edit its typed fields, or
+choose **All knowledge** to inspect names, types, JSON properties and revisions.
+Double-click a cell to edit it. Select a record and choose **Edit node** for the
+full editor. Table-backed edits also update the original table and its dashboards.
+
+Use **New node** for standalone knowledge such as a policy, customer briefing or
+agent memory. Give it a name, a type such as `knowledge`, and JSON properties.
+Use **Connect nodes** to create a directional relationship such as `informs` or
+`depends_on`. The **Graph** view lets you pan, zoom, move and inspect nodes and
+their connections. Node positions are local to the current view.
+
+Choose **Expand canvas** in Graph or Execution to use the screen for exploration.
+Click a node to open its details alongside the expanded canvas. **Fit graph to
+view** brings the visible graph into view; drag the background to pan and use
+Ctrl/Cmd + scroll to zoom. Press Escape or **Exit expanded view** to return.
+Use **Browse tables & dashboards** to open the workspace browser when you need it.
+
+Table-backed nodes keep the table's field schema and derived name. Execution
+trace nodes are read-only. Deleting a table-backed node also deletes its table
+record; deleting a connection leaves both records intact.
+
+## Preview agent context
+
+Select a node and choose **Preview agent context**. The preview expands two hops,
+with up to 40 nodes, 80 relationships and 16 KiB of serialized context. Its
+truncation flags tell you what did not fit.
+
+Agents can select root nodes, traversal direction, relation types and property
+names through the API or `query_graph_context` MCP tool. Retrieval expands node
+IDs before loading properties, so large payloads do not inflate the traversal.
+
+| Setting | Default | Maximum |
+| --- | --- | --- |
+| Root nodes | Required | 10 |
+| Hops | 2 | 4 |
+| Returned nodes | 80 | 200 |
+| Returned relationships | 160 | 500 |
+| Serialized response | 32 KiB | 128 KiB |
+| Selected property keys | All that fit | 40 |
+
+Results have stable ordering for unchanged data and carry current revisions.
+The response includes `serialized_bytes`, `budget`, and `truncated` flags for
+nodes, relationships, properties and traversal expansion. A large omitted
+payload is marked `properties_omitted: true`. Choose an empty property list for
+metadata only. Execution traces are excluded unless explicitly requested.
+
+## Combine knowledge with workflows
+
+Choose **Workflow access**, select a project, and grant **Read graph context**,
+**Queue graph changes**, or both. This is a grant to the entire workspace graph,
+including table records from other projects. It is separate from per-table
+workflow permissions. Project-scoped API keys cannot access the graph directly.
+
+In the [workflow builder](/workflows), add a **Knowledge graph** step:
+
+- **Fetch agent context** takes an array of node UUIDs or a templated array,
+  plus depth, node and byte budgets. Place an AI or Agent step after it and use
+  `{{graph_result}}` in that step's input. Select only the properties it needs.
+- **Queue knowledge changes** takes an array of graph operations. The workflow
+  supplies stable mutation IDs and generates missing IDs for new nodes, so a
+  retried step does not create duplicates. Its result contains receipt IDs.
+
+Example context step:
+
+```json
+{
+  "type": "graph",
+  "action": "context",
+  "roots": ["{{entry.node_id}}"],
+  "depth": 2,
+  "max_nodes": 40,
+  "max_bytes": 16384,
+  "properties": ["summary", "status"],
+  "output_key": "graph_result"
+}
+```
+
+Example mutation step after an AI call:
+
+```json
+{
+  "type": "graph",
+  "action": "mutate",
+  "mutations": [
+    {
+      "operation": "create_node",
+      "node_type": "knowledge",
+      "display_name": "Customer briefing",
+      "properties": { "summary": "{{ai_result.summary}}" }
+    }
+  ]
+}
+```
+
+Queued changes normally consolidate after about 15 seconds. A queue receipt
+means the change is durably queued, not yet applied. Outages and backlog can
+delay it. Poll the mutation receipt before depending on the changed data; the
+next workflow step may run before the queue flushes.
+
+## Review human and agent conflicts
+
+Human edits save immediately against the revision displayed when the edit began.
+Agent and workflow mutations supply their expected revision. If someone else
+changed the node first, the proposed values are saved as a conflict and the
+current record stays intact.
+
+Open **Conflicts → Review proposal** to compare the latest record with the
+proposal. Edit the complete properties, confirm you reviewed that revision, and
+choose **Apply reviewed change**. Or select **Discard this proposal** to keep the
+current record. If another edit arrives while you review, fetch the latest
+revision and review again. A stale write never silently wins.
+
+**Queue** shows pending or errored mutations and lets writers cancel changes
+that have not begun applying. A workspace suspension or downgrade pauses queued
+writes. Revoking a project's graph grant prevents its queued changes from applying.
+
+## Inspect execution lineage
+
+**Execution** displays recent workflow runs as a React Flow canvas. Select a run
+to see task states, attempts, sequence and branch connections. It refreshes every
+five seconds from workflow history. Click a task to inspect its metadata.
+
+The graph projection is asynchronous. It records execution metadata without
+copying prompts, payloads or HTTP headers. Large runs show a bounded portion of
+their history with a truncation notice; use the workflow's history for more detail.
+
+## Connected agents and the API
+
+[Connected agents](/connected-agents) use these MCP tools through their existing
+workspace read/write grants:
+
+| Tool | Purpose |
+| --- | --- |
+| `list_graph_nodes` / `get_graph_node` | Discover nodes and read complete current properties |
+| `query_graph_context` | Fetch bounded context for inference |
+| `queue_graph_mutations` | Queue versioned knowledge changes |
+| `get_graph_mutation` | Poll queued, applied, errored or conflicting changes |
+| `list_graph_conflicts` / `resolve_graph_conflict` | Review and resolve saved proposals |
+
+The API lives under `/admin/api/data-workspace/graph`. Queued operations require
+stable `mutation_id` and `node_id` UUIDs. Updates replace the complete properties
+object and require `expected_version`. Supported operations are `create_node`,
+`update_node`, `delete_node`, `upsert_edge`, and `delete_edge`. For an edge,
+`node_id` is the source; provide `target_id` and `relation_type`. Revision zero
+creates an edge; a positive current revision updates or removes one.
+
+## Limits and data lifecycle
+
+Each queue request supports 25 operations and 256 KiB. A workspace can hold 500
+pending operations or 16 MiB of queued proposals. Each node's properties support
+64 KiB and 20 levels of JSON nesting. Nodes can have up to 256 incoming and 256
+outgoing active relationships. Pro supports 50,000 standalone/trace nodes; Team
+supports 250,000, separately from table-record allowances. Database storage limits
+also apply.
+
+System traces and completed/resolved receipts become eligible for cleanup after
+30 days. Curated knowledge and unresolved conflicts persist. Workspace export
+includes graph records, relationships, receipts and pending proposals, including
+after downgrade. Workspace deletion clears both the dedicated database and its
+pending mutation queue.
+
+This V1 provides structured graph context. Semantic/vector search and historical
+context snapshots are future capabilities.
