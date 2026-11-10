@@ -1681,6 +1681,9 @@
               0,
               1
             ]
+          },
+          "membership": {
+            "$ref": "#/components/schemas/BrainNodeMembership"
           }
         },
         "required": [
@@ -1838,6 +1841,17 @@
                 },
                 "properties_omitted": {
                   "type": "boolean"
+                },
+                "table_id": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "system": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ]
                 }
               }
             },
@@ -1900,6 +1914,155 @@
           "truncated",
           "budget",
           "serialized_bytes"
+        ]
+      },
+      "BrainNodeMembership": {
+        "type": "object",
+        "properties": {
+          "included": {
+            "type": "boolean"
+          },
+          "record_included": {
+            "type": "boolean"
+          },
+          "table_included": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "included",
+          "record_included",
+          "table_included",
+          "version"
+        ],
+        "description": "Effective inclusion requires both table and record inclusion. version is the independent record-inclusion revision; 0 means no saved choice. Content edits never change this choice."
+      },
+      "BrainOverview": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "table_id": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "name": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "included": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "excluded": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "table_id",
+                "name",
+                "total",
+                "included",
+                "excluded",
+                "enabled",
+                "version"
+              ]
+            }
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "relation_type": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "source",
+                "target",
+                "relation_type",
+                "count"
+              ]
+            },
+            "maxItems": 500
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "records": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "included": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "excluded": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "relationships": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "records",
+              "included",
+              "excluded",
+              "relationships"
+            ]
+          },
+          "truncated": {
+            "type": "object",
+            "properties": {
+              "relationships": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "relationships"
+            ]
+          }
+        },
+        "required": [
+          "groups",
+          "relationships",
+          "totals",
+          "truncated"
         ]
       }
     },
@@ -43120,7 +43283,7 @@
       "get": {
         "operationId": "listGraphNodes",
         "summary": "List knowledge nodes",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database.  Included records only by default. Explicit curation can request excluded or all records. Table exclusions apply to future records as well as existing ones.",
         "tags": [
           "Knowledge graph"
         ],
@@ -43211,6 +43374,27 @@
               "maximum": 200,
               "default": 100
             }
+          },
+          {
+            "name": "membership",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "included",
+                "excluded",
+                "all"
+              ],
+              "default": "included"
+            },
+            "description": "Explicit inclusion review filter; agent context always excludes omitted records."
+          },
+          {
+            "name": "standalone",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Only nodes that do not belong to a table."
           }
         ]
       },
@@ -43296,7 +43480,7 @@
       "get": {
         "operationId": "getGraphNode",
         "summary": "Read a knowledge node",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database.  An excluded record returns 404 by default. membership=all allows explicit inclusion review; existing workspace read permissions still apply.",
         "tags": [
           "Knowledge graph"
         ],
@@ -43343,6 +43527,17 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "membership",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "included",
+                "all"
+              ],
+              "default": "included"
             }
           }
         ]
@@ -43512,7 +43707,7 @@
       "get": {
         "operationId": "listGraphEdges",
         "summary": "Read connections among selected nodes",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database.  Returns only connections whose endpoints are both included in the Brain.",
         "tags": [
           "Knowledge graph"
         ],
@@ -43735,7 +43930,7 @@
       "get": {
         "operationId": "queryGraphContext",
         "summary": "Fetch bounded deterministic agent context",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Recursive traversal expands at most 1,001 node/depth pairs, then hydrates selected payloads. Stable depth/ID ordering, bounded hops/nodes/edges/serialized bytes, explicit truncation flags. A live multi-query read is not a historical snapshot; revisions accompany every returned node.",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. Recursive traversal expands at most 1,001 node/depth pairs, then hydrates selected payloads. Stable depth/ID ordering, bounded hops/nodes/edges/serialized bytes, explicit truncation flags. A live multi-query read is not a historical snapshot; revisions accompany every returned node. Excluded records and tables are omitted at roots, every traversal hop, payload hydration and edge retrieval. An excluded node cannot serve as a bridge, and include_system does not override inclusion. The console uses one-hop, both-direction, metadata-only queries for bounded neighborhood exploration.",
         "tags": [
           "Knowledge graph"
         ],
@@ -44518,6 +44713,155 @@
             }
           }
         ]
+      }
+    },
+    "/admin/api/data-workspace/graph/overview": {
+      "get": {
+        "operationId": "getBrainOverview",
+        "summary": "Summarize the entire Workspace Brain",
+        "description": "Pro or Team; workspace-scoped credentials required. Existing role, OAuth scope, suspension and project restrictions apply. Returns all workspace table groups and an optional standalone group with inclusion counts, without record payloads. Groups include excluded tables for curation. Relationships aggregate only active included non-system nodes, capped at 500 groups ordered by count and stable keys. totals.relationships counts every included relationship even when groups are truncated. The standalone group id is standalone; table groups use table UUIDs.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Revision conflict, reused mutation ID or capacity reached; saved conflict proposals can be reviewed"
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/graph/inclusion": {
+      "post": {
+        "operationId": "setBrainInclusion",
+        "summary": "Include or exclude a table or record from the Brain",
+        "description": "Pro or Team; workspace-scoped credentials required. Existing role, OAuth scope, suspension and project restrictions apply. Requires write access. Changes are audited and conditional on the inclusion revision. Read table revisions from overview and record revisions from nodes.membership.version; zero means no saved choice. A stale revision returns 409. Exclusion preserves source data and saved connections. Table exclusion includes future records, and individual choices survive edits and table toggles. Default inclusion is true. System execution nodes cannot be changed. This curates graph discovery and agent context, not source-table access permissions.",
+        "tags": [
+          "Knowledge graph"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "membership": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "table",
+                            "node"
+                          ]
+                        },
+                        "resource_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "included": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "resource_id",
+                        "included",
+                        "version"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "membership"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or context budget"
+          },
+          "403": {
+            "description": "Plan, scope, role, suspension or grant refuses access"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Inclusion revision changed; refresh and review before saving. No data or choice is overwritten."
+          },
+          "429": {
+            "description": "Queue capacity reached; retry later"
+          },
+          "503": {
+            "description": "Database or coordinator unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "table",
+                      "node"
+                    ]
+                  },
+                  "resource_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "included": {
+                    "type": "boolean"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "kind",
+                  "resource_id",
+                  "included",
+                  "expected_version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     }
   },
