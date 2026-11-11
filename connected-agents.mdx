@@ -9,7 +9,7 @@ Hookie runs a hosted [MCP](https://modelcontextprotocol.io) server. Point an AI 
 Nothing is installed and nothing is pasted anywhere. The agent signs in as you, starts out read-only (unless you signed up through it), and you decide in the console what more it may do. You can cut it off again in one click.
 
 <Note>
-  Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect an agent** in the top bar (next to the theme switch and your profile) shows your MCP URL, the Claude connector, and the Claude Code command in one place.
+  Hookie has no chat assistant of its own: you bring your agent. In the console, **Connect an agent** at the bottom of the side navigation shows your MCP URL, the Claude connector, and the Claude Code command in one place.
 </Note>
 
 <Note>
@@ -58,6 +58,22 @@ You do not need a Hookie account first. If you have never signed in to Hookie, s
 <Tip>
   For an agent that should have a Hookie account of its **own**, with no person signing in at all, see [Agent self-registration](/agent-self-registration). The agent registers itself on the Free plan and gets an admin API key, and a person can claim the workspace later.
 </Tip>
+
+## Choose its workspace
+
+Each connection has one **Workspace**, shown in **Settings → Connected agents**.
+Choose **Change access**, select an active workspace you belong to, and save.
+You can change the workspace while keeping the same access level.
+
+A new connection starts in your active workspace on its first request. Existing
+connections retain the workspace they previously used. Switching workspaces in
+the console does not move a running agent or CLI connection.
+
+If you lose membership in the selected workspace, that connection stops working.
+It does not fall back to another workspace. Select an eligible workspace in
+**Connected agents** to restore access. Suspended or closing workspaces cannot be
+selected as new targets. Your role in the selected workspace still limits what
+the agent can do, and agents cannot change their own workspace or permissions.
 
 ## What it may do
 
