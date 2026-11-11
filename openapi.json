@@ -30560,7 +30560,8 @@
                           "connected_at",
                           "last_used_at",
                           "revoked_at",
-                          "level"
+                          "level",
+                          "tenant_id"
                         ],
                         "properties": {
                           "id": {
@@ -30614,6 +30615,13 @@
                               null
                             ],
                             "description": "The rung the grant reaches \u2014 read < write < manage \u2014 or null when it holds no Hookie scope. A higher rung includes the lower ones."
+                          },
+                          "tenant_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The workspace this connection is bound to. Console workspace switching does not change it; removed membership fails closed."
                           }
                         }
                       }
@@ -30731,6 +30739,13 @@
                         null
                       ],
                       "description": "The rung the grant reaches \u2014 read < write < manage \u2014 or null when it holds no Hookie scope. A higher rung includes the lower ones."
+                    },
+                    "tenant_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The workspace this connection is bound to. Console workspace switching does not change it; removed membership fails closed."
                     }
                   }
                 }
@@ -30768,7 +30783,7 @@
             }
           },
           "404": {
-            "description": "`No such connected agent` \u2014 the grant does not exist, belongs to another user, or has already been revoked. A revoked grant cannot be re-scoped.",
+            "description": "Connected agent or available workspace not found. The grant must belong to the caller and be unrevoked; the target must be an active, non-closing membership.",
             "content": {
               "application/json": {
                 "schema": {
@@ -30829,6 +30844,10 @@
                       ]
                     },
                     "description": "Read by its highest scope. Accepted for existing callers."
+                  },
+                  "tenant_id": {
+                    "type": "string",
+                    "description": "An active workspace the caller belongs to; closing workspaces cannot be selected."
                   }
                 },
                 "example": {
@@ -30843,7 +30862,7 @@
             "session": []
           }
         ],
-        "description": "Set the grant to one rung of the ladder read < write < manage. Send `level` (what the console sends), or `scopes` \u2014 a list is read by its HIGHEST scope and stored as the ladder up to it, so `[\"hookie:manage\"]` stores all three. An empty `scopes` list leaves the agent connected with no access; to cut it off, revoke it."
+        "description": "Set the grant to one rung of the ladder read < write < manage. Send `level` (what the console sends), or `scopes` \u2014 a list is read by its HIGHEST scope and stored as the ladder up to it, so `[\"hookie:manage\"]` stores all three. An empty `scopes` list leaves the agent connected with no access; to cut it off, revoke it. Send tenant_id to explicitly select an active workspace you belong to. A target-only change preserves scopes. Existing connections retain their historical target; new connections bind to the active workspace on first use. Only the human can change a target."
       },
       "delete": {
         "operationId": "revokeConnectedAgent",
