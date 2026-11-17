@@ -10,19 +10,19 @@ Hookie has four plans: **Free**, **Starter**, **Pro** and **Team**. A plan belon
 
 | | Free | Starter | Pro | Team |
 | --- | --- | --- | --- | --- |
-| Workspace members, owner included | 1 | 1 | 3 | unlimited, billed per seat |
-| Events a month | 1,000 | 25,000 | 100,000 | 300,000 |
-| New events refused after | 1,000 | 27,500 | 110,000 | 330,000 |
-| Deliveries a month | 1,000 | 40,000 | 90,000 | 600,000 |
-| Deliveries held after | 1,000 | 44,000 | 99,000 | 660,000 |
-| AI tokens a month | 100,000 | 100,000 | 750,000 | 1,500,000 |
+| Workspace members, owner included | 1 | 1 | 3 | 10 |
+| Events a month | 10,000 | 35,000 | 100,000 | 300,000 |
+| New events refused after | 10,000 | 38,500 | 110,000 | 330,000 |
+| Deliveries a month | 10,000 | 50,000 | 90,000 | 600,000 |
+| Deliveries held after | 10,000 | 55,000 | 99,000 | 660,000 |
+| AI tokens a month | 100,000 | 150,000 | 750,000 | 1,500,000 |
 | AI trigger runs a month | 100 | 300 | 2,000 | 10,000 |
-| Destinations | 1 | 3 | 10 | 25 |
+| Destinations | 1 | 4 | 10 | 25 |
 | Database sources | none | none | 3 | 10 |
 | Fastest database source poll | every hour | every hour | every 60 seconds | every 30 seconds |
 | Live stream connections at once | 1 | 2 | 5 | 20 |
 | Workflow runs active at once | 25 | 100 | 500 | 2,000 |
-| Data retention | 7 days | 14 days | 30 days | 90 days |
+| Data retention | 30 days | 90 days | 90 days | 90 days |
 
 Everything in this table is counted across the whole workspace, not per project. Starter, Pro and Team accept 10% over the event and delivery numbers before they bite; Free stops at the number. Single sign-on (SAML or OIDC) is planned and not available yet, on any plan.
 
@@ -32,17 +32,17 @@ Everything in this table is counted across the whole workspace, not per project.
 
 When your workspace moves to a plan with a shorter retention window, Hookie keeps your event data on your **previous** plan's window for **7 more days**. That happens when you downgrade or cancel a paid plan, when a subscription ends after failed payments, when a free trial ends, or when Hookie support changes your plan. After those 7 days, the new plan's window applies: event data older than it is permanently deleted by the automatic cleanup, which runs every five minutes. That covers records, raw submissions, delivery history, the AI call log, workflow runs and AI trigger runs.
 
-For example, moving from Team (90 days) to Free (7 days) keeps 90 days of data for 7 more days. After that, anything older than 7 days is deleted.
+For example, moving from Pro (90 days) to Free (30 days) keeps 90 days of data for 7 more days. After that, anything older than 30 days is deleted.
 
-- **Downgrade again within the 7 days:** the longest window still applies, and the 7 days start again. Team → Pro → Free keeps Team's 90 days until 7 days after the move to Free.
+- **Downgrade again within the 7 days:** the longest window still applies, and the 7 days start again. Pro → Starter → Free keeps 90 days until 7 days after the move to Free.
 - **Upgrade to a plan whose retention is at least as long as the window being kept:** the window ends, because the new plan keeps that data anyway.
-- **Upgrade to a plan with a shorter window than the one being kept** (for example Team → Free, then Free → Pro): the window runs on unchanged. When it closes, the new plan's window applies.
+- **Upgrade to a plan with a shorter window than the one being kept:** the window runs on unchanged. When it closes, the new plan's window applies.
 - **Closing a workspace** works differently. See [Close the workspace](/data-deletion#close-the-workspace).
 
 While the window is open, **Home** shows a warning with the date the older data will be deleted. Below it are two buttons: **Export & closure**, where an owner or admin can download everything as one JSON Lines file (see [Export all data](/data-deletion#export-all-data)), and **Plan & billing**, where the owner can upgrade. The API returns the window on `GET /admin/api/me`:
 
 ```json
-{ "retentionGrace": { "retention_days": 90, "plan_retention_days": 7, "ends_at": "2026-10-06T14:05:00.000Z" } }
+{ "retentionGrace": { "retention_days": 90, "plan_retention_days": 30, "ends_at": "2026-10-06T14:05:00.000Z" } }
 ```
 
 `retention_days` is the window being kept, `plan_retention_days` is the current plan's, and `ends_at` is when the window closes. `retentionGrace` is `null` when no window is open.
