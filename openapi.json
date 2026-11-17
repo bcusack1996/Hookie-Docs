@@ -2064,6 +2064,213 @@
           "totals",
           "truncated"
         ]
+      },
+      "RecordHistoryEntry": {
+        "type": "object",
+        "description": "One change to a workspace table record. Append-only; a deleted record keeps every entry with before/after blanked.",
+        "required": [
+          "id",
+          "record_id",
+          "table_id",
+          "version",
+          "op",
+          "at",
+          "actor_sub",
+          "actor_agent",
+          "credential",
+          "changed_fields",
+          "before",
+          "after",
+          "credential_name",
+          "actor_email"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Order of the change."
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "table_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "description": "The record's version after this change."
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete",
+              "restore"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_sub": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person credited; null for a machine write (table input ingestion, workflow, Brain live capture)."
+          },
+          "actor_agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The connected agent or API key that acted for them."
+          },
+          "credential": {
+            "type": "string",
+            "description": "WHAT acted (#543): `session` (a person in the console), `oauth:<client>` (a connected agent), `api_key:<id>`, `ingest_key:<id>`, `webhook:<endpoint id>` (a path-form endpoint URL), `workflow:<instance>`, `input:<table input id>`, `pipeline:<run or pipeline id>`, `graph:<mutation id>` or `system:<job>`. Ids only, never a secret."
+          },
+          "changed_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Field keys this change touched (every field on create; none on delete)."
+          },
+          "before": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true,
+            "description": "The changed fields' values before. null on create, on delete, and on every entry of a deleted record."
+          },
+          "after": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true,
+            "description": "The changed fields' values after. null on delete and on every entry of a deleted record."
+          },
+          "credential_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What a person reads for the credential: the API key's, ingest key's, endpoint's, Brain pipeline's or workflow's name, or the dataset a table input reads. null for a session or connected agent, and once the thing is deleted (the id stays in credential)."
+          },
+          "actor_email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The actor's email while they are a member of this workspace."
+          }
+        }
+      },
+      "RecordEvent": {
+        "type": "object",
+        "description": "One custody event of a project record. Records are immutable, so there is no field diff and no payload.",
+        "required": [
+          "record_id",
+          "dataset",
+          "event",
+          "reason",
+          "at",
+          "actor_sub",
+          "actor_agent",
+          "credential",
+          "submission_id",
+          "endpoint_id",
+          "credential_name",
+          "actor_email"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "dataset": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "created",
+              "erased"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_sub": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person who erased it (the purge's requester, the project's deleter); null for a creation by a machine credential."
+          },
+          "actor_agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credential": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "WHAT acted (#543): `session` (a person in the console), `oauth:<client>` (a connected agent), `api_key:<id>`, `ingest_key:<id>`, `webhook:<endpoint id>` (a path-form endpoint URL), `workflow:<instance>`, `input:<table input id>`, `pipeline:<run or pipeline id>`, `graph:<mutation id>` or `system:<job>`. Ids only, never a secret. A record created before #543, or by a writer with no submission credential, names the record's source instead."
+          },
+          "submission_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The submission it was routed from (created only)."
+          },
+          "endpoint_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The endpoint it arrived through (created only)."
+          },
+          "credential_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What a person reads for the credential: the API key's, ingest key's, endpoint's, Brain pipeline's or workflow's name, or the dataset a table input reads. null for a session or connected agent, and once the thing is deleted (the id stays in credential)."
+          },
+          "actor_email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The actor's email while they are a member of this workspace."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "record_erasure",
+              "dataset_purge",
+              "project_delete",
+              null
+            ],
+            "description": "Why an erased record went: deleted on its own, with a dataset purge, or with its project. null for created."
+          }
+        }
       }
     },
     "parameters": {
@@ -8420,18 +8627,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Deleted. Config rows (webhooks, rules, ingest keys, sources, triggers, workflows, portals, AI agents) are removed; records, submissions, deliveries, agent runs and destinations are kept with project_id set to NULL so history and foreign keys stay intact. Returns ok:true even when no project matched - the handler does not check the affected row count, so a missing id is not a 404.",
+            "description": "Deleted: the project and everything it owned are gone (`done: true`).",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "ok"
+                    "ok",
+                    "done"
                   ],
                   "properties": {
                     "ok": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "done": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -8459,7 +8670,7 @@
             }
           },
           "403": {
-            "description": "Only owners can delete projects; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "Only owners (or the owner's agent at hookie:manage) can delete projects; also returned for a cookie-authenticated mutation missing the X-Requested-With: fetch header. Also `reason: \"workspace_suspended\"` while the workspace is suspended.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8480,9 +8691,42 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "202": {
+            "description": "Erasure under way (`done: false`): repeat the same DELETE to carry on.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "done"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "done": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
-        "description": "Owner only. An agent can never reach owner (manage scope clips to admin).",
+        "description": "Owner only; also the owner's own connected agent when it is granted hookie:manage (a connected agent's role is clipped to admin, so the person's membership role is read instead). Delete means gone (#542): the project's records, submissions, deliveries with their attempts, workflow runs with their step logs, AI calls and AI runs are deleted, with every copy of its records in the workspace database (table rows captured by an input or a Brain pipeline, graph nodes and edges, run lineage). Configuration (endpoints, rules, keys, sources, triggers, workflows, portals, AI agents, inputs, views, Data API keys) goes first, so nothing new arrives while the data is erased. A destination that another project's delivery still names is detached and disabled; any other is deleted. AI runs admitted this month stay as anonymous quota entries (status and time only), so the month's AI-run allowance is not handed back. One `project_deleted` audit row names the project and the counts found, never the content. A large project is erased in bounded steps: the call answers 202 with `done: false`, and repeating the same DELETE carries on until it answers 200 with `done: true`.",
         "parameters": [
           {
             "name": "project_id",
@@ -9219,7 +9463,7 @@
         "tags": [
           "Records"
         ],
-        "description": "Permanently deletes one record and every copy Hookie keeps of it, in one batch: its raw submission, its pending fan-out, its deliveries (replays included) with their response bodies and every failed attempt kept for them, its held deliveries, the workflow runs it started (live Cloudflare runs are terminated first) with their step log, waiters and AI calls, and for AI trigger runs on it the AI calls and the model's output (the run row stays as the monthly AI-run quota ledger; a run still queued is failed). Deliveries already sent are not recalled. Audited as `delete_record` with the counts, never the payload. Developer role and up; also the MCP tool `delete_record`. Top-level alias: DELETE /admin/api/records/{id} (Default project).",
+        "description": "Permanently deletes one record and every copy Hookie keeps of it. First its copies in the workspace database (#542): table rows a table input or Brain pipeline made from it, with their graph nodes and edges, and the graph lineage of the runs it started. Then, in one batch with the audit row: its raw submission, its pending fan-out, its deliveries (replays included) with their response bodies and every failed attempt kept for them, its held deliveries, the workflow runs it started (live Cloudflare runs are terminated first) with their step log, waiters and AI calls, and for AI trigger runs on it the AI calls and the model's output (the run row stays as the monthly AI-run quota ledger; a run still queued is failed). Deliveries already sent are not recalled. Audited as `delete_record`, never the payload. Developer role and up; also the MCP tool `delete_record`. Top-level alias: DELETE /admin/api/records/{id} (Default project).",
         "parameters": [
           {
             "name": "project_id",
@@ -17860,6 +18104,111 @@
             "apiKey": []
           }
         ]
+      },
+      "delete": {
+        "operationId": "deleteDelivery",
+        "summary": "Delete a delivery",
+        "tags": [
+          "Deliveries"
+        ],
+        "description": "Delete one delivery and every failed attempt it logged, with the receiver's response bodies they kept (#542). Developer and up (hookie:write). The record it sent is a separate item and stays; a queued or retrying delivery whose message is still in flight finds nothing and is not sent. Audited as `delete_delivery`, naming the delivery, in the same batch.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Delivery id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "deleted"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "deleted": {
+                      "type": "object",
+                      "properties": {
+                        "deliveries": {
+                          "type": "integer"
+                        },
+                        "attempts": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Viewer, or an agent below hookie:write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such delivery in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
       }
     },
     "/admin/api/projects/{project_id}/deliveries/{id}/replay": {
@@ -26324,6 +26673,119 @@
           }
         ],
         "description": "For a Cloudflare Workflows instance (engine `cf`) the API asks Cloudflare for the instance's status (`cf_status`), and a row that missed the end of its run is brought into line with it. `steps` is derived from the step log of the current attempt, one entry per step path, for overlaying run status on the workflow graph."
+      },
+      "delete": {
+        "operationId": "deleteWorkflowInstance",
+        "summary": "Delete a workflow run",
+        "tags": [
+          "Workflows"
+        ],
+        "description": "Delete one workflow run for good, with its step log, the AI calls it made and its lineage in the workspace graph (#542). Developer and up (hookie:write). A run that has not finished is stopped first: a Cloudflare run is terminated, and the delete answers 502 if Cloudflare will not stop it. Records and deliveries the run emitted stay. Audited as `delete_workflow_run`, naming the run, in the same batch.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "deleted"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "deleted": {
+                      "type": "object",
+                      "properties": {
+                        "workflow_runs": {
+                          "type": "integer"
+                        },
+                        "step_events": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the agent bearer token is invalid, unknown or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Viewer, or an agent below hookie:write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "description": "Cloudflare did not stop the running instance; nothing was deleted. Try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKey": []
+          }
+        ]
       }
     },
     "/admin/api/projects/{project_id}/workflow-instances/{instance_id}/cancel": {
@@ -32156,9 +32618,47 @@
                         "free",
                         "starter",
                         "standard",
-                        "team"
+                        "team",
+                        "ultimate"
                       ],
-                      "description": "'standard' is the internal id of the Pro plan."
+                      "description": "'standard' is the internal id of the Pro plan. The plan in effect: while a platform admin's plan override is active (#547) it is the override's plan, whatever the subscription says."
+                    },
+                    "plan_override": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "Set while a platform admin's plan override is active (#547): Hookie's operator set the plan regardless of Stripe, for example a comp or a support arrangement. `plan` is then the override's plan, and Stripe webhooks keep `base_plan` current underneath it without overwriting it. When the override is cleared or `until` passes, the workspace returns to `base_plan`. Null when there is none. Who set it is not shown here; the workspace's audit log records it.",
+                      "properties": {
+                        "plan": {
+                          "type": "string",
+                          "enum": [
+                            "free",
+                            "starter",
+                            "standard",
+                            "team",
+                            "ultimate"
+                          ]
+                        },
+                        "until": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "When the override ends (ISO 8601); null when it lasts until an operator clears it."
+                        },
+                        "base_plan": {
+                          "type": "string",
+                          "enum": [
+                            "free",
+                            "starter",
+                            "standard",
+                            "team",
+                            "ultimate"
+                          ],
+                          "description": "The plan without the override: the subscription's, or Free."
+                        }
+                      }
                     },
                     "subscription": {
                       "type": [
@@ -41012,7 +41512,7 @@
                     },
                     "terms_version": {
                       "type": "string",
-                      "description": "The current Terms of Use version (currently `2026-10-01`): the value `accept_terms` must have."
+                      "description": "The current Terms of Use version (currently `2026-11-11`): the value `accept_terms` must have."
                     },
                     "terms_url": {
                       "type": "string",
@@ -41113,7 +41613,7 @@
                   },
                   "accept_terms": {
                     "type": "string",
-                    "description": "Must equal the current Terms of Use version, `2026-10-01` (also in the challenge response as `terms_version`). By sending it the agent accepts the Terms at https://hookie.ai/legal/terms for the person or organization it acts for; the version is recorded on the account."
+                    "description": "Must equal the current Terms of Use version, `2026-11-11` (also in the challenge response as `terms_version`). By sending it the agent accepts the Terms at https://hookie.ai/legal/terms for the person or organization it acts for; the version is recorded on the account."
                   },
                   "pow": {
                     "type": "object",
@@ -42157,6 +42657,87 @@
             }
           }
         }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceTable",
+        "summary": "Delete a table",
+        "description": "Dedicated workspace database. Pro or Team required. Owners and admins (hookie:manage). Deletes the table for good (#542): every row, its saved views, the table inputs that feed it, the dashboard widgets that read it (the dashboards keep the rest), its graph nodes and edges, and its Brain inclusion choice. A Brain pipeline that targets it is switched off with a reason. The body must repeat the table's name. Audited as `delete_workspace_table`, naming the table, never a row.",
+        "tags": [
+          "Data workspace"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "confirm"
+                ],
+                "properties": {
+                  "confirm": {
+                    "type": "string",
+                    "description": "The table's name, exactly."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "deleted": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "integer"
+                        },
+                        "inputs": {
+                          "type": "integer"
+                        },
+                        "pipelines_disabled": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The confirmation does not match the table's name"
+          },
+          "403": {
+            "description": "Plan or role does not allow this operation (admin or owner required)"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     },
     "/admin/api/data-workspace/tables/{table_id}/rows": {
@@ -42965,7 +43546,7 @@
       "post": {
         "operationId": "importWorkspaceRecords",
         "summary": "Import one page of existing dataset records",
-        "description": "Processes up to 100 records from this workspace/project/dataset. Returns imported, failed, and next (null when complete). Pass next as after to continue. Safe to repeat: ingestion never overwrites manual edits or resurrects deleted records. Mapping errors are shown on the connection; correct and replay before the source retention expires.",
+        "description": "Processes up to 100 records from this workspace/project/dataset. Returns imported (rows this call wrote), existing (rows live capture had already written), failed, and next (null when complete). Pass next as after to continue. Safe to repeat: ingestion never overwrites manual edits or resurrects deleted records. Mapping errors are shown on the connection; correct and replay before the source retention expires.",
         "tags": [
           "Data workspace"
         ],
@@ -44879,6 +45460,2253 @@
                 "additionalProperties": false
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/documents": {
+      "get": {
+        "operationId": "listBrainDocuments",
+        "summary": "List Brain documents",
+        "description": "Returns at most 100 documents in ID order for the authenticated workspace, with indexing state, error, inclusion and pipeline. The next cursor is null on the last page.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "uploadBrainDocument",
+        "summary": "Upload a Brain document",
+        "description": "Requires write access and the Ultimate plan or the Brain add-on. Send either JSON {pipeline_id, name, text} or the raw file with ?pipeline_id=&name= and its Content-Type. The pipeline must be an enabled documents pipeline with an upload source. ASCII plain text only, at most 1 MiB; other bytes answer 415 rather than being truncated. Returns 202 with the document in state processing (it is chunked, embedded and indexed in the background), or 200 with duplicate: true when the same bytes were already uploaded through that pipeline. 429 means a storage, embedding or job allowance is exhausted; 503 means document storage is not configured.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "202": {
+            "description": "Accepted; indexing in the background"
+          },
+          "415": {
+            "description": "Unsupported content"
+          },
+          "429": {
+            "description": "Brain allowance exhausted"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pipeline_id",
+                  "name",
+                  "text"
+                ],
+                "properties": {
+                  "pipeline_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/documents/{document_id}/inclusion": {
+      "patch": {
+        "operationId": "setBrainDocumentInclusion",
+        "summary": "Change document retrieval inclusion",
+        "description": "Requires write access. Inclusion changes use their own revision, separate from content_version. Stale revisions or deleting documents return 409. Exclusion preserves the original document.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "included",
+                  "expected_version"
+                ],
+                "properties": {
+                  "included": {
+                    "type": "boolean"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/pipelines": {
+      "get": {
+        "operationId": "listBrainPipelines",
+        "summary": "List Brain ingestion pipelines",
+        "description": "Returns the workspace's Brain ingestion pipelines and the per-workspace limit. Brain pipelines are workspace-owned and separate from project workflows, which never appear here.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBrainPipeline",
+        "summary": "Create a Brain ingestion pipeline",
+        "description": "Requires write access. A table pipeline reads project_dataset sources, applies optional filter steps and exactly one final map step, and writes to a workspace table. A documents pipeline reads upload and S3 sources and applies content_types and chunk steps. Definitions never carry credentials. Pipelines start disabled unless enabled is true; at most 50 per workspace.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "sources",
+                  "target"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "sources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "project_id",
+                            "dataset"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "project_dataset"
+                              ]
+                            },
+                            "project_id": {
+                              "type": "string"
+                            },
+                            "dataset": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "upload"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "bucket",
+                            "region"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "s3"
+                              ]
+                            },
+                            "bucket": {
+                              "type": "string"
+                            },
+                            "region": {
+                              "type": "string",
+                              "example": "us-east-1"
+                            },
+                            "prefix": {
+                              "type": "string",
+                              "maxLength": 512
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "path",
+                            "op"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "filter"
+                              ]
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "contains",
+                                "exists"
+                              ]
+                            },
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "mappings"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "map"
+                              ]
+                            },
+                            "mappings": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "allow"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "content_types"
+                              ]
+                            },
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "text/plain"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "max_chars"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "chunk"
+                              ]
+                            },
+                            "max_chars": {
+                              "type": "integer",
+                              "minimum": 128,
+                              "maximum": 510
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "table_id"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "table"
+                            ]
+                          },
+                          "table_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "documents"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/pipelines/{pipeline_id}": {
+      "get": {
+        "operationId": "getBrainPipeline",
+        "summary": "Get a Brain ingestion pipeline",
+        "description": "Returns one pipeline with its current revision.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateBrainPipeline",
+        "summary": "Update a Brain ingestion pipeline",
+        "description": "Requires write access and the current revision. Name, description and enabled may change alone; sources, steps and target are replaced together. A stale revision returns 409.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "revision"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "sources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "project_id",
+                            "dataset"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "project_dataset"
+                              ]
+                            },
+                            "project_id": {
+                              "type": "string"
+                            },
+                            "dataset": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "upload"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "bucket",
+                            "region"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "s3"
+                              ]
+                            },
+                            "bucket": {
+                              "type": "string"
+                            },
+                            "region": {
+                              "type": "string",
+                              "example": "us-east-1"
+                            },
+                            "prefix": {
+                              "type": "string",
+                              "maxLength": 512
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "path",
+                            "op"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "filter"
+                              ]
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "contains",
+                                "exists"
+                              ]
+                            },
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "mappings"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "map"
+                              ]
+                            },
+                            "mappings": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "allow"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "content_types"
+                              ]
+                            },
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "text/plain"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "max_chars"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "chunk"
+                              ]
+                            },
+                            "max_chars": {
+                              "type": "integer",
+                              "minimum": 128,
+                              "maximum": 510
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "table_id"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "table"
+                            ]
+                          },
+                          "table_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "documents"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBrainPipeline",
+        "summary": "Delete a Brain ingestion pipeline",
+        "description": "Requires write access and the current revision. Knowledge the pipeline already wrote stays in the Brain.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/pipelines/{pipeline_id}/runs": {
+      "get": {
+        "operationId": "listBrainPipelineRuns",
+        "summary": "List Brain pipeline runs",
+        "description": "The 25 most recent runs of the pipeline, newest first, with state and processed, written, skipped and failed counts.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "startBrainPipelineRun",
+        "summary": "Start a Brain pipeline backfill run",
+        "description": "Requires write access. For a table pipeline, queues a backfill over every existing record of its project dataset sources (writes are idempotent per pipeline and record). For a documents pipeline with S3 sources, queues a sync: new and changed text objects are fetched and ingested, unchanged ones skipped, deleted ones' documents removed. Only one run per pipeline can be queued or running (409 otherwise); a documents pipeline without an S3 source returns 400.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/pipelines/{pipeline_id}/runs/{run_id}": {
+      "get": {
+        "operationId": "getBrainPipelineRun",
+        "summary": "Get a Brain pipeline run",
+        "description": "Returns one run with its counts and the last record error.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "cancelBrainPipelineRun",
+        "summary": "Cancel a Brain pipeline run",
+        "description": "Requires write access. Only state: cancelled is accepted; a finished run returns 409. Rows already written stay.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "state"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "cancelled"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/documents/{document_id}": {
+      "get": {
+        "operationId": "getBrainDocument",
+        "summary": "Get a Brain document",
+        "description": "Returns one document with its indexing state, error, inclusion and inclusion_version.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteBrainDocument",
+        "summary": "Delete a Brain document",
+        "description": "Requires write access. The document leaves retrieval immediately. Its original and vectors are then removed, and its storage allowance is released once the vector index confirms deletion: 200 with purged: true when that finished now, 202 with purged: false when a background sweep will finish it.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          },
+          "202": {
+            "description": "Deleting; finished by a background sweep"
+          }
+        },
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/documents/{document_id}/content": {
+      "get": {
+        "operationId": "getBrainDocumentContent",
+        "summary": "Download a Brain document's original",
+        "description": "Returns the stored original as an attachment, byte for byte.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "The original file",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/data-workspace/usage": {
+      "get": {
+        "operationId": "getBrainUsage",
+        "summary": "Brain document allowance and usage",
+        "description": "The workspace's document Brain tier (ultimate, addon or null), each allowance with what the workspace and the signed-in member have used of it (storage and vectors are lifetime totals; the rest reset monthly, UTC), and the document count against its limit. tier null means the workspace has no document Brain; tables, graph and project pipelines are unaffected.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/search": {
+      "post": {
+        "operationId": "searchBrainDocuments",
+        "summary": "Search Brain documents",
+        "description": "Semantic search over the workspace's Brain documents. A read (viewers may run it) that takes its query as a POST body. The query is embedded and matched in the workspace's own vector namespace; each hit is re-checked against current state, so only ready, included documents return passage text. Each search counts one vector query and one embedding (512 tokens) against the workspace and member allowances; 429 when either is exhausted. Requires Ultimate or the Brain add-on.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "429": {
+            "description": "Brain allowance exhausted"
+          },
+          "503": {
+            "description": "Search is not configured"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "maxLength": 510
+                  },
+                  "top_k": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "default": 5
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/pipelines/{pipeline_id}/s3": {
+      "get": {
+        "operationId": "listBrainS3Sources",
+        "summary": "List a pipeline's S3 sources",
+        "description": "Each S3 source of the documents pipeline with has_credentials, credentials_updated_at, last_synced_at and last_error. Credentials are never returned.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "setBrainS3Credentials",
+        "summary": "Set credentials for an S3 source",
+        "description": "Requires write access and the Ultimate plan or the Brain add-on; refused to connected OAuth agents (agent_not_permitted), so AWS keys are entered by a person or an API key. Stores the access key, secret and optional session token for the source named by bucket, region and prefix, AES-256-GCM encrypted; they are never returned. 409 when the plan's S3 source limit is reached. Use a read-only IAM principal limited to s3:ListBucket and s3:GetObject on that prefix.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bucket",
+                  "region",
+                  "access_key_id",
+                  "secret_access_key"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "bucket": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "prefix": {
+                    "type": "string"
+                  },
+                  "access_key_id": {
+                    "type": "string"
+                  },
+                  "secret_access_key": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "session_token": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBrainS3Credentials",
+        "summary": "Remove credentials for an S3 source",
+        "description": "Requires write access. Removes the stored credentials for the source named by bucket, region and prefix; syncs of it then fail until new ones are set. Documents already ingested stay.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bucket",
+                  "region"
+                ],
+                "properties": {
+                  "bucket": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "prefix": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/billing/brain-addon": {
+      "post": {
+        "operationId": "addBrainAddon",
+        "summary": "Add the Brain add-on",
+        "description": "Owner only, never an agent. Adds the Workspace Brain add-on (document storage, embeddings, vector search, S3 sync) as a second item on the workspace's paid Pro or Team subscription, prorated. Offered only when its Stripe price exists, document storage is configured, and its price clears the modeled 20% margin at full capacity (501 otherwise). The add-on becomes active when Stripe's subscription event arrives, never from this response.",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted; applied when Stripe's subscription event arrives"
+          },
+          "200": {
+            "description": "Removal requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Stripe could not charge the payment method"
+          },
+          "403": {
+            "description": "Only the owner, never an agent"
+          },
+          "404": {
+            "description": "No add-on to remove"
+          },
+          "409": {
+            "description": "Not on a paid Pro or Team subscription, already added, or Ultimate"
+          },
+          "501": {
+            "description": "The add-on is not offered yet"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeBrainAddon",
+        "summary": "Remove the Brain add-on",
+        "description": "Owner only. Removes the add-on item from the subscription, prorated. New document work stops when Stripe's event arrives; existing documents are kept.",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted; applied when Stripe's subscription event arrives"
+          },
+          "200": {
+            "description": "Removal requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Stripe could not charge the payment method"
+          },
+          "403": {
+            "description": "Only the owner, never an agent"
+          },
+          "404": {
+            "description": "No add-on to remove"
+          },
+          "409": {
+            "description": "Not on a paid Pro or Team subscription, already added, or Ultimate"
+          },
+          "501": {
+            "description": "The add-on is not offered yet"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/memories": {
+      "get": {
+        "operationId": "listMemories",
+        "summary": "List AI memories",
+        "description": "Personal AI memory artifacts (#533). Returns the caller's own memories and those their team shared (default), only their own (scope=mine), or only shared ones (scope=team). A member's private memories are never visible to anyone else, including owners and admins. Filter by source app, chat thread or project, or search with q. Newest first; limit 1\u2013100, with total.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mine",
+                "team"
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "claude",
+                "claude-code",
+                "chatgpt",
+                "codex",
+                "other",
+                "console"
+              ]
+            }
+          },
+          {
+            "name": "thread",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "saveMemory",
+        "summary": "Save an AI memory",
+        "description": "Requires write access. Saves a memory artifact in the caller's personal context. The source app is taken from the connected agent's OAuth registration (Claude, Claude Code, ChatGPT, Codex). `client` is used only when the registration does not say, and console saves are `console`. With a memory_key, saving again from the same source updates that artifact (200) instead of creating another (201). Private unless visibility is team. At most 2,000 memories per member and 32,768 characters each.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          },
+          "201": {
+            "description": "Created"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "content"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "memory_key": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "thread": {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "https only"
+                      }
+                    }
+                  },
+                  "project_id": {
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "private",
+                      "team"
+                    ],
+                    "default": "private"
+                  },
+                  "client": {
+                    "type": "string",
+                    "enum": [
+                      "claude",
+                      "claude-code",
+                      "chatgpt",
+                      "codex"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/memories/threads": {
+      "get": {
+        "operationId": "listMemoryThreads",
+        "summary": "List chat threads with memories",
+        "description": "The caller's chat threads that have memories, by source app, with the count and latest update, newest first.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/memories/{memory_id}": {
+      "get": {
+        "operationId": "getMemory",
+        "summary": "Get an AI memory",
+        "description": "One memory the caller saved, or one shared with their team; 404 otherwise. `editable` says whether the caller is its author.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "memory_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateMemory",
+        "summary": "Update an AI memory",
+        "description": "Author only (403 otherwise), at the current revision (409 when stale). Changes title, content, tags, the linked project (null to unlink), or visibility (team shares it; private un-shares it).",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "memory_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "revision"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "project_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "private",
+                      "team"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMemory",
+        "summary": "Delete an AI memory",
+        "description": "Its author deletes it; an owner or admin may remove a memory that was shared with the team. `removed_by` says which.",
+        "tags": [
+          "Data workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Plan, role, or project scope does not allow this operation"
+          },
+          "404": {
+            "description": "Resource not found in this workspace"
+          },
+          "409": {
+            "description": "Version conflict, provisioning, or capacity limit"
+          }
+        },
+        "parameters": [
+          {
+            "name": "memory_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/projects/{project_id}/records/{id}/history": {
+      "get": {
+        "operationId": "getRecordHistory",
+        "summary": "A project record's chain of custody",
+        "tags": [
+          "Records"
+        ],
+        "description": "Who created the record (the ingest key, endpoint, trigger or other credential, and the submission it came from), and whether it was later erased, by whom and why (record_erasure, dataset_purge, project_delete). Survives the record's erasure: the ledger holds ids and credentials, never the payload. Expiry by the retention window writes no event. Kept for the audit log's window (at least 365 days). Any member may read it. Records created before #543 have no ledger and answer 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Record id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record's events, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "record_id",
+                    "history"
+                  ],
+                  "properties": {
+                    "record_id": {
+                      "type": "string"
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecordEvent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No history for this record in this project (also for a record in another project or workspace).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/data-workspace/tables/{table_id}/rows/{record_id}/history": {
+      "get": {
+        "operationId": "getWorkspaceRecordHistory",
+        "summary": "A workspace table record's change history",
+        "tags": [
+          "Data workspace"
+        ],
+        "description": "Every change to the record, oldest first: who (actor_sub, actor_agent), through what (credential), when, and the changed fields with their values before and after. Written in the same transaction as each change, whatever made it (console, API key, connected agent, table input, bulk import, workflow, Brain pipeline, graph mutation). After a delete, every entry keeps who acted and which fields changed, with no values. Dedicated workspace database; Pro or Team required. Any member may read it.",
+        "parameters": [
+          {
+            "name": "table_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record's history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "table_id",
+                    "record_id",
+                    "history"
+                  ],
+                  "properties": {
+                    "table_id": {
+                      "type": "string"
+                    },
+                    "record_id": {
+                      "type": "string"
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecordHistoryEntry"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid record id"
+          },
+          "403": {
+            "description": "Plan does not include the data workspace"
+          },
+          "404": {
+            "description": "Table not found in this workspace"
+          },
+          "503": {
+            "description": "Database unavailable"
           }
         }
       }
