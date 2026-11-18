@@ -1,0 +1,131 @@
+---
+title: "Brain pipelines and documents"
+description: "Build visual pipelines, backfill project data, upload text, sync S3 and search document passages."
+icon: "diagram-project"
+---
+
+Open **Workspace Brain → Pipelines** to turn project datasets into table records,
+or prepare documents for search. These workspace pipelines are separate from a
+project's event-driven [workflows](/workflows).
+
+## Choose your pipeline
+
+| Capability | Pro and Team | Pro or Team with Brain add-on | Ultimate |
+| --- | --- | --- | --- |
+| Tables, graph and project-data pipelines | Included | Included | Included |
+| Document uploads, S3 sync and semantic search | Not included | Included | Included |
+
+Ultimate and the add-on appear in **Plan & billing** when available. The add-on
+normally costs $10.00 a month; Ultimate is $100.00 a month flat. Check the offer
+shown before checkout. A past-due add-on stops new document uploads, syncs and
+searches; it does not erase existing documents.
+
+## Build a table pipeline
+
+1. Choose **New pipeline**, name it, and choose a table destination.
+2. Add a project and dataset source. You can select nodes on the canvas or from
+   the node list to edit their settings.
+3. Add filters for the records you want to keep. Filters support equality,
+   inequality, containment and existence on dotted paths such as `customer.email`.
+   Equality distinguishes text, numbers, booleans and null.
+4. Map the destination table's field keys to paths in the source record.
+   Use the step controls to order filters; the mapping step stays last.
+5. Review validation messages and save the pipeline.
+
+Canvas positions only arrange the view; the processing step order controls what
+runs. Saving does not start a backfill. Choose **Run backfill now** from the
+pipeline's actions to process its existing source records, then **Runs…** to
+inspect progress. Backfills continue through bounded batches; repeating one
+preserves records already captured by that pipeline. Enabled pipelines also
+capture new matching dataset records.
+
+Edits use a revision check. A conflict keeps your draft open so you can preserve
+it and review the newer version before saving again. Readers can inspect runs;
+editing requires write access. A workspace can hold up to 50 pipelines.
+
+## Upload documents
+
+Create a documents pipeline with **Uploads** as a source and **Documents** as its
+destination. You can restrict content to `text/plain` and choose a chunk size
+from 128 to 510 characters; each of those processing steps can appear once.
+
+Enable and save the documents pipeline, then open **Documents** and select it to upload to. Disabled pipelines are not offered for uploads. Only ASCII plain text
+up to **1 MiB** per document is supported. PDF, Word, images and non-ASCII text
+are not accepted. Unsupported uploads are refused, not silently truncated.
+A document may create at most 2,500 chunks, so a smaller chunk size can reach that limit before 1 MiB. Uploading identical bytes through the same pipeline returns the existing document.
+
+The document moves from `pending` to `processing` and then `ready`, or to `failed`
+with an error. Its original file is retained, and its text is split into passages
+that can be found by semantic search. Excluding a document from Brain search keeps
+its original file but removes it from retrieval.
+
+## Sync an S3 prefix
+
+Add an **S3** source to a documents pipeline, with its bucket, AWS region and
+optional prefix. After saving, open **S3 sources…** to configure credentials.
+Credentials are separate from the pipeline definition, encrypted at rest and
+never returned by the listing API. Connected OAuth agents cannot set them.
+
+Use an AWS principal restricted to listing the chosen bucket prefix and reading
+its objects. Hookie does not need write or delete access to your bucket.
+
+Choose **Sync S3 now** to start a run. Enabled sources with credentials also sync
+hourly. Hookie lists and reads the chosen AWS regional S3 endpoint without
+following redirects. Unchanged ETags are skipped without fetching their content.
+A changed object replaces the document from its previous version. After a complete
+listing, objects removed from the prefix have their corresponding documents deleted.
+
+Supported text extensions are `.txt`, `.text`, `.md`, `.markdown`, `.csv`, `.log`
+and `.json`. Empty objects, unsupported formats and objects larger than 1 MiB
+are skipped with a reason. The same ASCII restriction applies to uploads and S3.
+
+## Search documents
+
+Search asks for a query and up to 20 results. Queries support ASCII text up to
+510 characters. Results return relevant passages from documents currently ready
+and included in this workspace. Excluded or deleting documents are not returned.
+Semantic document search is distinct from graph traversal: it does not search
+arbitrary graph properties or automatically create relationships.
+
+Readers can search. Each query consumes an embedding and a vector query from
+the workspace and acting member's allowances.
+
+## Delete a document
+
+Deleting a document immediately removes it from search. Removing its indexed
+passages and original file can continue in the background. An API `202` response
+means deletion is still pending; storage allowance is released only after removal
+is verified. Hookie cannot retract passages already sent to a connected agent.
+
+## Allowances
+
+Both the workspace and the acting member must have capacity. Monthly meters
+reset on the first of the month at 00:00 UTC. Stored bytes and vectors remain
+allocated until the corresponding content is deleted; they do not reset monthly.
+No automatic overage charges apply.
+
+| Allowance | Brain add-on: workspace / member | Ultimate: workspace / member |
+| --- | --- | --- |
+| Stored bytes | 2 GiB / 1 GiB | 10 GiB / 2 GiB |
+| Stored vectors | 100,000 / 50,000 | 500,000 / 100,000 |
+| Embedding tokens per month | 5 million / 2.5 million | 20 million / 5 million |
+| Vector writes per month | 60,000 / 30,000 | 250,000 / 60,000 |
+| Searches per month | 25,000 / 12,500 | 100,000 / 25,000 |
+| Ingestion jobs per month | 5,000 / 2,500 | 20,000 / 5,000 |
+| S3 requests per month | 50,000 / 25,000 | 200,000 / 50,000 |
+| S3 bytes per month | 2 GiB / 1 GiB | 10 GiB / 2 GiB |
+| Upload bytes per month | 2 GiB / 1 GiB | 10 GiB / 2 GiB |
+| Documents per workspace | 5,000 | 20,000 |
+| S3 sources per workspace | 3 | 10 |
+
+## Connected agents and API
+
+Use `list_brain_pipelines`, `create_brain_pipeline`, `update_brain_pipeline` and
+`start_brain_pipeline_run` to manage pipelines, `upload_brain_document` for text,
+`search_brain_documents` for retrieval, and `get_brain_usage` for allowances.
+They use the same read/write grants and validation as the console.
+
+The HTTP routes are under `/admin/api/data-workspace`: `/pipelines`, `/documents`,
+`/search` and `/usage`. The [API reference](/api-reference) describes every request
+field. The CLI exposes the same catalog as `hookie brain-pipelines …`,
+`hookie brain-documents …` and related groups in the [command reference](/cli/commands).

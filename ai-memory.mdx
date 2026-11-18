@@ -1,0 +1,63 @@
+---
+title: "Personal AI memory"
+description: "Save reusable context from connected agents, keep it private or share selected memories with your team."
+icon: "brain"
+---
+
+**Workspace Brain → AI Memory** keeps reusable notes from your agent conversations
+in Hookie. It is included with Pro, Team and Ultimate and does not require the
+document Brain add-on.
+
+## Connect your agent
+
+Connect Claude, Claude Code, ChatGPT, Codex or another MCP client to Hookie's
+hosted MCP server at `https://app.hookie.ai/mcp`. Follow [Connected agents](/connected-agents)
+to authorize it and choose the workspace. Existing-account connections start
+read-only; widen the grant to write in **Settings → Connected agents** before
+asking the agent to save a memory.
+
+Hookie cannot read the private memory stored inside another AI application's
+account. Your connected agent explicitly saves the context you want to reuse,
+then retrieves it through Hookie in a later conversation.
+
+## Save and recall
+
+Ask your agent to save a title, content and optional tags with `save_memory`.
+It can include a chat thread ID, title and HTTPS link so you can trace the source.
+A stable `memory_key` lets the same source app update an existing artifact instead
+of creating a duplicate.
+
+Use `list_memories` or `get_memory` to recall context, `update_memory` to edit it,
+and `delete_memory` to remove it. `list_memory_threads` lists the saved thread
+groups. The console lets you filter by app, chat thread and search text, then open
+a memory to edit it or follow its source thread.
+
+The CLI exposes these tools as `hookie memories …`. The explicit project behavior below requires `@hookieai/cli` **0.3.1 or later**. Use `--project` explicitly when you want to link a saved memory, filter a list or change an existing link. Omitting it does not apply the Default project.
+
+Memories are limited to **2,000 per member**, with up to **32,768 characters** each.
+The source app is attributed from the connected agent's registration where
+available; console saves are labelled `console`.
+
+## Keep private or share with your team
+
+A memory is private to its author by default. Other members, including workspace
+owners and admins, cannot read it. Private memories are omitted from workspace
+exports.
+
+To share a memory, set its visibility to **Team**. Linking it to a project is optional.
+Every member of the workspace, and their authorized agents, can then read it.
+The project is a context label, not a restriction to that project's members.
+Only the author can edit the memory. An owner or admin can remove a shared memory.
+Shared memories are included in workspace exports.
+
+Change visibility back to **Private** to stop future shared reads. This cannot
+retract copies already returned to other people or agents.
+
+## Leaving and deletion
+
+Removing a member or leaving the workspace removes that member's private memories
+from the workspace. Memories they shared remain available to the team. Workspace
+erasure removes both private and shared memories.
+
+Deleting a memory removes it from Hookie; it does not delete the original chat
+thread or copies in an external AI application.

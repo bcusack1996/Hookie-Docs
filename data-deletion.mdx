@@ -18,7 +18,8 @@ Deleting a record also deletes every copy Hookie keeps of it:
 - its **deliveries**, replays included, with the responses your destinations returned;
 - deliveries **held** for it because the monthly allowance was used up;
 - the **workflow runs** it started, with their step log and the AI calls they made. A run that is still going is stopped first;
-- the output of **AI triggers** that ran on it. A trigger run that had not started yet will not run.
+- the output of **AI triggers** that ran on it. A trigger run that had not started yet will not run;
+- table rows and Brain pipeline copies derived from the source record, together with their graph nodes and relationships. Stored record values in custody history are cleared; audit metadata about the deletion is retained.
 
 Copies already delivered to your destinations are theirs: Hookie cannot recall them.
 
@@ -47,11 +48,21 @@ curl -X POST https://app.hookie.ai/admin/api/projects/$PROJECT_ID/datasets/order
   -d '{"confirm": "orders"}'
 ```
 
-The answer is `200` with `"status": "done"`, or `202` with `"status": "running"` and `records_remaining`. `GET` the same path to follow it. There is no MCP tool for this: a purge has to be typed out by a person.
+The answer is `200` with `"status": "done"`, or `202` with `"status": "running"` and `records_remaining`. `GET` the same path to follow it. Connected agents with manage access can use `purge_dataset` with the exact dataset name as confirmation. The CLI exposes `hookie datasets purge`; repeat a running purge or follow its status until it is done.
+
+## Delete workspace tables and documents
+
+In **Data workspace**, deleting a table removes its records, saved views, inputs, graph data and dashboard widgets that read it. It also disables Brain pipelines targeting that table. Only owners and admins may delete a table, and confirmation must repeat the table name.
+
+For **Workspace Brain → Documents**, deletion removes the document from search immediately. Removing its indexed passages and original file may continue in the background; a pending response is not a completed erasure. See [Document deletion](/brain-ingestion#delete-a-document).
+
+[AI Memory](/ai-memory) has separate author and sharing rules. Private memories are not part of a workspace export. Workspace closure erases both private and shared memories.
 
 ## Export all data
 
-**Settings → Export & closure → Export all data** downloads one file with everything the workspace holds: projects, endpoints, rules, keys, destinations, sources, triggers, workflows, members and pending invites (never an invite's link), every stored record and raw submission, delivery history, workflow and AI runs, and the audit log. Owners and admins can export.
+**Settings → Export & closure → Export all data** downloads one file with the workspace data you are authorized to export: projects, endpoints, rules, keys, destinations, sources, triggers, workflows, members and pending invites (never an invite's link), every stored record and raw submission, delivery history, workflow and AI runs, and the audit log. Owners and admins can export.
+
+The export also includes workspace tables and graph state. It excludes private AI memories, even when an owner or admin requests it. Shared memories are included.
 
 The file is [JSON Lines](https://jsonlines.org): one JSON object per line.
 

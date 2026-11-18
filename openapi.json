@@ -2271,6 +2271,71 @@
             "description": "Why an erased record went: deleted on its own, with a dataset purge, or with its project. null for created."
           }
         }
+      },
+      "FormTheme": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "type": "string",
+            "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "description": "Hex colour, stored lower-case"
+          },
+          "font": {
+            "type": "string",
+            "enum": [
+              "system",
+              "serif",
+              "mono"
+            ]
+          },
+          "corners": {
+            "type": "string",
+            "enum": [
+              "square",
+              "rounded",
+              "pill"
+            ]
+          },
+          "color_scheme": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "light",
+              "dark"
+            ]
+          }
+        }
+      },
+      "FormSettings": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "description": "How a rendered form looks (#583): read by the hosted page, the embed and the renderers through GET /v1/forms/{workspace}/{project}/{slug}. Display only; ingest never reads it. null clears it.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "submit_label": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Default \"Send\""
+          },
+          "success_message": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "theme": {
+            "$ref": "#/components/schemas/FormTheme"
+          }
+        }
       }
     },
     "parameters": {
@@ -10866,7 +10931,27 @@
                                   "description": "Required for select; for checkbox, limits the allowed values"
                                 },
                                 "label": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "description": "Shown above the field. Display only."
+                                },
+                                "placeholder": {
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "description": "Shown inside an empty field. Display only."
+                                },
+                                "help": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "description": "Shown under the field. Display only."
+                                },
+                                "default": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean"
+                                  ],
+                                  "description": "The value a rendered form starts with. Display only: never applied to a submission."
                                 }
                               }
                             }
@@ -10888,6 +10973,9 @@
                           "turnstile_enabled": {
                             "type": "boolean",
                             "description": "Hookie Forms (#342): whether a Turnstile secret is stored, so submissions are verified. The secret itself is never returned."
+                          },
+                          "form_settings": {
+                            "$ref": "#/components/schemas/FormSettings"
                           }
                         }
                       }
@@ -11422,7 +11510,27 @@
                           "description": "Required for select; for checkbox, limits the allowed values"
                         },
                         "label": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 200,
+                          "description": "Shown above the field. Display only."
+                        },
+                        "placeholder": {
+                          "type": "string",
+                          "maxLength": 200,
+                          "description": "Shown inside an empty field. Display only."
+                        },
+                        "help": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "description": "Shown under the field. Display only."
+                        },
+                        "default": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ],
+                          "description": "The value a rendered form starts with. Display only: never applied to a submission."
                         }
                       }
                     }
@@ -11447,6 +11555,9 @@
                       "null"
                     ],
                     "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
+                  },
+                  "form_settings": {
+                    "$ref": "#/components/schemas/FormSettings"
                   }
                 }
               }
@@ -12062,7 +12173,27 @@
                           "description": "Required for select; for checkbox, limits the allowed values"
                         },
                         "label": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 200,
+                          "description": "Shown above the field. Display only."
+                        },
+                        "placeholder": {
+                          "type": "string",
+                          "maxLength": 200,
+                          "description": "Shown inside an empty field. Display only."
+                        },
+                        "help": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "description": "Shown under the field. Display only."
+                        },
+                        "default": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ],
+                          "description": "The value a rendered form starts with. Display only: never applied to a submission."
                         }
                       }
                     }
@@ -12087,6 +12218,9 @@
                       "null"
                     ],
                     "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
+                  },
+                  "form_settings": {
+                    "$ref": "#/components/schemas/FormSettings"
                   }
                 }
               }
@@ -12165,6 +12299,9 @@
                     },
                     "turnstile_enabled": {
                       "type": "boolean"
+                    },
+                    "form_settings": {
+                      "$ref": "#/components/schemas/FormSettings"
                     }
                   }
                 }
@@ -47707,6 +47844,160 @@
           },
           "503": {
             "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/v1/forms/{workspace}/{project}/{slug}": {
+      "get": {
+        "operationId": "getPublicFormSchema",
+        "summary": "A form's public schema: fields, display text, Turnstile site key and theme",
+        "description": "Public and unauthenticated, like the endpoint URL it describes (its three segments are the endpoint URL's path). What a hosted form page, an embed or a renderer draws the form from. Carries no ids, dataset, destinations or secrets. Cached for 60 seconds; a change to the endpoint clears it in the data centre that served the change. Answers 404 for an unknown, disabled or suspended endpoint and for one that declares no form_fields and no form_settings. Any origin may read it (Access-Control-Allow-Origin: *). Cache misses are limited per client IP before database lookup (best effort, 60 per minute); cached schemas do not consume this allowance. URL rotation invalidates superseded schemas in the serving data centre; other data centres can retain them for the remaining 60-second cache lifetime.",
+        "tags": [
+          "Ingest"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The form's schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "schema_version",
+                    "action",
+                    "fields",
+                    "title",
+                    "description",
+                    "submit_label",
+                    "success_message",
+                    "redirect",
+                    "honeypot",
+                    "turnstile_site_key",
+                    "theme"
+                  ],
+                  "properties": {
+                    "schema_version": {
+                      "type": "integer",
+                      "enum": [
+                        1
+                      ]
+                    },
+                    "action": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "The endpoint URL the form posts to (the one requested)"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "form_fields with their display properties"
+                    },
+                    "title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "submit_label": {
+                      "type": "string"
+                    },
+                    "success_message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "redirect": {
+                      "type": "boolean",
+                      "description": "Whether a native post is redirected (the URL itself is not exposed)"
+                    },
+                    "honeypot": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The hidden field name a rendered form must include, empty"
+                    },
+                    "turnstile_site_key": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Present only when the endpoint verifies Turnstile tokens"
+                    },
+                    "theme": {
+                      "$ref": "#/components/schemas/FormTheme"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many uncached schema requests; retry after 60 seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    60
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

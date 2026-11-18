@@ -6,11 +6,24 @@ icon: "code"
 
 `@hookieai/node` is Hookie's server SDK. It has no dependencies and uses only `fetch` and WebCrypto, so the same code runs on Node 18+, Cloudflare Workers, Deno and Bun. It is MIT licensed.
 
+<Note>
+As of November 17, 2026, the first public `@hookieai/node` package has not been
+published to npm. The registry returns `404`; a successful application deployment
+does not publish a package for the first time. The examples below describe the
+prepared SDK, including the security fixes planned for **0.1.1**. Until that
+release is available, use the [HTTP API](/api-reference) and
+[signature verification examples](/signatures).
+</Note>
+
+After version 0.1.1 or later is published, install it with:
+
 ```bash
-npm i @hookieai/node
+npm i @hookieai/node@^0.1.1
 ```
 
 Browser forms have their own client, `@hookieai/forms`. See [Forms](/forms).
+
+The replay-protection guidance below requires version **0.1.1 or later**.
 
 ## Verify a webhook Hookie sent you
 
@@ -25,8 +38,10 @@ export default {
   async fetch(request, env) {
     const body = await request.text();
     try {
-      const hook = await verifyWebhook(body, request.headers, env.HOOKIE_SIGNING_SECRET, { replayStore });
+      const hook = await verifyWebhook(body, request.headers, env.HOOKIE_SIGNING_SECRET, { replayStore, scheme: "standard" });
       const event = JSON.parse(body);
+      // Deduplicate business operations on a stable id in this signed body.
+      // Hookie-Event-Id is unsigned metadata, not a security boundary.
       return new Response("ok");
     } catch (err) {
       return new Response(err.reason ?? "bad request", { status: 400 });
@@ -37,7 +52,9 @@ export default {
 
 - A timestamp more than 300 seconds from now is refused. Change it with `toleranceSeconds`.
 - After you rotate a secret, Hookie signs with the new and the previous one for a day. Pass both as `[current, previous]`.
-- A `replayStore` refuses a delivery that already verified. The memory store lives in one process; behind several instances, back the same interface (`has`, `add`) with KV, a Durable Object, Redis or your database.
+- Pin `scheme: "standard"` when the sender supplies Standard Webhooks so removing headers cannot switch verification schemes. `Hookie-Delivery-Id` and `Hookie-Event-Id` are unsigned metadata; do not use them for security decisions.
+- A `replayStore` refuses a delivery that already verified. The memory store lives in one process or isolate. Behind several instances, implement `claim(id, ttlSeconds)` as an atomic check-and-insert in a Durable Object, Redis (`SET NX` with expiry), or a database transaction/unique constraint. Return `true` only to the first claimant. Separate KV reads and writes are not atomic. Older `has`/`add` stores are supported, but their concurrent claims are serialized only within one SDK instance sharing that store object.
+- By default the key is claimed when verification succeeds. To accept retries after your handler fails, use `commitReplay: "manual"` and call `await hook.commitReplay()` after success. Manual mode does not reserve a key while processing; use transactional business deduplication to prevent concurrent side effects. A manual commit can reject with `replayed` if another request claimed the key.
 - A failure is a `HookieSignatureError` whose `reason` says why, such as `timestamp_too_old` or `no_valid_signature`.
 
 More on the headers in [Signatures](/signatures).

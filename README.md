@@ -1,55 +1,42 @@
-# Mintlify Starter Kit
+# Hookie documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+This repository publishes the guides and API reference at
+[docs.hookie.ai](https://docs.hookie.ai). Hookie collects events, routes and delivers
+webhooks, and prepares workspace knowledge for people and connected AI agents.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+Start with the [quickstart](https://docs.hookie.ai/quickstart),
+[plans and limits](https://docs.hookie.ai/limits-and-plans), or
+[Workspace Brain](https://docs.hookie.ai/knowledge-graph).
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+## Editing and validation
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+Pages use MDX with YAML frontmatter. Navigation, branding and footer links are in
+`docs.json`. Keep public prices, limits and behavior consistent with the deployed
+application, and check whether a package has actually been published before
+adding an installation command.
 
-## AI-assisted writing
+`openapi.json` is copied byte-for-byte from the production specification at
+[https://hookie.ai/openapi.json](https://hookie.ai/openapi.json). The OpenAPI sync
+workflow checks that it matches; do not hand-edit it here. The generated portion
+of `cli/commands.mdx` comes from the application's CLI tool catalog.
 
-Set up your AI coding tool to work with Mintlify:
+For a local Mintlify preview, install the
+[Mintlify CLI](https://www.npmjs.com/package/mint), then run `mint dev` from this
+repository. Validate changed MDX, navigation targets and page links before
+opening a pull request.
 
-```bash
-npx skills add https://mintlify.com/docs
-```
+## Publishing
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+The Mintlify GitHub integration publishes the default branch. A documentation
+merge can therefore change the public site. Confirm application and package
+availability before merging guides for new behavior, and check the rendered pages
+after publication.
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+The first public `@hookieai/node` npm release is pending as of November 17, 2026.
+The SDK page identifies the intended version and links to HTTP and signature
+alternatives until it is available.
 
-## Development
+## Company
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
-```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
-mint dev
-```
-
-View your local preview at `http://localhost:3000`.
-
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+[Hookie](https://hookie.ai) · [Contact](https://hookie.ai/contact/) ·
+[LinkedIn](https://www.linkedin.com/company/hookie-ai/)
