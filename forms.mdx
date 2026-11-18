@@ -80,33 +80,6 @@ In React, `useHookieForm(url)` from `@hookieai/forms/react` gives you `submit`, 
 
 Install it with `npm i @hookieai/forms`. You do not need it for the forms `hookie forms init` writes, which work on their own.
 
-## Public form schema
-
-A renderer can read a form's display schema without an account:
-
-```bash
-curl https://app.hookie.ai/v1/forms/your-workspace/site/your-webhook-slug
-```
-
-The three path segments are the same ones in its public endpoint URL. The
-response contains the submission action, fields, display text, theme, honeypot
-field name and the public Turnstile site key when enabled. It does not return
-workspace IDs, datasets, destinations, redirect URLs or secret keys.
-
-Set `label`, `placeholder`, `help` and `default` on `form_fields` through the
-endpoint API. Use `form_settings` for a title, description, submit label, success
-message and theme. These properties control display only: defaults are not
-silently inserted into incoming submissions, and field validation still applies.
-Text and defaults in this schema are public to anyone with the form URL; never
-put private customer data or credentials in them.
-
-The schema permits cross-origin reads and can be cached for up to 60 seconds. Cache misses are rate limited; a `429` response includes `Retry-After`, which callers should respect. Endpoint edits and URL rotation invalidate the local cached schema; other locations can retain it until its short cache lifetime ends.
-Unknown, disabled, suspended or unconfigured forms return `404` (a previously
-cached response may remain until its short cache lifetime ends). Use the
-[API reference](/api-reference) for limits and complete response fields. This
-schema is available for your own renderer; it does not by itself create or host
-an HTML form page.
-
 ## Stop bots
 
 Both checks run before anything is stored or counted, so spam never uses your monthly events or reaches Slack.
@@ -142,6 +115,8 @@ Give the endpoint `form_fields` and it refuses a submission that does not meet t
 | `required` | Refuse a submission without it. |
 | `max_length` | Longest value allowed. Every field has a limit of 5,000 characters unless you set one. |
 | `options` | A `select` must be one of these. On a `checkbox`, every value must be. |
+| `label`, `placeholder`, `help` | What a rendered form shows above, inside and under the field. Display only. |
+| `default` | The value a rendered form starts with. Display only: a submission without the field is not given it. |
 
 The answer names every problem at once:
 
@@ -157,6 +132,72 @@ The answer names every problem at once:
 ```
 
 Fields you did not declare are still stored, so a tracking field or a new input does not break anything. Up to 50 fields can be declared.
+
+## How the form looks
+
+`form_settings` describes everything a rendered form shows around its fields. Hookie never reads it on a submission.
+
+```json
+{
+  "title": "Contact us",
+  "description": "We answer within a day.",
+  "submit_label": "Send",
+  "success_message": "Thanks, we'll be in touch.",
+  "theme": { "accent": "#3355ff", "font": "system", "corners": "rounded", "color_scheme": "auto" }
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `title`, `description` | Shown above the form. |
+| `submit_label` | The button's text. `Send` when unset. |
+| `success_message` | Shown after a submission, when the endpoint has no redirect URL. |
+| `theme.accent` | A hex colour for the button and focus ring. |
+| `theme.font` | `system`, `serif` or `mono`. |
+| `theme.corners` | `square`, `rounded` or `pill`. |
+| `theme.color_scheme` | `auto` follows the visitor's device; `light` or `dark` fixes it. |
+
+## The public form schema
+
+Everything a page needs to draw the form is public at one URL, built from the endpoint URL's own path:
+
+```bash
+curl https://app.hookie.ai/v1/forms/acme/site/f9Kx2...
+```
+
+```json
+{
+  "schema_version": 1,
+  "action": "https://app.hookie.ai/acme/site/f9Kx2...",
+  "fields": [{ "name": "email", "type": "email", "required": true, "label": "Email" }],
+  "title": "Contact us",
+  "description": null,
+  "submit_label": "Send",
+  "success_message": null,
+  "redirect": false,
+  "honeypot": "_gotcha",
+  "turnstile_site_key": "0x4AAAAAAA...",
+  "theme": { "accent": "#3355ff" }
+}
+```
+
+The response contains the submission action, fields, display text, theme, honeypot
+field name and the public Turnstile site key when enabled. It does not return
+workspace IDs, datasets, destinations, redirect URLs or secret keys. Anyone with
+the endpoint URL can read it, as they can already post to it, and any site may
+fetch it. Text and default values in the schema are public: never put private
+customer data or credentials in them.
+
+The schema can be cached for up to 60 seconds. Cache misses are rate limited;
+a `429` response includes `Retry-After`, which callers should respect. Endpoint
+edits and URL rotation invalidate the local cached schema; other locations can
+retain it until its short cache lifetime ends. Unknown, disabled, suspended or
+unconfigured forms return `404` (a previously cached response may remain until
+its cache lifetime ends).
+
+Use the [API reference](/api-reference) for limits and complete response fields.
+This schema is available for your own renderer; it does not by itself create
+or host an HTML form page.
 
 ## Where submissions go
 
@@ -174,8 +215,8 @@ Each submission counts as one event, and each destination it is delivered to as 
 | Where | How |
 | --- | --- |
 | Console | **Endpoints** tab, **Edit…** in the endpoint's menu: honeypot, Turnstile keys, form fields, redirect and allowed origins |
-| CLI | `hookie forms init`, `hookie endpoints update --honeypot _gotcha`, or an endpoint's keys in `hookie apply`. A config file never carries the Turnstile secret. |
-| MCP | `create_webhook` and `update_webhook` take `form_fields`, `honeypot`, `turnstile_site_key` and `turnstile_secret` |
+| CLI | `hookie forms init`, `hookie endpoints update --honeypot _gotcha` or `--form-settings '{"title":"Contact us"}'`, or an endpoint's keys in `hookie apply`. A config file never carries the Turnstile secret. |
+| MCP | `create_webhook` and `update_webhook` take `form_fields`, `form_settings`, `honeypot`, `turnstile_site_key` and `turnstile_secret` |
 | REST | The same fields on `POST` and `PATCH /admin/api/projects/{project_id}/webhooks`. See the [API reference](/api-reference). |
 
-A new version of an endpoint keeps its honeypot, Turnstile keys and form fields, so publishing one never opens the form to bots.
+A new version of an endpoint keeps its honeypot, Turnstile keys, form fields and form settings, so publishing one never opens the form to bots or changes how it looks.
