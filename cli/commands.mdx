@@ -28,7 +28,7 @@ Every command has its own help, the hand-written ones included: `hookie replay -
 Every command also takes the global flags: `--url`, `--project`, `--json`, `--reveal`, `--redact`, `--yes`, `--quiet`.
 
 <Note>
-  `--project` takes a **slug or an id**, and with neither it uses your workspace's Default project. There is deliberately no `--project-id`: two ways to say the same thing, one of which silently 404s on a slug, is worse than one.
+  `--project` takes a **slug or an id**. Project-scoped commands use your workspace’s Default project when it is omitted. Workspace-wide commands do not acquire a project restriction. In CLI **0.3.1 and later**, for `memories save`, `memories list` and `memories update`, an explicit `--project` sets or filters the optional project link; omitting it leaves a new memory unlinked, lists without that filter, or preserves an existing link. There is deliberately no `--project-id`: two ways to say the same thing, one of which silently 404s on a slug, is worse than one.
 </Note>
 
 ## Hand-written commands
@@ -46,224 +46,370 @@ These are not single API calls, so they are not generated. [Operations](/cli/ope
 
 ## Generated commands
 
+Synced from the production tool catalog at `hookie-ai` commit `92f018a` (143 generated commands). A project-scoped command takes the global `--project` flag described above.
+
 ### ai-agents
 
-Named model configurations a workflow's `agent_call` step runs by id. `update` changes only the flags you pass.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie ai-agents list` | `—` | This project's AI agents: named model configurations (model, system prompt, memory dataset, reply cap) that a workflow's agent_call step runs by id. |
 | `hookie ai-agents get` | `--agent-id*` | One AI agent in full, including its system prompt. |
-| `hookie ai-agents create` | `--name* --system-prompt --model --memory-dataset --max-tokens --active` | Create an AI agent: a named model configuration that workflows invoke with an agent_call step (`{type:"agent_call", agent_id}`). |
-| `hookie ai-agents update` | `--agent-id* --name --system-prompt --model --memory-dataset --max-tokens --active` | Change an AI agent in place. |
-| `hookie ai-agents delete` | `--agent-id*` | Retire an AI agent: it is set inactive, so a workflow step that names it fails until it is reactivated with update_ai_agent active:true. |
+| `hookie ai-agents create` | `--name* --system-prompt --model --memory-dataset --max-tokens --active` | Create an AI agent: a named model configuration that workflows invoke with an agent_call step (&#123;type:"agent_call", agent_id&#125;). With a memory_dataset, each reply is also stored there as a record, and the agent's latest 5 replies there are sent with its next call. An agent makes one model call and cannot call tools. Every call counts against the plan's monthly AI allowance. |
+| `hookie ai-agents update` | `--agent-id* --name --system-prompt --model --memory-dataset --max-tokens --active` | Change an AI agent in place. Only the fields you pass change; the rest keep their current values. active:false stops workflows from running it (their agent_call step fails) until it is set back to true. |
+| `hookie ai-agents delete` | `--agent-id*` | Retire an AI agent: it is set inactive, so a workflow step that names it fails until it is reactivated with update_ai_agent active:true. Its definition is kept. |
+
+### brain-document-inclusions
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-document-inclusions set` | `--document-id* --included* --expected-version*` | Include a Workspace Brain document in retrieval, or exclude it, using its current inclusion_version. Excluding keeps the original. |
+
+### brain-documents
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-documents list` | `--after` | List Workspace Brain documents (100 per page, by id) with state (pending, processing, ready, failed, deleting), size, inclusion and the pipeline that ingested them. Pass the returned next cursor as after for the next page. |
+| `hookie brain-documents get` | `--document-id*` | Read one Workspace Brain document, including its indexing state, error and inclusion_version. |
+| `hookie brain-documents upload` | `--pipeline-id* --name* --text*` | Add a plain-text document to the Workspace Brain through an enabled documents pipeline that has an upload source. ASCII text only, under 1 MiB; it is stored, chunked, embedded and indexed in the background (poll get_brain_document until ready). Uploading identical text again returns the existing document. Requires Ultimate or the Brain add-on; counts against storage and embedding allowances. |
+| `hookie brain-documents delete` ⚠️ | `--document-id*` | Delete a Workspace Brain document: it leaves retrieval immediately, then its original and vectors are removed and its storage allowance is released once deletion is confirmed. |
+| `hookie brain-documents search` | `--query* --top-k` | Semantic search over the Workspace Brain documents: returns the best-matching passages (document, passage text, score), only from ready documents that are included in retrieval. The query is ASCII text up to 510 characters; top_k 1-20 (default 5). Each search counts against the workspace and member search and embedding allowances. Requires Ultimate or the Brain add-on. |
+
+### brain-inclusion
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-inclusion set` | `--kind* --resource-id* --included* --expected-version*` | Include or exclude a table or record from Workspace Brain discovery and agent context, without deleting source data or connections. Table exclusion covers future records. Individual exclusions survive table toggles and edits. Read the current inclusion revision from get_brain_overview (tables) or get_graph_node with include_excluded=true (records), and pass expected_version; zero means no saved choice yet. Exclusion is context curation, not a replacement for access permissions. |
+
+### brain-overview
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-overview get` | `—` | Summarize the entire Workspace Brain without loading record payloads: table/standalone groups, included and excluded counts, and up to 500 aggregated relationship groups. Pro or Team; workspace-scoped credential required. |
+
+### brain-pipeline-runs
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-pipeline-runs start` | `--pipeline-id*` | Start a run of a Workspace Brain pipeline. For a table pipeline it backfills every existing record of its project dataset sources through the filters and map (idempotent: a record is written once per pipeline; enabled table pipelines also capture new records live). For a documents pipeline with S3 sources it syncs now: new and changed text files are ingested, unchanged ones skipped, deleted ones removed (enabled S3 pipelines also sync hourly). One run per pipeline can be active. |
+| `hookie brain-pipeline-runs list` | `--pipeline-id*` | List the 25 most recent runs of a Workspace Brain pipeline with their state and processed/written/skipped/failed counts. |
+| `hookie brain-pipeline-runs get` | `--pipeline-id* --run-id*` | Read one Workspace Brain pipeline run, including its counts and the last record error. |
+| `hookie brain-pipeline-runs cancel` | `--pipeline-id* --run-id*` | Cancel a queued or running Workspace Brain pipeline run. Rows it already wrote stay. |
+
+### brain-pipelines
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-pipelines list` | `—` | List the Workspace Brain ingestion pipelines. These are workspace-owned and separate from project workflows: a pipeline curates knowledge into the Brain, a project workflow routes incoming events. Each pipeline returns its sources, steps, target and current revision. |
+| `hookie brain-pipelines get` | `--pipeline-id*` | Read one Workspace Brain ingestion pipeline, including its current revision for edits. |
+| `hookie brain-pipelines create` | `--name* --description --enabled --sources* --steps --target*` | Create a Workspace Brain ingestion pipeline. A table pipeline reads project datasets (sources of type project_dataset), applies optional filter steps and exactly one final map step (table field key -&gt; dotted payload path), and writes to target &#123;type:"table",table_id&#125;. A documents pipeline reads uploads and/or S3 prefixes (no credentials in the definition), optionally restricts content_types and sets chunk max_chars (128-510), and writes to target &#123;type:"documents"&#125;. Pipelines start disabled unless enabled is true. |
+| `hookie brain-pipelines update` | `--pipeline-id* --revision* --name --description --enabled --sources --steps --target` | Update a Workspace Brain ingestion pipeline with its current revision. Name, description and enabled may change alone; sources, steps and target are replaced together. A stale revision is rejected; reload and retry. |
+| `hookie brain-pipelines delete` ⚠️ | `--pipeline-id* --revision*` | Delete a Workspace Brain ingestion pipeline at its current revision. Knowledge it already wrote to the Brain stays; project workflows are unaffected. |
+
+### brain-s3-sources
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-s3-sources list` | `--pipeline-id*` | List the S3 sources of a Workspace Brain documents pipeline: bucket, region, prefix, whether credentials are set, when it last synced and its last error. Credentials are never returned, and they are entered by a person in the console (pipeline Runs and sources), not through an agent. |
+
+### brain-usage
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie brain-usage get` | `—` | Show the Workspace Brain document allowance (tier ultimate, addon or null) and what the workspace and you have used of storage, vectors, embedding tokens, searches and source sync this month. |
 
 ### cron-triggers
 
-Owner/admin in the console, so a connected agent needs `hookie:manage`. `--payload` is JSON; `{{now}}` in it becomes the fire time.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie cron-triggers list` | `—` | This project's cron triggers: schedule, time zone, payload template, dataset, and the last and next run. |
-| `hookie cron-triggers preview` | `--schedule* --timezone` | The next five times a cron schedule would fire, before anything is saved — or the reason it cannot be stored. |
-| `hookie cron-triggers create` | `--name* --schedule* --timezone --payload --dataset` | Create a cron trigger: on its schedule it emits `payload` as an event, filed into `dataset` if given or routed by the project's rules if not (a run no rule matches is stored whole, as one record, in `default`), and fanned out like any other event. |
-| `hookie cron-triggers update` | `--cron-trigger-id* --enabled --name --schedule --timezone --payload --dataset` | Change a cron trigger in place: pause or resume it, rename it, or change its schedule, time zone, payload or dataset. With no dataset, a run no rule matches is stored whole, as one record, in `default`. |
-| `hookie cron-triggers test` | `--cron-trigger-id*` | Fire a cron trigger once, now. |
-| `hookie cron-triggers delete` ⚠️ | `--cron-trigger-id*` | Delete a cron trigger. |
+| `hookie cron-triggers preview` | `--schedule* --timezone` | The next five times a cron schedule would fire, before anything is saved — or the reason it cannot be stored. Schedules are five cron fields, at least 5 minutes apart, in an IANA time zone (default UTC). |
+| `hookie cron-triggers create` | `--name* --schedule* --timezone --payload --dataset` | Create a cron trigger: on its schedule it emits `payload` as an event, filed into `dataset` if given or routed by the project's rules if not (a run no rule matches is stored whole, as one record, in `default`), and fanned out like any other event. `payload` is a JSON template — &#123;&#123;now&#125;&#125; is replaced with the fire time. Schedules are five cron fields, at least 5 minutes apart, in an IANA time zone (default UTC); preview one first with preview_cron_schedule. Owner/admin only, so it needs hookie:manage. |
+| `hookie cron-triggers update` | `--cron-trigger-id* --enabled --name --schedule --timezone --payload --dataset` | Change a cron trigger in place: pause or resume it, rename it, or change its schedule, time zone, payload or dataset. Pass at least one. Every field is validated as create validates it; a new schedule, zone or a resume moves the next run. With no dataset, a run no rule matches is stored whole, as one record, in `default`. |
+| `hookie cron-triggers test` | `--cron-trigger-id*` | Fire a cron trigger once, now. This emits a real event, which is stored and delivered like any other. |
+| `hookie cron-triggers delete` ⚠️ | `--cron-trigger-id*` | Delete a cron trigger. It stops firing at once; events it already emitted are kept. To stop it for a while instead, update_cron_trigger with enabled:false. |
+
+### data-dashboards
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie data-dashboards list` | `—` | List workspace dashboards and their widget definitions and versions. |
+| `hookie data-dashboards get` | `--dashboard-id*` | Read a workspace dashboard and its computed widget data. |
+| `hookie data-dashboards save` | `--dashboard-id --name* --version --widgets*` | Create a dashboard, or replace its widgets using dashboard_id and the current version. Widgets support count, sum, average and bar. |
+| `hookie data-dashboards delete` ⚠️ | `--dashboard-id*` | Delete a workspace dashboard and its widgets. The tables it read are not touched. |
+
+### data-records
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie data-records insert` | `--table-id* --values*` | Insert one structured record into a workspace table. Values must match the table field keys and types; use list_workspace_tables to discover them. |
+| `hookie data-records update` | `--table-id* --record-id* --version* --values*` | Replace a workspace record’s values using its current version. A stale version returns 409; read the record again before editing. Provide all fields to preserve their values. |
+| `hookie data-records delete` ⚠️ | `--table-id* --record-id* --version*` | Delete one workspace table record at its current version. Its values and provenance are cleared at once, its graph node is emptied and its edges removed; a stale version returns 409. A capture from the same source record is not recreated. Cannot be undone. |
+
+### data-table-inputs
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie data-table-inputs list` | `--table-id*` | List project dataset inputs mapped to a workspace table. |
+| `hookie data-table-inputs connect` | `--table-id* --dataset* --mappings* --enabled --allow-workflows` | Connect a project dataset to a workspace table, mapping table field keys to dot-separated paths in incoming records. This is a project data input, not a Brain workflow. |
+| `hookie data-table-inputs update` | `--table-id* --input-id* --dataset* --mappings* --enabled* --allow-workflows*` | Replace a project dataset input mapping. Supply the full configuration, including enabled and allow_workflows; the API does not currently offer a version check for inputs. |
+| `hookie data-table-inputs delete` ⚠️ | `--table-id* --input-id*` | Remove a project dataset input configuration. Existing table records remain, but new records no longer flow through this mapping. |
+| `hookie data-table-inputs import` | `--input-id* --after` | Import up to 100 existing project records through a configured table input. Returns imported (rows this call wrote), existing (rows live capture had already written), failed (mapping errors) and next. Repeat with the returned next cursor until it is null. |
+
+### data-table-views
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie data-table-views list` | `--table-id*` | List saved views for a workspace table, including their columns, filters and sort order. |
+| `hookie data-table-views save` | `--table-id* --view-id --name* --columns --filters --sort` | Create or replace a saved table view. Columns and filters use stable field keys. Updating a view replaces its complete definition. |
+| `hookie data-table-views delete` ⚠️ | `--table-id* --view-id*` | Delete a saved view of a workspace table. The records it showed are not touched; a dashboard widget that used the view falls back to all records. |
+
+### data-tables
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie data-tables list` | `—` | List the dedicated data workspace tables and their typed fields (Pro or Team). Stable table IDs identify workspace knowledge. Requires a workspace-scoped credential. |
+| `hookie data-tables create` | `--name* --fields*` | Create a dedicated workspace table. Supply 1–40 fields with stable lowercase keys, labels and types (text, number, boolean, date, select or json). Select fields require options. |
+| `hookie data-tables update` | `--table-id* --name* --version* --fields*` | Update a workspace table with its current version. Supply the full field list; existing keys, types and select options must be preserved. |
+| `hookie data-tables query` | `--table-id* --view-id --search --limit --offset` | Read a page of editable workspace table records with provenance. Optionally use a saved view or search. Use total/limit/offset to page through all records. |
+| `hookie data-tables delete` ⚠️ | `--table-id* --confirm*` | Permanently delete a workspace table: every record in it, its saved views, the dataset inputs that feed it, dashboard widgets that read it (the dashboards keep their other widgets), its graph nodes and edges, and its Brain inclusion. A Brain pipeline that targets it is switched off. Cannot be undone. confirm must repeat the table name exactly (read it with list_workspace_tables). Owners and admins only. |
 
 ### datasets
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie datasets list` | `—` | The datasets in a project, with per-dataset record counts. |
-| `hookie datasets query` | `--dataset* --view --limit --offset` | One page of a dataset's records (25 by default), newest first; `--view` shapes it through a saved view, and `total` says how many there are in all. |
+| `hookie datasets query` | `--dataset* --view --limit --offset` | One page of a dataset's records, as a table, newest first. With `view` the columns, order and sort are that saved view's; without it you get every field any record carries, which is how to discover what is in there. `total` is the dataset's whole count — page with `limit`/`offset` rather than concluding from one page. The response also lists available_columns, so you can propose a view that does not yet exist: every top-level field across the newest 500 records (at most 300 names, in name order), plus dotted paths into nested objects such as `customer.email`, which a view's columns and sort_key accept. |
+| `hookie datasets purge` ⚠️ | `--dataset* --confirm*` | Permanently delete EVERY record in a dataset received up to now, with everything delete_record takes with a record (raw submissions, deliveries and their responses, workflow runs, AI output, workspace table copies). Records that arrive afterwards are kept. Cannot be undone. confirm must repeat the dataset name exactly. A small dataset is gone before the answer (status done); a large one answers status running and finishes in the background. Owners and admins only. |
 
 ### deliveries
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie deliveries list` | `—` | Recent outbound deliveries for a project — status, response code, destination. |
-| `hookie deliveries get` | `--delivery-id*` | One delivery in full: its latest response body and every attempt it made. |
-| `hookie deliveries metrics` | `--window --destination-id` | Delivery health per destination: success rate, p50/p95/p99 latency, failed attempts by class, and a time series. |
-| `hookie deliveries search` | `--status --destination-id --response-code --min-latency-ms --since --until --limit --offset` | Search deliveries with filters and paging. |
-| `hookie deliveries replay` | `--delivery-id*` | Re-queue a past delivery to its destination. |
+| `hookie deliveries get` | `--delivery-id*` | One delivery in full: status, next_retry_at, error, and the receiver's RESPONSE BODY (first 16 KiB) and content type from the latest attempt; plus `attempts`, EVERY attempt oldest first (time, ok, status code, latency, error and the first 512 characters of the response body), so a timeout, then a 502, then a 401 read as three attempts. `attempts_not_recorded` counts attempts made before attempt history was kept. The request body is not stored. It is rebuilt from the record: the envelope &#123;id, dataset, received_at, data&#125;, passed through the destination's transform as it is now (a Slack destination without one gets a card). `record_id` in this response is that record: read it with get_record(record_id). For a replay it is the original record, not the replay's event_id. This is the call to make when diagnosing why a delivery failed. |
+| `hookie deliveries metrics` | `--window --destination-id` | Delivery health per destination over a window (24h, 7d or 30d): deliveries by outcome and their success rate, attempts and the share that got a 2xx, p50/p95/p99 latency over every attempt (a timeout counts as its timeout), failed attempts by class (3xx, 4xx, 5xx, timeout, connection), and a time series of ok and failed attempts (hourly, daily for 30d). Use it to find WHICH destination is failing and whether it is the receiver's bug (4xx) or its infrastructure (5xx, timeouts), then search_deliveries for the rows. |
+| `hookie deliveries search` | `--status --destination-id --response-code --min-latency-ms --since --until --limit --offset` | Search deliveries with filters and paging — status, destination, response code, minimum latency and a time window. Returns &#123; results, total, limit, offset &#125;. Prefer this over list_deliveries for anything but a glance: list_deliveries is an unfiltered newest-first page, so 'failed deliveries since yesterday' is only expressible here. |
+| `hookie deliveries delete` ⚠️ | `--delivery-id*` | Permanently delete one delivery and every failed attempt it logged, with the receiver's response bodies. The record it sent is kept; a delivery still queued or retrying is not sent. Cannot be undone. |
+| `hookie deliveries replay` | `--delivery-id*` | Re-queue a past delivery to its destination. The receiver will see the event again — safe only if it is idempotent. |
 
 ### destinations
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie destinations list` | `—` | A project's outbound destinations. |
-| `hookie destinations create` | `--name* --type --url --config --dataset-filter --headers --auth --transform --alert-url` | Create an outbound destination. `--type` is `webhook` (the default), which needs `--url`, or `slack` or `s3`, which take `--config` instead and no `--url`, `--headers` or `--auth`. Optionally with custom headers, authentication, a body template and an alert URL (see [Destination types and options](/destinations)). |
-| `hookie destinations update` | `--destination-id* --name --url --config --enabled --dataset-filter --timeout-seconds --max-per-second --max-concurrency --headers --auth --transform --alert-url` | Rename a destination, move it to a new https URL or change a Slack or S3 destination's `--config` (settings left out keep their stored values), enable or disable it (enabling one Hookie switched off for failing clears its failure streak and sends what it held), change which datasets it receives, set its headers, authentication, body template or alert URL, or set its delivery limits: a request timeout, a maximum send rate and a concurrency cap (`null` restores the default: 10 s, unlimited, unlimited). |
-| `hookie destinations delete` ⚠️ | `--destination-id*` | Delete a destination. |
+| `hookie destinations create` | `--name* --type --url --config --dataset-filter --headers --auth --transform --alert-url` | Create an outbound destination. Type `webhook` (the default) needs an https url; type `slack`, `s3`, `sqs` or `pubsub` needs config instead (and takes no url, headers or auth). The response includes a signing secret used to verify Hookie-Signature on delivered events — treat it as a credential and do not echo it into logs or chat. If the response has a `warning`, the url is this project's own endpoint or ingest key and the filter admits its dataset, so events would loop back (Hookie stops them after 8 hops): tell the user rather than ignoring it. |
+| `hookie destinations update` | `--destination-id* --name --url --config --enabled --dataset-filter --timeout-seconds --max-per-second --max-concurrency --retry-strategy --retry-max-attempts --retry-window-seconds --retry-interval-seconds --circuit-threshold --alert-email --alert-slack-destination-id --headers --auth --transform --alert-url` | Rename a destination, move it to a new https URL, enable/disable it (enabling one Hookie switched off for failing clears its failure streak and sends what it held), change which datasets it receives, set its headers, authentication, body transformation or alert URL, or set its delivery limits: a request timeout, a maximum send rate and a concurrency cap (null restores the default: 10 s, unlimited, unlimited). A delivery over the rate or cap waits on the queue; it is not failed. Delivery controls: a retry policy (retry_strategy default, linear or exponential, with retry_max_attempts up to 50 and retry_window_seconds up to 7 days on Pro and Team), a circuit breaker (circuit_threshold: consecutive failed attempts that pause it; pass enabled: true to resume a paused one) and failure alerts (alert_email, alert_slack_destination_id). The signing secret does not change with the URL — the signature covers the timestamp and body, not the address — so the receiver needs no new secret; rotate it separately if you want one. A Slack, S3, SQS or Pub/Sub destination changes its address or credentials through config (its type cannot change). Pass at least one field to change. |
+| `hookie destinations delete` ⚠️ | `--destination-id*` | Delete a destination. It stops receiving deliveries immediately. |
 
 ### endpoints
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie endpoints list` | `—` | A project's endpoints. |
-| `hookie endpoints activity` | `--webhook-id* --kind --limit --offset` | One endpoint's received and refused requests over the last 7 days, and why each was refused. |
-| `hookie endpoints create` | `--name* --slug --dataset --criteria --mappings --enabled --ip-allowlist --verification --redirect-url --cors-origins --handshake --handshake-secret` | Create an endpoint. `--slug` and `--dataset` are optional: the slug is made from the name, and the dataset is the name as an identifier, or `default`. `--verification` turns on [provider signature verification](/endpoint-verification). |
-| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret --verification` | Change an endpoint in place: enable or disable it, rename it, re-point its dataset, or set its IP allowlist, form redirect, allowed browser origins, URL verification or provider signature verification. Pass at least one. |
-| `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new URL; the old one keeps working for the overlap (default 24 hours). |
-| `hookie endpoints rotate-secret` | `--webhook-id* --secret* --overlap-hours` | Replace the provider signing secret an endpoint verifies with, when the provider rolls it; the old secret keeps verifying for the overlap (default 24 hours, 0 ends it at once). |
-| `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete an endpoint. |
-| `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --enabled --major` | Publish a new version of an endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. |
+| `hookie endpoints list` | `—` | A project's endpoint metadata. `base_slug` + `version` are the readable identity and are safe to log. The high-entropy public URL segment is a credential: this read tool does not return `slug`, `webhook_slug`, `public_path`, `public_url` or `previous_public_url`. A write-scoped create_webhook or rotate_webhook call returns the new URL to the actor that made the change. `ip_allowlist` is the endpoint's own allowlist as stored (a JSON array string, or null). `redirect_url`, `cors_origins` (a list) and `handshake` are its browser-form and URL-verification settings; `handshake_secret_set` says whether a handshake secret is stored (the secret itself is never returned). `verification` is the endpoint's signature check: its scheme and settings, `has_secret`, and `previous_secret_expires_at` after a rotation — never the secret itself. |
+| `hookie endpoints activity` | `--webhook-id* --kind --limit --offset` | One endpoint's recent traffic, newest first over the last 7 days: what it RECEIVED (kind `received`: the submission id, method, content type, source IP and forward status) and what it REFUSED (kind `rejected`: the reason — endpoint_disabled, ip_not_allowed, rate_limited, quota_exceeded, signature_invalid, unsupported_media_type, workspace_suspended, handshake_failed and others — the HTTP status the sender got, the source IP, and `count` refusals of that reason in that minute). `summary` counts the last 24 hours. The call to make when a provider says Hookie returned an error and the endpoint looks quiet. Refusals never count against the event quota. Paged with limit/offset and a `total`. |
+| `hookie endpoints create` | `--name* --slug --dataset --criteria --mappings --dedupe-path --enabled --ip-allowlist --verification --redirect-url --cors-origins --handshake --handshake-secret --form-fields --form-settings --honeypot --turnstile-site-key --turnstile-secret` | Create an endpoint. The `slug` you pass is the endpoint's READABLE identity (stored as base_slug, and used by versioning and the legacy key-authenticated route) — it does NOT appear in the public URL and does not need to be unguessable. The public URL's credential is generated server-side and comes back as `webhook_slug`; `public_path` and `public_url` in the same response are ready to send to. A disabled endpoint answers 503 (reason `endpoint_disabled`) and stores nothing; a wrong URL is 404. `criteria` and `mappings` apply to every event the endpoint receives, on `public_url` as on the legacy key route: a payload the criteria reject is kept as a submission but makes no record (the response's `routed` is empty), and mappings reshape what is stored. Project rules (create_rule) do not run on an endpoint. |
+| `hookie endpoints update` | `--webhook-id* --enabled --name --dataset --ip-allowlist --redirect-url --cors-origins --handshake --handshake-secret --form-fields --form-settings --honeypot --turnstile-site-key --turnstile-secret --verification` | Change an endpoint in place: enable or disable it, rename it, point it at another dataset, set its IP allowlist, its form redirect_url, its allowed cors_origins, the URL-verification handshake it answers, its provider signature verification, or its form settings (form_fields, form_settings, honeypot, Turnstile). Pass at least one. The endpoint keeps its id and URL. A new dataset applies to events from now on; records already stored keep theirs. The URL is changed with rotate_webhook, and criteria, mappings and dedupe_path are not editable (changing them in place would silently reinterpret history — create the replacement instead). While an endpoint is disabled its URL answers 503 and NOTHING sent to it is stored, and an allowlist refuses every address outside it with 403, so confirm with the user before either on an endpoint that receives live traffic. |
+| `hookie endpoints rotate` | `--webhook-id* --overlap-hours` | Give an endpoint a new public URL — the remedy when its URL has leaked. The endpoint keeps its id, settings and history; only the credential in the URL changes. The old URL keeps working for `overlap_hours` (default 24) so every provider can be updated, then answers 404. Rotating again inside an overlap ends the older URL at once. The response's `public_url` CONTAINS THE NEW CREDENTIAL: write it into the provider's configuration and do not repeat it in prose, commits or files. |
+| `hookie endpoints rotate-secret` | `--webhook-id* --secret* --overlap-hours` | Replace the provider signing secret an endpoint verifies with, when the provider rolls it. The secret being replaced keeps verifying for `overlap_hours` (default 24; 0 ends it at once), so events signed either way are accepted while the provider switches over. `secret` is the provider's NEW secret — ask the user for it. The endpoint must already have verification set (update_webhook). No response carries either secret. |
+| `hookie endpoints delete` ⚠️ | `--webhook-id*` | Delete an endpoint. Its public URL stops accepting events immediately; records already ingested are untouched. |
+| `hookie endpoints version` | `--webhook-id* --name* --slug* --dataset* --criteria --mappings --dedupe-path --enabled --major` | Publish a new version of an endpoint with different criteria, mappings or dataset, leaving the old version and its URL working so senders can move over. The new version is its own endpoint with its own public_url (returned) and id; `slug` must be the endpoint's base_slug (from list_webhooks, which lists every version with its `version`). Versions number 1.1, 1.2… or 2 with major:true. Change or retire a version afterwards with update_webhook and delete_webhook on its id. The new version inherits the signature verification (scheme, settings and secret) of the version it is made from. |
+
+### errors
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie errors list` | `--kind --limit --offset` | A project's flagged events, newest first (#287) — the console's Errors tab. Two kinds: `filtered` (an endpoint's own criteria rejected the payload: it was kept as a submission and answered 201 with `filtered: true`, but made no record, so it reached no dataset, destination, trigger or workflow) and `routing_failed` (the submission was stored but its records could not be written; the outbox sweep keeps retrying it). Each row has the submission id, when it arrived, the endpoint or source, a short `reason` (for filtered, the criterion it did not meet) and the first 500 characters of the payload. The call to make when events are arriving but a dataset stays empty. Paged with limit/offset and a `total`. |
 
 ### events
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie events search` | `--q --dataset --since --until --limit --offset` | Search stored records across datasets, with a free-text term, a dataset filter, a time window and paging. |
+| `hookie events search` | `--q --dataset --since --until --limit --offset` | Search stored records across datasets, with a free-text term, a dataset filter, a time window and paging. Returns &#123; results, total, limit, offset &#125;. Each result's `payload` is a preview of at most 2,000 characters: when `payload_truncated` is true it is not valid JSON on its own — call get_record for the whole record. |
+
+### graph-conflicts
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie graph-conflicts list` | `--after` | List unresolved human/agent mutation conflicts with saved proposals. Follow next to retrieve subsequent pages. |
+| `hookie graph-conflicts resolve` | `--mutation-id* --action* --expected-version --properties --display-name --edge-weight` | After reviewing the current node and proposal, discard or apply a reviewed change against an explicit current expected_version. Applying node changes replaces complete properties. A second collision retains another proposal instead of overwriting newer work. |
+
+### graph-context
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie graph-context query` | `--roots* --depth --direction --relations --properties --max-nodes --max-edges --max-bytes --include-system` | Fetch deterministic bounded multi-hop context for inference. Traversal is separate from payload hydration. Choose properties to reduce tokens and inspect truncation flags. System execution traces are excluded unless explicitly requested. |
+
+### graph-mutations
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie graph-mutations queue` | `--mutations*` | Queue 1–25 knowledge mutations, at most 256 KiB. Keep mutation_id UUIDs stable across retries; new nodes also require stable node_id UUIDs. Changes consolidate about every 15 seconds; poll get_graph_mutation before relying on visibility. Updates replace all properties and require expected_version. Stale writes preserve proposals for review. Table-backed nodes retain their table schema; system trace nodes are read-only. |
+| `hookie graph-mutations get` | `--mutation-id*` | Read a mutation status: queued, flushing, error, applied or conflict. Applied receipts and node edits commit atomically. A conflict includes the saved proposal for review; never blindly overwrite the current revision. |
+
+### graph-nodes
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie graph-nodes list` | `--table --type --search --after --limit --membership --standalone` | Discover included Workspace Brain nodes, including workspace table records. Use membership=excluded or all only when explicitly reviewing inclusion choices; ordinary context queries always omit excluded records. Pro or Team; workspace-scoped credential required. Follow next for keyset pagination. |
+| `hookie graph-nodes get` | `--node-id* --include-excluded` | Read an included knowledge node with complete properties, provenance, content revision and inclusion revision. For explicit curation/review of excluded records, set include_excluded=true. Context retrieval cannot override exclusions. |
 
 ### held-deliveries
 
-Deliveries held because the workspace used its monthly delivery allowance. `hookie held_deliveries` still works as an alias.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie held-deliveries list` | `—` | Events whose deliveries are held because the workspace used its monthly delivery allowance, oldest first, with the allowance used this month. Held deliveries are not lost. |
-| `hookie held-deliveries release` | `—` | Send held deliveries, oldest first, while the monthly delivery allowance covers them (after the 1st UTC or an upgrade). Stops at the first event it cannot fully cover. |
+| `hookie held-deliveries list` | `—` | Events whose deliveries are held because the workspace used its monthly delivery allowance, oldest first, with the allowance used this month. Held deliveries are not lost; release_held_deliveries sends them once there is room. |
+| `hookie held-deliveries release` | `—` | Send held deliveries, oldest first, while the monthly delivery allowance covers them (after the 1st UTC or an upgrade). Stops at the first event it cannot fully cover. Returns released, sent, dropped (past retention) and remaining. |
 
 ### keys
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie keys list` | `—` | This project's ingest keys, metadata only — never the full token. |
-| `hookie keys create` | `--name* --dataset-default --require-signature --expires-at --ip-allowlist` | Create an ingest key. Returns the plaintext once; `--reveal` prints it. `--dataset-default` names the dataset an event sent with no dataset in the URL is stored in when no rule matches it (`default` if left out). |
-| `hookie keys update` | `--key-id* --name --expires-at --ip-allowlist` | Rename a key, or set or clear its expiry or IP allowlist. |
-| `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Issue a replacement key; the old one keeps working for the overlap (default 24 hours). Returns the new key once; `--reveal` prints it. |
-| `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. |
+| `hookie keys list` | `—` | This project's ingest keys, metadata only: name, key_prefix (the ik_live_… stem — never the full token), dataset_default, require_signature, ip_allowlist (a JSON array string, or null), created_at, last_used_at, revoked_at, expires_at, replaced_by and status. `status` is active, expired or revoked; only an active key authenticates. A key with replaced_by set was rotated and stops at its expires_at. The plaintext is stored as a SHA-256 hash and cannot be shown again by anything. |
+| `hookie keys revoke` ⚠️ | `--key-id*` | Revoke an ingest key. It stops authenticating on the very next request. The row survives with revoked_at stamped, so the audit trail and last_used_at are kept. Not reversible — issue a new key instead. This is the remedy if a key is ever exposed. |
+| `hookie keys create` | `--name* --dataset-default --require-signature --expires-at --ip-allowlist` | Create an ingest key. SECURITY: the response contains the plaintext key — and a signing secret too, if require_signature is set. This is the only time either is readable; only a SHA-256 hash is stored and no route can show them again. The key can write events into THIS PROJECT and live-tail this project's events (GET /v1/stream) — treat it as a read credential for the project's payloads, not a write-only token. THE VALUE ARRIVES IN THIS TOOL RESULT, so it is already in your context and in the conversation history — that cannot be undone, and an instruction to keep it out of the transcript would be one you are unable to follow. What you CAN do: write it straight into the configuration that needs it, do not repeat it in prose, summaries, commit messages or file contents, and do not read it back out later. If it is exposed, the remedy is revoke_ingest_key followed by a new key — rotation, not silence. |
+| `hookie keys update` | `--key-id* --name --expires-at --ip-allowlist` | Change an active ingest key: rename it, set or clear its IP allowlist, or set, move or clear its expiry (expires_at, ISO 8601 in the future, or null for never). Pass at least one. A revoked or expired key cannot be changed. The dataset default and signature requirement are fixed at creation. An allowlist refuses every address outside it with 403, so confirm with the user before setting one on a key that receives live traffic. |
+| `hookie keys rotate` | `--key-id* --overlap-hours --expires-at` | Rotate an ingest key with an overlap: issues a NEW key (same name, dataset default, signature requirement and allowlist) and gives the OLD key an expiry `overlap_hours` from now (default 24), so senders can move over while both work. A key that requires signatures gets a new signing secret too. SECURITY: exactly as with create_ingest_key, the response carries the new plaintext key (and signing secret) once, and it is now in this conversation — write it straight into the configuration that needs it and do not repeat it anywhere. A key can be rotated once; after that, rotate its replacement. |
 
 ### members
 
-Read-only, at `hookie:read`. Inviting, changing roles and removing people are for a person in the console: see [Team members](/team-members).
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie members list` | `—` | The people in the current workspace: user_id, email, name, role (owner, admin, developer or viewer) and joined_at, owner first. Also max_members, the plan's member limit (null: unlimited). |
+| `hookie members list` | `—` | The people in the current workspace (#308): user_id, email, name, role (owner, admin, developer or viewer) and joined_at, owner first. Also max_members, the plan's member limit (null: unlimited). Read-only by design: inviting, changing a role, removing a member and transferring ownership are for a person in the console, and no agent can do them at any scope. |
+
+### memories
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie memories save` | `--title* --content* --tags --memory-key --thread --visibility --client` | Save something you have learned about your user or their work as a memory artifact in their personal Hookie context, so it is there in their next chat and in the Hookie console. Pass the chat thread it came from (id, title, link) so memories group by conversation, and a stable memory_key to update the same memory later instead of creating a duplicate. Memories are private to the user unless visibility is team; project_id links one to a project. Never store secrets, credentials or other people's personal data. |
+| `hookie memories list` | `--scope --source --thread --q --limit --offset` | Recall memory artifacts: the user's own (scope mine), those their team shared (scope team), or both (default). Filter by source app, chat thread or project, or search titles, content and tags with q. Use this at the start of a conversation to pick up what you already know. |
+| `hookie memories get` | `--memory-id*` | Read one memory artifact in full, with its thread, project, sharing and revision. |
+| `hookie memories update` | `--memory-id* --revision* --title --content --tags --visibility` | Edit one of the user's own memories at its current revision: title, content, tags, the linked project, or whether it is shared with the team. Only its author can change a memory. |
+| `hookie memories delete` ⚠️ | `--memory-id*` | Delete a memory artifact. Its author can delete it; an owner or admin can remove one that was shared with the team. |
+
+### memory-threads
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie memory-threads list` | `—` | List the chat threads the user has memories from, by app, with how many memories each holds. |
 
 ### portal-tokens
 
-Customer links to the project's portal. `create` returns the token once; `--reveal` prints it.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie portal-tokens list` | `--portal-id*` | The access links issued for a customer portal: customer_id, token_prefix, expires_at, revoked_at. |
-| `hookie portal-tokens create` | `--portal-id* --customer-id* --expires-in-days` | Issue a customer an access link to the portal. |
-| `hookie portal-tokens revoke` ⚠️ | `--portal-id* --token-id*` | Revoke a customer's portal link. |
+| `hookie portal-tokens list` | `--portal-id*` | The access links issued for a customer portal: customer_id, token_prefix, expires_at, revoked_at. Never the token itself — it is stored only as a hash. Also `customer`: the one customer this portal serves, or null when it is free (a portal serves one customer). |
+| `hookie portal-tokens create` | `--portal-id* --customer-id* --expires-in-days` | Issue a customer an access link to the portal. SECURITY: the response carries the token ONCE — it is stored as a hash and no route shows it again. It is a credential for that customer's view of the portal: hand it to the user to pass on, and do not repeat it in prose, commits or files. The remedy for a leaked one is revoke_portal_token and a new token. ONE CUSTOMER PER PORTAL: every customer endpoint on a portal receives every event of the datasets it exposes, so a portal serves exactly one customer. A customer_id other than the portal's current customer (see list_portal_tokens' `customer`) is refused with 409 reason portal_customer_mismatch. Issue it for that customer, or free the portal first with offboard_portal_customer, or give the new customer their own project and portal. |
+| `hookie portal-tokens revoke` ⚠️ | `--portal-id* --token-id*` | Revoke a customer's portal link. It stops working on the next request. Not reversible — issue a new one instead. |
+| `hookie portal-tokens offboard` ⚠️ | `--portal-id* --customer-id*` | Offboard a portal customer: revoke every portal link they hold and switch off every endpoint they created, in one step, so they stop receiving events. This is what frees a portal for a different customer (a portal serves one customer; see list_portal_tokens' `customer`), including one whose links are all revoked already but whose endpoints are still on. Revoked links are not reversible; issuing the customer a new link later brings them back with those endpoints still off, for them to turn on. |
 
 ### portals
 
-The project's one customer portal. `update` creates it the first time.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie portals get` | `—` | This project's customer portal, or null if it has none: its id, name, the datasets it exposes (event_types) and whether it is enabled. |
-| `hookie portals update` | `--name --event-types --enabled` | Create this project's customer portal, or change it: its name, the datasets it exposes, and whether it is enabled. |
-| `hookie portals delete` | `--portal-id*` | Switch this project's customer portal off: every customer link stops working. |
+| `hookie portals get` | `—` | This project's customer portal, or null if it has none: its id, name, the datasets it exposes (event_types) and whether it is enabled. A project has at most one, and it serves one customer: every customer endpoint on it receives every event of the exposed datasets. That customer manages their own destinations through a link issued with create_portal_token. |
+| `hookie portals update` | `--name --event-types --enabled` | Create this project's customer portal, or change it: its name, the datasets it exposes, and whether it is enabled. The first call creates it (name required then); after that only what you pass changes. Disabling it stops every customer link at once; enabling it restores them. |
+| `hookie portals delete` | `--portal-id*` | Switch this project's customer portal off: every customer link stops working. It is kept, and update_portal with enabled:true turns it back on. |
 
 ### project-config
 
-The same document `hookie export` writes, as JSON. `import` takes it with `--config @file.json`.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie project-config export` | `—` | A project's configuration as one document (the hookie.yml shape): endpoints, rules, destinations, AI agents, workflows, AI triggers, cron triggers and record views. Nothing secret is in it. |
-| `hookie project-config import` | `--config*` | Create in a project what an exported document describes. Each resource is created through its own route with new endpoint URLs and signing secrets; anything that already exists is skipped, never overwritten. |
+| `hookie project-config export` | `—` | A project's configuration as one document (the hookie.yml shape): endpoints, rules, destinations, AI agents, workflows, AI triggers, cron triggers and record views. Nothing secret is in it — no endpoint URL (its slug is the credential): a destination into one of this project's endpoints is written as `endpoint` (that endpoint's base slug) in place of its url, and a destination into any other endpoint is left out and counted under not_exported. No signing secrets or ingest keys either; sources, WebSocket triggers and portals are listed under not_exported. Each endpoint's `verification` is its signature scheme and non-secret settings only, never the provider's secret. Feed it to import_project_config to copy the setup into another project. |
+| `hookie project-config import` | `--config*` | Create in a project what an export_project_config document describes. Each resource goes through its own create route, so it is validated and plan-limited as usual and gets NEW endpoint URLs and signing secrets. A destination with `endpoint` (a base slug) is created at the URL of the endpoint that slug names, in this document or in the project; one that names neither fails by name, and the rest still import. Anything whose name (an endpoint's slug) already exists in the project is skipped, never overwritten. An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret (none is ever exported), so it refuses every request with 401 until the secret is set: those are listed in needs_verification_secret [&#123;id, name, slug, scheme&#125;] — ask the user for each provider's signing secret and set it with update_webhook. Returns &#123;ok, created, skipped, failed, needs_verification_secret&#125;. |
 
 ### projects
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie projects list` | `—` | List the projects in the workspace. |
 | `hookie projects get` | `—` | A project's details plus its dataset summary. |
-| `hookie projects create` | `--name* --type` | Create a project. |
+| `hookie projects create` | `--name* --type` | Create a project. Requires the workspace owner/admin role, so the agent needs hookie:manage — matching the console. |
+| `hookie projects delete` ⚠️ | `—` | Permanently delete a project and everything it owns: endpoints, rules, keys, sources, triggers, workflows and their runs, portals, records, submissions, deliveries and their attempts, AI runs, and every workspace table row copied from its records. A destination another project's deliveries still name is detached and disabled. Cannot be undone; the default project cannot be deleted. Workspace owner only (the owner's agent granted manage). A large project is erased in steps: while the answer says done:false, call again with the same project_id until done:true. |
+
+### record-histories
+
+| Command | Flags | Behavior |
+| --- | --- | --- |
+| `hookie record-histories get` | `--record-id* --table-id` | A record's chain of custody: who changed it, through what (a session, a connected agent, an API key, an ingest key or endpoint, a workflow run, a table input, a Brain pipeline, a graph mutation) and when. For a workspace table record pass table_id: each entry names the changed fields with their values before and after (blank once the record is deleted; who acted stays). For a project record pass project_id (or neither, for the Default project): its creation, with the submission and endpoint it arrived through, and its erasure with a reason (record_erasure, dataset_purge or project_delete). |
 
 ### records
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie records get` | `--record-id*` | One record in full, including fields no view selected. |
-| `hookie records delete` ⚠️ | `--record-id*` | Permanently delete one stored record and every copy of it: its raw submission, its deliveries (replays included) and their response bodies, held deliveries, the workflow runs it started, and AI trigger output derived from it. Cannot be undone; see [Delete, export and close](/data-deletion). |
+| `hookie records get` | `--record-id*` | One record in full, including fields no view selected. Use after a table row looks worth reading properly — rows shaped by a view carry only that view's columns plus _id. |
+| `hookie records delete` ⚠️ | `--record-id*` | Permanently delete ONE stored record and every copy of it: its raw submission, its deliveries (replays included) and their response bodies, held deliveries, the workflow runs it started, and AI trigger output derived from it. Cannot be undone. Use for an erasure request or a record that should never have been stored (a secret posted by mistake, a test event). Read it with get_record first to be sure it is the right one. Returns the counts deleted; the audit log records the deletion without the payload. |
 
 ### rules
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie rules list` | `—` | A project's mapping rules. |
-| `hookie rules create` | `--name* --dataset* --conditions --mappings --enabled` | Create a mapping rule. Empty conditions match everything; empty mappings pass the payload through. |
-| `hookie rules update` | `--rule-id* --enabled --name --dataset --conditions --mappings` | Change a mapping rule in place: enable or disable it, rename it, point it at another dataset, or replace its conditions or mappings. Send only what changes. |
-| `hookie rules delete` ⚠️ | `--rule-id*` | Delete a mapping rule. |
+| `hookie rules create` | `--name* --dataset* --conditions --mappings --enabled` | Create a mapping rule. Empty conditions match every event; empty mappings pass the payload through unchanged. SCOPE: rules run only on events sent to an ingest key WITHOUT a dataset (POST /v1/ingest/&#123;key&#125;); each matching rule writes a record into its `dataset`, and an event no rule matches is stored whole in the key's default dataset (dataset_default). They do NOT run on an endpoint's URL (an endpoint applies its own criteria and mappings instead), and not on /v1/ingest/&#123;key&#125;/&#123;dataset&#125;, which stores into that dataset directly. |
+| `hookie rules update` | `--rule-id* --enabled --name --dataset --conditions --mappings` | Change a mapping rule in place: enable or disable it, rename it, point it at another dataset, or replace its conditions or mappings. Send only what changes; the result is validated as a create is and the updated rule is returned. |
+| `hookie rules delete` ⚠️ | `--rule-id*` | Delete a mapping rule. Events already routed by it are not affected. |
 
 ### sources
 
-Database sources: Hookie polls a Postgres table and files each new row as a record. `--config` is JSON, `{"url":"postgres://…","table":"public.orders"}` or `@source.json`; it holds the database credentials, is encrypted at rest and is never printed back. `--cursor-column` is required: a column that only grows, such as an id or `created_at`, so each poll takes only new rows.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie sources list` | `—` | This project's source connectors (polled databases and HTTP endpoints), with their last run and last error. |
-| `hookie sources create` | `--name* --type --config* --dataset* --cursor-column* --poll-interval` | Connect a database source: Hookie polls a Postgres table and files each new row into `dataset` as a record, which then fans out to destinations, triggers and workflows like any event. |
-| `hookie sources update` | `--source-id* --enabled*` | Pause or resume a database source. |
-| `hookie sources test` | `--source-id*` | Check that a database source can connect and read its table, without storing anything. |
-| `hookie sources delete` ⚠️ | `--source-id*` | Delete a database source. |
+| `hookie sources create` | `--name* --type --config* --dataset* --cursor-column* --poll-interval` | Connect a database source: Hookie polls a Postgres table and files each new row into `dataset` as a record, which then fans out to destinations, triggers and workflows like any event. `config` is &#123;url, table&#125;: url is a postgres:// connection string and table is a plain or schema-qualified name. The config holds the database CREDENTIALS: it is encrypted at rest and never returned by any route, so write it here once and do not repeat it in prose, commits or files. `cursor_column` is a column that only grows (an id or created_at) so each poll takes only new rows. Needs the Pro plan or higher; a plan cap answers with the limit. Follow with test_source. |
+| `hookie sources update` | `--source-id* --enabled*` | Pause or resume a database source. Only `enabled` changes in place; to change its connection or table, create a replacement and delete this one. A paused source keeps its cursor, so resuming picks up where it stopped. |
+| `hookie sources test` | `--source-id*` | Check that a database source can connect and read its table, without storing anything. Returns &#123;ok&#125; or &#123;ok:false, error&#125; with the database's own reason. |
+| `hookie sources delete` ⚠️ | `--source-id*` | Delete a database source. Polling stops and its stored credentials are destroyed; records it already made are kept. Not reversible — reconnecting needs the credentials again. |
 
 ### submissions
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie submissions search` | `--q --since --until --limit --offset` | Search raw submissions — the body exactly as it arrived, before any rule reshaped it. |
+| `hookie submissions search` | `--q --since --until --limit --offset` | Search raw submissions — the body exactly as it arrived, BEFORE any rule reshaped it. This is how you tell 'no rule matched' from 'the event never arrived': a submission with no resulting record is the former. `payload` is a preview of at most 2,000 characters; `payload_truncated` says when it is cut. |
 
 ### triggers
 
-AI triggers.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie triggers list` | `—` | This project's AI triggers — what each one matches and what it does when it fires. |
-| `hookie triggers create` | `--name* --dataset* --conditions --instructions* --output-dataset --model --max-tokens` | Create an AI trigger: every record that lands in `dataset` and meets `conditions` runs the model with `instructions` over it, and the reply is stored as a record in `output_dataset`. |
-| `hookie triggers update` | `--trigger-id* --enabled*` | Enable or disable an AI trigger. |
-| `hookie triggers delete` ⚠️ | `--trigger-id*` | Delete an AI trigger. |
+| `hookie triggers create` | `--name* --dataset* --conditions --instructions* --output-dataset --model --max-tokens` | Create an AI trigger: every record that lands in `dataset` and meets `conditions` runs the model with `instructions` over it, and the reply is stored as a record in `output_dataset`. Conditions are the one condition dialect — &#123;path, op, value&#125; or &#123;path, equals&#125; — read against the record. Each run counts against the plan's monthly AI allowance. |
+| `hookie triggers update` | `--trigger-id* --enabled*` | Enable or disable an AI trigger. Only `enabled` changes in place; to change what it matches or does, create the replacement and delete this one. |
+| `hookie triggers delete` ⚠️ | `--trigger-id*` | Delete an AI trigger. Records it already produced are kept. |
 
 ### views
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie views list` | `--dataset` | The saved table views for a project, or for one dataset. |
-| `hookie views create` | `--dataset* --name* --columns* --sort-key --sort-dir --is-default` | Save a table view for a dataset. A column or sort key can be a dotted path into a nested field, such as `customer.email`; a field literally named that wins. |
-| `hookie views delete` ⚠️ | `--view-id*` | Delete a saved table view. |
+| `hookie views list` | `--dataset` | The saved table views for a project — which fields each one shows for which dataset. Start here when asked to analyze a dataset's data: a view is the workspace's own answer to which fields matter. An endpoint's records are its dataset's (list_webhooks gives the dataset). |
+| `hookie views create` | `--dataset* --name* --columns* --sort-key --sort-dir --is-default --portal-shared` | Save a table view for a dataset, so what you worked out about its data is what the humans see in the console too. Columns may be bare field names or &#123;key,label&#125;; `_id`, `_received_at` and `_source` are the record's own fields. Setting is_default makes it the view that opens first for this dataset. |
+| `hookie views delete` ⚠️ | `--view-id*` | Delete a saved table view. The records it showed are not touched. |
 
 ### workflows
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
 | `hookie workflows list` | `—` | Workflow definitions in a project. |
 | `hookie workflows get` | `--workflow-id*` | One workflow definition in full: entry dataset, entry conditions and every step. |
-| `hookie workflows runs` | `--workflow-id* --state --since --until --limit --offset` | Instances of one workflow, newest first, 50 per page by default. |
-| `hookie workflows run` | `--instance-id*` | One instance with its per-step event log — which branch was taken, and where it stopped. |
-| `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow. |
-| `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | **Replace** a workflow's definition. |
-| `hookie workflows delete` | `--workflow-id* --permanent` | **Deactivate** a workflow; an update with `--active` turns it back on. ⚠️ With `--permanent`, delete it and its run history for good (refused while a run has not finished). |
-| `hookie workflows cancel` | `--instance-id*` | Cancel a running or waiting workflow instance. A finished one answers `409`. |
-| `hookie workflows retry` | `--instance-id*` | Retry a failed, timed-out or (Cloudflare engine) cancelled workflow instance. |
+| `hookie workflows runs` | `--workflow-id* --state --since --until --limit --offset` | Instances of one workflow, newest first, paged (limit/offset, with a total) — state, the step it reached, and its last error. This is the execution history: list_deliveries only covers the outbound hop, so a record a workflow filtered out leaves no trace there but does leave one here. |
+| `hookie workflows run` | `--instance-id*` | One workflow instance with its per-step event log — which branch was taken, what each step produced, and where it stopped. Also `engine` (cf \| legacy), `steps` (per step path: status completed\|running\|waiting\|failed\|skipped with times and error) and, for a Cloudflare run, `cf_status`. `instance.context` is the run's state with the same redaction as the step samples: secret-named keys, Bearer/Basic values and URL passwords read [redacted]. |
+| `hookie workflows delete-run` ⚠️ | `--instance-id*` | Permanently delete one workflow run with its step log, the AI calls it made and its lineage in the workspace graph. A run that has not finished is stopped first. Records and deliveries it emitted are kept. Cannot be undone. |
+| `hookie workflows create` | `--name* --slug --entry-dataset* --entry-conditions --steps* --active` | Create a multi-step workflow that runs when a record lands in its entry dataset. Steps run in order over a shared context: emit_event, call_ai, agent_call, branch (then/else), wait_for_event, delay. The server validates the step shapes, nesting depth and the 32-step cap. |
+| `hookie workflows update` | `--workflow-id* --name* --entry-dataset* --entry-conditions --steps* --active` | REPLACE a workflow's definition. This is a full replace, not a patch: the server revalidates the whole spec and overwrites every field, so anything you omit is lost. Read it with get_workflow first, change what you need, and send it all back. Running instances are NOT pinned: an instance reads the current definition at its next step, so changing or reordering steps can move an instance mid-run. Setting active:true is also how you re-enable a workflow that delete_workflow deactivated. |
+| `hookie workflows delete` ⚠️ | `--workflow-id* --permanent` | Deactivate a workflow, or with permanent:true delete it for good. By default this sets active = 0 rather than removing anything: the definition and all its run history stay, list_workflows still returns it with active:false, it stops starting new instances, and update_workflow with active:true turns it back on. Runs already in progress carry on. permanent:true REMOVES the definition and its whole run history (every run and its step log) and cannot be undone; records and deliveries the runs made are kept. It is refused while any run has not finished (pending, running, waiting or paused): the error names up to 10 of them by id, so cancel each with cancel_workflow_run and call again. A very long history is deleted over several calls: while the answer says done:false, call again. |
+| `hookie workflows cancel` | `--instance-id*` | Cancel a running or waiting workflow instance. On the Cloudflare Workflows engine this terminates the instance; on the legacy engine it marks it cancelled and removes its waiter. A finished instance answers 409. Returns &#123;ok, state&#125;. |
+| `hookie workflows retry` | `--instance-id*` | Retry a failed, timed-out or (Cloudflare engine) cancelled workflow instance. A Cloudflare instance restarts from the first step with its context reset to the entry record; records it already emitted are not emitted again. A legacy instance continues from the step that failed. Returns &#123;ok, state&#125;; follow it with get_workflow_run. |
 
 ### workspace
 
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie workspace get` | `—` | The current workspace: its slug, id, your role and plan. |
+| `hookie workspace get` | `—` | The current workspace: its slug, id, your role and plan. The slug is the first segment of a public endpoint URL, but the endpoint's high-entropy URL credential is not returned by read tools. Write-scoped create_webhook and rotate_webhook calls return a ready-made public_path to the actor who made the change. |
 
 ### ws-triggers
 
-Owner/admin in the console, so a connected agent needs `hookie:manage`. `--headers` may carry the socket's credential; it is encrypted and never printed back.
-
-| Command | Flags | |
+| Command | Flags | Behavior |
 | --- | --- | --- |
-| `hookie ws-triggers list` | `—` | This project's WebSocket triggers: name, conditions, mappings, dataset, connection status and last error. |
-| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --mappings --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules (a frame no rule matches is stored whole, as one record, in `default`). `--mappings` reshape each frame the way a rule's do; with none, the frame is kept as it arrived. |
-| `hookie ws-triggers update` | `--ws-trigger-id* --enabled*` | Connect or disconnect a WebSocket trigger. |
+| `hookie ws-triggers list` | `—` | This project's WebSocket triggers: name, conditions, mappings, dataset, connection status and last error. The connection config (URL, headers) is encrypted and never returned. |
+| `hookie ws-triggers create` | `--name* --url* --headers --subprotocols --connect-message --conditions --mappings --dataset` | Create a WebSocket trigger: Hookie holds an outbound connection to `url` and turns each frame that meets `conditions` into an event, filed into `dataset` or routed by the project's rules (a frame no rule matches is stored whole, as one record, in `default`). `mappings` reshape each such frame into the event exactly as a rule's do (the submission keeps the frame as it arrived). `headers` may carry an authorization credential for the socket; it is encrypted at rest and never returned, so do not repeat it elsewhere. It connects as soon as it is created. Owner/admin only, so it needs hookie:manage. |
+| `hookie ws-triggers update` | `--ws-trigger-id* --enabled --name --url --headers --subprotocols --connect-message --conditions --dataset` | Change a WebSocket trigger in place, keeping its id, status and last error: connect or disconnect it (`enabled`), or change its name, url, headers, subprotocols, connect_message, conditions or dataset. Pass at least one; only what you pass changes, and each field is validated as create validates it. A change to the connection, the conditions or the dataset reconnects the socket; a rename does not. `headers` are write-only: they are stored encrypted with the url and connect_message, never returned, and sending them replaces the whole set. Moving `url` to another host must restate `headers` and `connect_message` (null for none) whenever the trigger has them stored, because stored credentials are never carried to a new host unseen. `mappings` are not editable here: a trigger keeps the mappings it was created with. |
 | `hookie ws-triggers test` | `--ws-trigger-id*` | Open a short-lived connection with a WebSocket trigger's settings and return the first frames, without storing anything. |
-| `hookie ws-triggers delete` ⚠️ | `--ws-trigger-id*` | Delete a WebSocket trigger. |
+| `hookie ws-triggers delete` ⚠️ | `--ws-trigger-id*` | Delete a WebSocket trigger. Its connection is closed and its stored connection settings destroyed; events it already made are kept. |
 
 ## Two that are narrower than they look
 

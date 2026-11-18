@@ -4,7 +4,7 @@ description: "Explore relationships across your workspace and choose which table
 icon: "diagram-project"
 ---
 
-Pro and Team workspaces can turn their [table records](/data-workspace) into
+Pro, Team and Ultimate workspaces can turn their [table records](/data-workspace) into
 connected knowledge for people, workflows and AI agents. Open **Workspace Brain**
 in the sidebar. Existing and new table records are included by default, with the
 same IDs and revisions. Webhooks and data sources contribute records through
@@ -232,5 +232,10 @@ includes graph records, relationships, inclusion choices, receipts and pending p
 after downgrade. Workspace deletion clears both the dedicated database and its
 pending mutation queue.
 
-This V1 provides structured graph context. Semantic/vector search and historical
-context snapshots are future capabilities.
+Structured graph traversal retrieves connected records by relationships. [Semantic document search](/brain-ingestion#search-documents) is also available with Ultimate or the Brain add-on; it searches uploaded and synchronized document passages, not arbitrary graph properties. Historical context snapshots are not available.
+
+## Pipelines, documents and personal memory
+
+Use **Pipelines** to build an interactive workflow over project datasets or documents, then inspect backfill and sync runs. **Documents** supports plain-text uploads, S3 sync and semantic search with the appropriate plan. See [Brain pipelines and documents](/brain-ingestion) for setup and limits.
+
+**AI Memory** stores reusable context from connected agents and the console. Memories are private to their author by default; sharing requires an explicit visibility change, and linking a project is optional. See [Personal AI memory](/ai-memory) before sharing team context.

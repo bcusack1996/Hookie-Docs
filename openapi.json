@@ -47852,7 +47852,7 @@
       "get": {
         "operationId": "getPublicFormSchema",
         "summary": "A form's public schema: fields, display text, Turnstile site key and theme",
-        "description": "Public and unauthenticated, like the endpoint URL it describes (its three segments are the endpoint URL's path). What a hosted form page, an embed or a renderer draws the form from. Carries no ids, dataset, destinations or secrets. Cached for 60 seconds; a change to the endpoint clears it in the data centre that served the change. Answers 404 for an unknown, disabled or suspended endpoint and for one that declares no form_fields and no form_settings. Any origin may read it (Access-Control-Allow-Origin: *).",
+        "description": "Public and unauthenticated, like the endpoint URL it describes (its three segments are the endpoint URL's path). What a hosted form page, an embed or a renderer draws the form from. Carries no ids, dataset, destinations or secrets. Cached for 60 seconds; a change to the endpoint clears it in the data centre that served the change. Answers 404 for an unknown, disabled or suspended endpoint and for one that declares no form_fields and no form_settings. Any origin may read it (Access-Control-Allow-Origin: *). Cache misses are limited per client IP before database lookup (best effort, 60 per minute); cached schemas do not consume this allowance. URL rotation invalidates superseded schemas in the serving data centre; other data centres can retain them for the remaining 60-second cache lifetime.",
         "tags": [
           "Ingest"
         ],
@@ -47971,6 +47971,26 @@
           },
           "404": {
             "description": "Unknown form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many uncached schema requests; retry after 60 seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    60
+                  ]
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

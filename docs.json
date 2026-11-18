@@ -59,6 +59,8 @@
           "workflows",
           "data-workspace",
           "knowledge-graph",
+          "brain-ingestion",
+          "ai-memory",
           "customer-portal",
           "broadcast-logs",
           "analytics",
@@ -119,7 +121,8 @@
   },
   "footer": {
     "socials": {
-      "website": "https://hookie.ai"
+      "website": "https://hookie.ai",
+      "linkedin": "https://www.linkedin.com/company/hookie-ai/"
     },
     "links": [
       {

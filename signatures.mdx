@@ -307,8 +307,9 @@ app.post("/hook", express.raw({ type: "*/*" }), (req, res) => {
   // or: verifyStandardWebhook(process.env.HOOKIE_SECRET, req.headers, raw)
   if (!ok) return res.status(401).end();
 
-  const eventId = req.get("Hookie-Event-Id"); // dedupe on this — delivery is at-least-once
   const event = JSON.parse(raw);
+  // Deduplicate on a stable event id inside the verified payload.
+  // Hookie-Event-Id is unsigned metadata and can be changed by a replaying sender.
   // … handle event …
   res.status(200).end();
 });
@@ -338,4 +339,4 @@ Hookie signs a delivery to a **webhook** destination only. Slack, S3 and SQS des
 - Verify against the **raw bytes**. Re-serializing the JSON will change the signature.
 - Reject the request if the headers are missing or no signature matches. Reject a timestamp more than five minutes old to limit replay.
 - Always compare with a constant-time function: `crypto.timingSafeEqual` (Node), `hmac.compare_digest` (Python), `hmac.Equal` (Go), `OpenSSL.secure_compare` (Ruby).
-- A destination's URL is fixed once created, and a signature is only meaningful against the URL it was sent to. To move a destination, create the replacement and delete the old one.
+- A destination URL can be changed. Its HMAC signs the timestamp and payload, not the destination address, and changing the URL does not rotate its signing secret. Rotate the secret separately when moving a receiver or changing who you trust with it.

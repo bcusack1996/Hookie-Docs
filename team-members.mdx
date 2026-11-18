@@ -94,12 +94,14 @@ Every member counts, the owner included:
 | Plan | Members |
 | --- | --- |
 | **Free** | 1: the owner only |
+| **Starter** | 1: the owner only |
 | **Pro** | Up to 3 |
-| **Team** | Unlimited, billed per seat |
+| **Team** | 10, including the owner, at one flat workspace price |
+| **Ultimate** | 10, including the owner, at one flat workspace price |
 
 At the limit, **Invite people** is disabled and **Settings → Members** says the workspace is at its member limit. Over the API, creating or accepting an invite answers `403` with `"code": "member_limit_reached"`, `max_members`, `members` and an `upgrade_url`. Nobody already in the workspace is removed when it reaches the limit, including after a downgrade.
 
-On **Team**, each member is a billed seat. The subscription's seat count follows the number of members: when someone joins, is removed or leaves, Hookie updates it in Stripe, prorated. See [Billing](/billing#team-seats).
+On **Team**, the $30.00 monthly workspace price includes up to 10 members. Joining, leaving or changing roles does not change the price. See [Billing](/billing#team-seats).
 
 ## Agents and API keys
 
@@ -115,7 +117,7 @@ Each member comes with `user_id`, `email`, `name`, `role` and `joined_at`, owner
 
 ## Audit log
 
-Every change is recorded in **Settings → Audit log**: `member_invited`, `member_invite_revoked`, `member_invite_accepted`, `member_role_changed`, `member_removed`, `member_left` and `ownership_transferred`. On Team, seat updates are recorded as `seats_updated`, or `seat_sync_failed` if Stripe refused one.
+Every change is recorded in **Settings → Audit log**: `member_invited`, `member_invite_revoked`, `member_invite_accepted`, `member_role_changed`, `member_removed`, `member_left` and `ownership_transferred`. Membership changes do not trigger seat billing or seat synchronization.
 
 ## Over the API
 

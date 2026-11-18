@@ -181,7 +181,23 @@ curl https://app.hookie.ai/v1/forms/acme/site/f9Kx2...
 }
 ```
 
-It carries the fields, the display settings, the honeypot field to include, and the Turnstile site key when the endpoint checks tokens. It carries no ids, dataset, destinations or secrets. Anyone with the endpoint URL can read it, as they can already post to it, and any site may fetch it. It is cached for up to a minute; your own change shows at once. An unknown, disabled or suspended endpoint, or one that declares no fields and no settings, answers `404`.
+The response contains the submission action, fields, display text, theme, honeypot
+field name and the public Turnstile site key when enabled. It does not return
+workspace IDs, datasets, destinations, redirect URLs or secret keys. Anyone with
+the endpoint URL can read it, as they can already post to it, and any site may
+fetch it. Text and default values in the schema are public: never put private
+customer data or credentials in them.
+
+The schema can be cached for up to 60 seconds. Cache misses are rate limited;
+a `429` response includes `Retry-After`, which callers should respect. Endpoint
+edits and URL rotation invalidate the local cached schema; other locations can
+retain it until its short cache lifetime ends. Unknown, disabled, suspended or
+unconfigured forms return `404` (a previously cached response may remain until
+its cache lifetime ends).
+
+Use the [API reference](/api-reference) for limits and complete response fields.
+This schema is available for your own renderer; it does not by itself create
+or host an HTML form page.
 
 ## Where submissions go
 

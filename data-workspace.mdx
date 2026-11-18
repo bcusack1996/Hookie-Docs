@@ -4,7 +4,7 @@ description: "Turn incoming data into editable tables, saved views, dashboards, 
 icon: "table"
 ---
 
-Pro and Team include a dedicated database for your workspace. Open **Data workspace**
+Pro, Team and Ultimate include a dedicated database for your workspace. Open **Data workspace**
 in the console to create tables, edit records, and build dashboards. Your tables
 persist independently of the raw events in project datasets.
 
@@ -22,6 +22,12 @@ Use **Add record** to enter data or click a cell to edit its record. Changes use
 record versions, so an outdated edit returns a conflict instead of overwriting
 someone else's work. You can change field labels and add fields or select options.
 Existing keys and types stay stable for automation.
+
+## Review record history
+
+Open a record’s history to inspect who created or changed it, which fields changed, and the before-and-after values. Changes from people, agents and ingestion keep their attribution when available. Record revisions prevent a stale edit from silently replacing a newer version.
+
+Deleting a record clears its stored values from that history while retaining metadata about who changed or deleted it. Table deletion also clears retained field values. See [Delete, export and close](/data-deletion) for source-record copies and export rules.
 
 ## Save views and build dashboards
 
@@ -52,6 +58,8 @@ Other invalid values appear as a connection error.
 with **Import next 100** when more records remain. Imports are safe to repeat:
 they preserve existing table records, human edits, and deletions. Correct mapping
 errors and replay while the original records are still within dataset retention.
+
+For a visual source → filter → mapping → table workflow and a backfill that continues through the full dataset, use **Workspace Brain → Pipelines**. See [Brain pipelines and documents](/brain-ingestion).
 
 ## Use records in workflows and agents
 
