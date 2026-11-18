@@ -67,8 +67,9 @@ Event data is kept for your plan's retention window, then deleted automatically:
 
 | Plan | Retention |
 | --- | --- |
-| Free | 7 days |
-| Pro | 30 days |
+| Free | 30 days |
+| Starter | 90 days |
+| Pro | 90 days |
 | Team | 90 days |
 
 The window covers records, submissions, deliveries and their attempts, held deliveries, the refused-request log, workflow runs, AI trigger runs and the AI call log. A cleanup runs every five minutes and deletes what has aged past the window, counted from when it was received or created. A delivery that is still queued, retrying or paused is kept until it finishes. The audit log has its own, longer window: the longer of your plan's retention and one year.

@@ -1,0 +1,69 @@
+---
+title: "Node SDK"
+description: "Send events to Hookie, verify the webhooks it delivers and manage your workspace from Node 18+, Cloudflare Workers, Deno or Bun with @hookieai/node."
+icon: "code"
+---
+
+`@hookieai/node` is Hookie's server SDK. It has no dependencies and uses only `fetch` and WebCrypto, so the same code runs on Node 18+, Cloudflare Workers, Deno and Bun. It is MIT licensed.
+
+```bash
+npm i @hookieai/node
+```
+
+Browser forms have their own client, `@hookieai/forms`. See [Forms](/forms).
+
+## Verify a webhook Hookie sent you
+
+Hookie signs every delivery with `Hookie-Signature` and with the [Standard Webhooks](https://www.standardwebhooks.com) headers, over one timestamp. `verifyWebhook` checks either. Pass the destination's `whsec_...` signing secret, and the **raw** body exactly as it arrived: a body you parsed and serialised again will not verify.
+
+```js
+import { verifyWebhook, createMemoryReplayStore } from "@hookieai/node"; // or "@hookieai/node/verify"
+
+const replayStore = createMemoryReplayStore();
+
+export default {
+  async fetch(request, env) {
+    const body = await request.text();
+    try {
+      const hook = await verifyWebhook(body, request.headers, env.HOOKIE_SIGNING_SECRET, { replayStore });
+      const event = JSON.parse(body);
+      return new Response("ok");
+    } catch (err) {
+      return new Response(err.reason ?? "bad request", { status: 400 });
+    }
+  },
+};
+```
+
+- A timestamp more than 300 seconds from now is refused. Change it with `toleranceSeconds`.
+- After you rotate a secret, Hookie signs with the new and the previous one for a day. Pass both as `[current, previous]`.
+- A `replayStore` refuses a delivery that already verified. The memory store lives in one process; behind several instances, back the same interface (`has`, `add`) with KV, a Durable Object, Redis or your database.
+- A failure is a `HookieSignatureError` whose `reason` says why, such as `timestamp_too_old` or `no_valid_signature`.
+
+More on the headers in [Signatures](/signatures).
+
+## Send events
+
+```js
+import { Hookie } from "@hookieai/node";
+
+const hookie = new Hookie({ ingestKey: process.env.HOOKIE_INGEST_KEY });
+const r = await hookie.ingest.send({ order: "A-1", total: 42.5 }, { dataset: "orders" });
+```
+
+Every call carries an `Idempotency-Key`, and the SDK's retries reuse it, so a flaky network stores one event. Pass your own `idempotencyKey` to make your own retries safe too. To post to an endpoint URL instead of using an ingest key, call `hookie.ingest.sendToEndpoint(url, payload)`.
+
+## Manage your workspace
+
+```js
+const hookie = new Hookie({ apiKey: process.env.HOOKIE_API_KEY, projectId: "proj_..." });
+
+const { deliveries } = await hookie.admin.deliveries.list({ status: "dead", limit: 50 });
+await hookie.admin.deliveries.replay(deliveries[0].id);
+```
+
+Helpers cover projects, endpoints, destinations, deliveries and search. `hookie.admin.request(method, path, { body, query })` reaches any other route in the [API reference](/api-reference). Create an API key under Settings, API keys ([API keys](/api-keys)).
+
+## Errors
+
+Everything the SDK throws is a `HookieError` with `status`, `reason`, `retryAfter` and `idempotencyKey`. Branch on its class: `HookieNetworkError`, `HookieAuthError`, `HookieValidationError`, `HookieNotFoundError`, `HookieConflictError`, `HookieRateLimitError` (its `isQuota` is true when the monthly plan quota is used up) and `HookieServerError`.
