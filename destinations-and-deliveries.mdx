@@ -64,7 +64,7 @@ After 10 dead deliveries in a row, over at least an hour, Hookie switches the de
 
 ## The delivery allowance and holds
 
-Each plan includes deliveries a month: 1,000 on Free, 90,000 on Pro and 600,000 on Team, with 10% of grace on Pro and Team. A delivery is counted once, when it is created: its retries are free, and a replay, being a new delivery, is counted.
+Each plan includes deliveries a month: 10,000 on Free, 50,000 on Starter, 90,000 on Pro and 600,000 on Team, with 10% of grace on the paid plans. A delivery is counted once, when it is created: its retries are free, and a replay, being a new delivery, is counted.
 
 Past the allowance, events are still received, stored and routed, but their deliveries are **held**: not sent, and not lost. Once there is room, after the 1st of the month (UTC) or an upgrade, **Send held deliveries** on the **Deliveries** tab sends them oldest first, stopping at the first event the allowance cannot cover. Held deliveries are never sent on their own; the API's `POST …/deliveries/held/release` and the `release_held_deliveries` MCP tool send them too. A held event past your plan's retention is dropped with its record.
 
