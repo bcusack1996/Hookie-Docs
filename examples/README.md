@@ -6,7 +6,7 @@ Choose a framework, open its preview and send a sample. The six form examples us
 | --- | --- | --- |
 | HTML | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=html&file=plain/main.js) | `npm run html` |
 | React | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=react&file=react/main.jsx) | `npm run react` |
-| Next.js | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=next&file=next/app/page.jsx) | `npm run next` |
+| Next.js | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=next&file=next/pages/index.jsx) | `npm run next` |
 | Astro | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=astro&file=astro/src/pages/index.astro) | `npm run astro` |
 | Vue | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=vue&file=vue/App.vue) | `npm run vue` |
 | Svelte | [Try it](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=svelte&file=svelte/App.svelte) | `npm run svelte` |

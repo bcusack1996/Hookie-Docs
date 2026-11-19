@@ -12,7 +12,7 @@ Use the console to publish a form with a shareable URL, embed it on your site an
 
 Open a preview in StackBlitz, choose a sample event and submit it. Each framework uses the same public demo endpoint and returns a receipt.
 
-[HTML](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=html&file=plain/main.js) · [React](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=react&file=react/main.jsx) · [Next.js](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=next&file=next/app/page.jsx) · [Astro](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=astro&file=astro/src/pages/index.astro) · [Vue](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=vue&file=vue/App.vue) · [Svelte](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=svelte&file=svelte/App.svelte)
+[HTML](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=html&file=plain/main.js) · [React](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=react&file=react/main.jsx) · [Next.js](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=next&file=next/pages/index.jsx) · [Astro](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=astro&file=astro/src/pages/index.astro) · [Vue](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=vue&file=vue/App.vue) · [Svelte](https://stackblitz.com/github/bcusack1996/Hookie-Docs/tree/main/examples?startScript=svelte&file=svelte/App.svelte)
 
 ## One command
 
@@ -46,6 +46,10 @@ hookie forms test contact-form
 It posts a sample submission built from the endpoint's fields and reports the record it made. An endpoint that requires Turnstile refuses it, because a terminal cannot pass a Turnstile check: test from your page in a browser.
 
 ## Edit a published form locally
+
+Form pull and push require Hookie CLI 0.4.0 or later. Run `hookie --version` to
+check your installation. To install the version served by the production
+console, run `npm i -g https://app.hookie.ai/cli/hookie-cli.tgz`.
 
 Download the markup and editable fields for an endpoint with write access to
 its project. The CLI detects HTML, React or Astro. Use `--framework` to choose
