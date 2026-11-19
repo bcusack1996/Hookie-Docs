@@ -22,9 +22,11 @@ jq -n '{type:"order.created"}' | hookie send --endpoint checkout --data @-
 hookie forms init contact --to slack --origin https://example.com
 hookie forms init waitlist --framework react --json
 hookie forms test contact-form
+hookie forms pull contact-form --framework html
+hookie forms push ./contact-form.form.json --dry-run
 ```
 
-`forms init` creates the endpoint with the template's fields, a honeypot and the origins you give it, adds the destination you ask for, and writes the form into your project. `forms test` posts a sample submission and reports the record. Templates, flags and the checks Hookie runs are in [Forms](/forms).
+`forms init` creates the endpoint with the template's fields, a honeypot and the origins you give it, adds the destination you ask for, and writes the form into your project. `forms test` posts a sample submission and reports the record. Use `forms pull` to download published markup and a field schema. `forms push` previews field edits and asks before saving. Templates, flags and validation details are in [Forms](/forms).
 
 ## Find what arrived, and what failed
 

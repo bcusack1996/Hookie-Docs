@@ -43,6 +43,36 @@ hookie forms test contact-form
 
 It posts a sample submission built from the endpoint's fields and reports the record it made. An endpoint that requires Turnstile refuses it, because a terminal cannot pass a Turnstile check: test from your page in a browser.
 
+## Edit a published form locally
+
+Download the markup and editable fields for an endpoint with write access to
+its project. The CLI detects HTML, React or Astro. Use `--framework` to choose
+a format and `--out` to select a directory.
+
+```bash
+hookie forms pull contact-form --framework html
+# Edit contact-form.form.json, then review the proposed changes.
+hookie forms push ./contact-form.form.json --dry-run
+hookie forms push ./contact-form.form.json
+```
+
+The generated markup contains the URL that accepts submissions. Pull lists the
+two files with `--dry-run` and replaces existing files with `--force`. The JSON
+document identifies the exact project and endpoint version.
+
+Push accepts the downloaded JSON, a JSON field array, a public schema containing
+`fields`, or a JavaScript or TypeScript file containing one literal
+`defineFields([...])` declaration. Supply `--endpoint <id or slug>` for files
+without an endpoint ID. Use a version’s ID when its slug matches several
+versions. Push shows the ordered fields before and after your edit, then asks
+for confirmation. For scripts, use `--yes --json`. If someone changes the fields
+during review, run push again to see the current diff.
+
+Connected agents can call `pull_form` with `project_id`, `webhook_id` and
+`framework`. To update fields, call `push_form` with the IDs and `form_fields`.
+After reviewing the diff, repeat the call with `expected_fields` set to its
+`before` array. Both tools require the `hookie:write` scope.
+
 ## The form
 
 What `forms init` writes for plain HTML is an ordinary form:
@@ -215,6 +245,30 @@ A submission is an ordinary event, so everything else in Hookie works on it:
 - The **customer portal** lets your own customers subscribe to the form's dataset. See [Customer portal](/customer-portal).
 
 Each submission counts as one event, and each destination it is delivered to as one delivery. The Free plan's 10,000 events a month suit a contact form, and refused spam costs nothing. See [Limits and plans](/limits-and-plans).
+
+### Set up actions after submission
+
+Open the published endpoint’s **Form** tab and expand **After submission**.
+Choose a workflow template and click **Create workflow**. The workflow starts
+when a new record arrives in this form’s dataset. Endpoint versions that share
+the dataset also share its workflows.
+
+| Template | What it does |
+| --- | --- |
+| Classify a message | Uses AI to label the submission as sales, support or spam. |
+| Summarise long answers | Uses AI to save a short summary. Both AI templates keep the result in the workflow run and a separate output dataset. |
+| Notify Slack | Posts the submission to the Slack channel you choose. Supply a channel ID and a bot token with `chat:write`, and invite the bot to the channel. |
+| Call a CRM API | Sends the routed record as a JSON POST to an HTTPS endpoint you supply, with an optional bearer token. |
+
+On Pro and Team, choose a workspace table under **Capture submissions in a
+workspace table**. Match each table column to an incoming field, then click
+**Connect table**. New submissions become typed rows. For older submissions,
+open **Manage table and mapping** and import existing records.
+
+The Form tab shows whether the table is included in Workspace Brain. For a
+previously excluded table, click **Include table in Brain** to make its
+eligible records available to connected agents. This affects records from
+all sources in that table. Individual record exclusions still apply.
 
 ## Settings, wherever you work
 
