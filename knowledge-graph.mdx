@@ -1,14 +1,37 @@
 ---
-title: "Workspace Brain"
-description: "Explore relationships across your workspace and choose which tables and records contribute to AI agent context."
+title: "Agentic Brain"
+description: "Give AI agents focused, current context from your connected workspace records, and curate and review the shared knowledge your team and agents rely on."
 icon: "diagram-project"
+keywords:
+  - "agentic brain"
+  - "knowledge graph"
+  - "agent context"
+  - "knowledge management"
+  - "workspace brain"
 ---
 
-Pro, Team and Ultimate workspaces can turn their [table records](/data-workspace) into
-connected knowledge for people, workflows and AI agents. Open **Workspace Brain**
-in the sidebar. Existing and new table records are included by default, with the
-same IDs and revisions. Webhooks and data sources contribute records through
-the table's **Inputs** mappings in [Data workspace](/data-workspace).
+The Agentic Brain turns your workspace's [table records](/data-workspace) into a knowledge graph that AI agents, workflows and people share. Instead of handing an agent a whole database, you point it at the records that matter and it follows their relationships to a focused, current set of facts. Your team curates and reviews the same knowledge the agents use, so what agents know stays accurate as your business changes. It is available on Pro, Team and Ultimate workspaces.
+
+## How the Brain helps AI agents
+
+- **Focused context, not everything.** An agent starts from known records and follows only the relationships and fields it asks for. Depth, node, relationship and byte budgets keep every response bounded, and truncation flags tell the agent when something did not fit.
+- **Smaller prompts.** Retrieval follows node IDs before loading properties, and an agent can request only the properties a task needs. Large payloads stay out of the traversal and out of the prompt.
+- **Answers grounded in your records.** Context comes from the same table records your team works with, carrying their current revisions and a stable order for unchanged data. Agents work from your facts, so they have less to guess.
+- **Shared knowledge across agents and workflows.** Connected agents and workflows with graph access read one workspace graph and can queue changes to it. What one task records becomes context for the next once the change applies, normally within about 15 seconds.
+- **Safe writes.** Agent and workflow changes carry the revision they expected. If someone changed the record first, the proposal is saved as a conflict for review instead of overwriting newer data.
+- **Traceable runs.** Execution lineage shows each workflow run's tasks, attempts and branches without copying prompts, payloads or HTTP headers.
+
+## How the Brain helps you manage internal knowledge
+
+- **One connected map.** Records from webhooks, data sources and workflows appear in one graph alongside standalone knowledge such as policies, customer briefings and agent memory.
+- **You decide what agents see.** Include or exclude whole tables or single records. Excluded data stays in its source table but is left out of discovery and agent context at every hop.
+- **Edit where it suits you.** Work in a spreadsheet grid or on a visual canvas. Table-backed edits also update the original table and its dashboards.
+- **People review what agents propose.** Conflicting agent and workflow changes wait in a review queue, so a stale write never silently wins.
+- **Check before you rely on it.** Preview the exact context an agent would receive for any record.
+
+## Open the Brain
+
+In the app, open **Workspace Brain** in the sidebar. Existing and new table records are included by default, with the same IDs and revisions. Webhooks and data sources contribute records through the table's **Inputs** mappings in [Data workspace](/data-workspace).
 
 ## Explore your connected data
 
