@@ -1175,6 +1175,28 @@
         ],
         "description": "The type's settings as returned (DLV-13, #322): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3; {queue_url, region, access_key_id, fifo} for SQS; {project_id, topic, service_account_email} for Pub/Sub; {recipient_ids, subject, reply_to_field} for email. No credential is ever included.",
         "properties": {
+          "recipient_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Supports {{dataset}} and {{field}} placeholders. Defaults to New submission to {{dataset}}."
+          },
+          "reply_to_field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of a submission field containing a single email address."
+          },
           "webhook_url": {
             "type": [
               "string",
@@ -1240,28 +1262,6 @@
               "null"
             ],
             "description": "Pub/Sub: the service account whose key is stored (the key itself is never returned)."
-          },
-          "recipient_ids": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 10,
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "subject": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "Supports {{dataset}} and {{field}} placeholders. Defaults to New submission to {{dataset}}."
-          },
-          "reply_to_field": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Name of a submission field containing a single email address."
           }
         }
       },
@@ -2360,36 +2360,6 @@
           }
         }
       },
-      "FormSettings": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "additionalProperties": false,
-        "description": "How a rendered form looks (#583): read by the hosted page, the embed and the renderers through GET /v1/forms/{workspace}/{project}/{slug}. Display only; ingest never reads it. null clears it.",
-        "properties": {
-          "title": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 2000
-          },
-          "submit_label": {
-            "type": "string",
-            "maxLength": 60,
-            "description": "Default \"Send\""
-          },
-          "success_message": {
-            "type": "string",
-            "maxLength": 1000
-          },
-          "theme": {
-            "$ref": "#/components/schemas/FormTheme"
-          }
-        }
-      },
       "FormField": {
         "type": "object",
         "required": [
@@ -2454,6 +2424,97 @@
               "boolean"
             ],
             "description": "The value a rendered form starts with. Display only: never applied to a submission."
+          }
+        }
+      },
+      "FormSettings": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "description": "How a rendered form looks (#583): read by the hosted page, the embed and the renderers through GET /v1/forms/{workspace}/{project}/{slug}. Display only; ingest never reads it. null clears it.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "submit_label": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Default \"Send\""
+          },
+          "success_message": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "theme": {
+            "$ref": "#/components/schemas/FormTheme"
+          }
+        }
+      },
+      "WorkflowCreateResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "ok"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "workflow": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "description": "Starts at 1; incremented on every update."
+              },
+              "active": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "entry_dataset": {
+                "type": "string"
+              },
+              "entry_conditions": {
+                "type": "string",
+                "description": "Raw JSON string of the condition array."
+              },
+              "steps": {
+                "type": "string",
+                "description": "Raw JSON string of the normalized step array."
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "description": "The saved workflow, as returned by a GET by ID."
           }
         }
       }
@@ -25199,65 +25260,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "ok"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "workflow": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "version": {
-                          "type": "integer",
-                          "description": "Starts at 1; incremented on every update."
-                        },
-                        "active": {
-                          "type": "integer",
-                          "enum": [
-                            0,
-                            1
-                          ]
-                        },
-                        "entry_dataset": {
-                          "type": "string"
-                        },
-                        "entry_conditions": {
-                          "type": "string",
-                          "description": "Raw JSON string of the condition array."
-                        },
-                        "steps": {
-                          "type": "string",
-                          "description": "Raw JSON string of the normalized step array."
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      },
-                      "description": "The created workflow, as GET by id returns it (#201)."
-                    }
-                  }
+                  "$ref": "#/components/schemas/WorkflowCreateResult"
                 }
               }
             }
@@ -25320,7 +25323,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/paths/~1admin~1api~1projects~1{project_id}~1workflows/post/responses/201/content/application~1json/schema"
+                  "$ref": "#/components/schemas/WorkflowCreateResult"
                 }
               }
             }
@@ -25635,7 +25638,7 @@
                                 "maxLength": 4096
                               },
                               "maxProperties": 32,
-                              "description": "Header values are PLAIN CONFIGURATION, stored with the definition and returned by GET: do not put secrets in them. Values are templated. Host, Content-Length, Connection, Transfer-Encoding, CF-Connecting-IP and X-Forwarded-For are refused. User-Agent and Idempotency-Key (<instance id>:<step path>, stable across retries) are sent unless set here."
+                              "description": "Hookie encrypts header values when saving the workflow and redacts their contents in API responses. Values are templated. Host, Content-Length, Connection, Transfer-Encoding, CF-Connecting-IP and X-Forwarded-For are refused. User-Agent and Idempotency-Key (<instance id>:<step path>, stable across retries) are sent unless set here."
                             },
                             "body": {
                               "description": "JSON, at most 65536 bytes serialized; not allowed on GET. String leaves are templated. A string body is sent as text/plain, anything else as application/json, unless Content-Type is set."
@@ -38181,6 +38184,282 @@
         }
       }
     },
+    "/admin/api/projects/{project_id}/webhooks/{id}/form-sync": {
+      "get": {
+        "operationId": "pullForm",
+        "summary": "Download framework markup and fields for a published endpoint form",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Requires write access because markup contains the endpoint submission URL.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "framework",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "html",
+                "react",
+                "astro"
+              ],
+              "default": "html"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markup and ordered fields for the endpoint version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "project_id",
+                    "endpoint_id",
+                    "base_slug",
+                    "form_fields",
+                    "markup"
+                  ],
+                  "properties": {
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "endpoint_id": {
+                      "type": "string"
+                    },
+                    "base_slug": {
+                      "type": "string"
+                    },
+                    "form_fields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "markup": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid framework or field declaration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Endpoint not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "post": {
+        "operationId": "pushForm",
+        "summary": "Preview or confirm an ordered form field update",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Preview with form_fields. To apply, also send expected_fields equal to the before array from the preview. An unchanged array does not write.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "form_fields"
+                ],
+                "properties": {
+                  "form_fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/FormField"
+                    },
+                    "maxItems": 50
+                  },
+                  "expected_fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/FormField"
+                    },
+                    "maxItems": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current and proposed lists and whether a change was applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "before",
+                    "after",
+                    "changed",
+                    "applied"
+                  ],
+                  "properties": {
+                    "before": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "after": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "applied": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid framework or field declaration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Endpoint not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "409": {
+            "description": "Fields have changed since the preview.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/api/projects/{project_id}/webhooks/{id}/activity": {
       "get": {
         "operationId": "getWebhookActivity",
@@ -38403,16 +38682,16 @@
                               "null"
                             ]
                           },
+                          "email_held": {
+                            "type": "boolean",
+                            "description": "True while a delivery for this submission is held by the workspace's daily email allowance. It resumes on the next UTC day."
+                          },
                           "forward_status": {
                             "type": [
                               "string",
                               "null"
                             ],
                             "description": "Received only."
-                          },
-                          "email_held": {
-                            "type": "boolean",
-                            "description": "True while a delivery for this submission is held by the workspace's daily email allowance. It resumes on the next UTC day."
                           }
                         }
                       }
@@ -48771,282 +49050,6 @@
           },
           "413": {
             "description": "Body exceeds 256 bytes"
-          }
-        }
-      }
-    },
-    "/admin/api/projects/{project_id}/webhooks/{id}/form-sync": {
-      "get": {
-        "operationId": "pullForm",
-        "summary": "Download framework markup and fields for a published endpoint form",
-        "tags": [
-          "Webhooks"
-        ],
-        "description": "Requires write access because markup contains the endpoint submission URL.",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "description": "Project id (UUID) belonging to the caller workspace.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Webhook id.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "framework",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "html",
-                "react",
-                "astro"
-              ],
-              "default": "html"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Markup and ordered fields for the endpoint version.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "project_id",
-                    "endpoint_id",
-                    "base_slug",
-                    "form_fields",
-                    "markup"
-                  ],
-                  "properties": {
-                    "project_id": {
-                      "type": "string"
-                    },
-                    "endpoint_id": {
-                      "type": "string"
-                    },
-                    "base_slug": {
-                      "type": "string"
-                    },
-                    "form_fields": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/FormField"
-                      },
-                      "maxItems": 50
-                    },
-                    "markup": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid framework or field declaration.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Write access required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Endpoint not found in this project.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        }
-      },
-      "post": {
-        "operationId": "pushForm",
-        "summary": "Preview or confirm an ordered form field update",
-        "tags": [
-          "Webhooks"
-        ],
-        "description": "Preview with form_fields. To apply, also send expected_fields equal to the before array from the preview. An unchanged array does not write.",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "description": "Project id (UUID) belonging to the caller workspace.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Webhook id.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "form_fields"
-                ],
-                "properties": {
-                  "form_fields": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/FormField"
-                    },
-                    "maxItems": 50
-                  },
-                  "expected_fields": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/FormField"
-                    },
-                    "maxItems": 50
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The current and proposed lists and whether a change was applied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "before",
-                    "after",
-                    "changed",
-                    "applied"
-                  ],
-                  "properties": {
-                    "before": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/FormField"
-                      },
-                      "maxItems": 50
-                    },
-                    "after": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/FormField"
-                      },
-                      "maxItems": 50
-                    },
-                    "changed": {
-                      "type": "boolean"
-                    },
-                    "applied": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid framework or field declaration.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Write access required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Endpoint not found in this project.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "409": {
-            "description": "Fields have changed since the preview.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       }
