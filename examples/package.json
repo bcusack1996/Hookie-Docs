@@ -1,0 +1,30 @@
+{
+  "name": "hookie-public-examples",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite plain --host 0.0.0.0",
+    "html": "vite plain --host 0.0.0.0",
+    "react": "vite react --host 0.0.0.0",
+    "next": "next dev next -H 0.0.0.0",
+    "astro": "astro dev --root astro --host 0.0.0.0",
+    "vue": "vite vue --config vue/vite.config.mjs --host 0.0.0.0",
+    "svelte": "vite svelte --config svelte/vite.config.mjs --host 0.0.0.0",
+    "worker": "node worker/preview.mjs",
+    "build": "vite build plain && vite build react && next build next && astro build --root astro && vite build vue --config vue/vite.config.mjs && vite build svelte --config svelte/vite.config.mjs",
+    "test": "node --test worker/receiver.test.mjs"
+  },
+  "dependencies": {
+    "@hookieai/forms": "0.2.1",
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "@vitejs/plugin-vue": "5.2.4",
+    "astro": "5.18.2",
+    "next": "15.5.29",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "standardwebhooks": "1.3.0",
+    "svelte": "5.58.0",
+    "vite": "6.4.6",
+    "vue": "3.5.45"
+  }
+}

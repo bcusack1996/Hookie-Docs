@@ -47848,6 +47848,112 @@
         }
       }
     },
+    "/v1/examples/submit": {
+      "post": {
+        "tags": [
+          "Ingest"
+        ],
+        "summary": "Submit a public framework example",
+        "operationId": "submitPublicExample",
+        "description": "Accepts a preset sample into an isolated dataset. Repeated framework and topic combinations return the same receipt. Per-IP burst limit of 60 per minute per Cloudflare location.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "framework",
+                  "topic"
+                ],
+                "properties": {
+                  "framework": {
+                    "type": "string",
+                    "enum": [
+                      "html",
+                      "react",
+                      "next",
+                      "astro",
+                      "vue",
+                      "svelte"
+                    ]
+                  },
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "order.created",
+                      "delivery.sent",
+                      "invoice.paid"
+                    ]
+                  },
+                  "_gotcha": {
+                    "type": "string",
+                    "description": "Leave empty."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sample received. A repeated sample returns the same submission_id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "submission_id"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "submission_id": {
+                      "type": "string"
+                    },
+                    "idempotent": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unreadable body."
+          },
+          "413": {
+            "description": "Body exceeds 512 bytes."
+          },
+          "415": {
+            "description": "Expected a URL-encoded form."
+          },
+          "422": {
+            "description": "Unexpected or missing sample fields."
+          },
+          "429": {
+            "description": "IP burst limit reached. Retry after 60 seconds."
+          }
+        }
+      },
+      "options": {
+        "tags": [
+          "Ingest"
+        ],
+        "summary": "Preflight a public framework example",
+        "operationId": "optionsPublicExample",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Cross-origin POST allowed."
+          }
+        }
+      }
+    },
     "/v1/forms/{workspace}/{project}/{slug}": {
       "get": {
         "operationId": "getPublicFormSchema",
