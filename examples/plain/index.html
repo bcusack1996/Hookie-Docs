@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Hookie HTML form</title>
+  </head>
+  <body>
+    <main>
+      <h1>Send a sample event</h1>
+      <p>
+        Send a sample event to the public Hookie demo. Only the framework and event type are
+        accepted.
+      </p>
+      <form action="https://app.hookie.ai/v1/examples/submit" method="post">
+        <input type="hidden" name="framework" value="html" /><input hidden name="_gotcha" />
+        <label for="topic">Which event would you like to receive?</label>
+        <select id="topic" name="topic">
+          <option>order.created</option>
+          <option>delivery.sent</option>
+          <option>invoice.paid</option>
+        </select>
+        <button>Send sample</button>
+      </form>
+      <output aria-live="polite"></output>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

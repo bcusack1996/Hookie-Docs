@@ -49,6 +49,7 @@
         "pages": [
           "sdk",
           "forms",
+          "hosted-forms",
           "signatures",
           "endpoint-verification",
           "destinations",

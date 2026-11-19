@@ -1,0 +1,19 @@
+---
+import { endpoint, description, question, topics } from "../../../shared/demo.mjs";
+import "../../../shared/style.css";
+---
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Hookie Astro form</title></head>
+<body><main><h1>Send a sample event</h1><p>{description}</p>
+<form action={endpoint} method="post">
+  <input type="hidden" name="framework" value="astro"><input hidden name="_gotcha">
+  <label for="topic">{question}</label>
+  <select id="topic" name="topic">{topics.map(topic => <option>{topic}</option>)}</select>
+  <button>Send sample</button>
+</form><output aria-live="polite"></output></main>
+<script>
+  import { enhanceForm } from "@hookieai/forms";
+  import { message } from "../../../shared/demo.mjs";
+  const output = document.querySelector("output")!;
+  const show = (result: Parameters<typeof message>[0]) => { output.textContent = message(result); };
+  enhanceForm(document.querySelector("form")!, { onError: show, onSuccess: show });
+</script></body></html>
