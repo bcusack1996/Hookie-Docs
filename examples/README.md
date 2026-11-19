@@ -14,7 +14,7 @@ Choose a framework, open its preview and send a sample. The six form examples us
 
 ## Run locally
 
-Install Node.js 22 or later, open this directory and run `npm ci`. Start a preview using the command in the table and open its local URL. Run `npm run build` to build all six form apps and `npm test` to check the Worker receiver.
+Install Node.js 22.23.4 or later, open this directory and run `npm ci`. Start a preview using the command in the table and open its local URL. Run `npm run build` to build all six form apps and `npm test` to check the Worker receiver.
 
 ## What the previews send
 
