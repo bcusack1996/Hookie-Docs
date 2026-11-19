@@ -18,7 +18,7 @@ Open a project's **Workflows** tab and choose **New workflow**, or **Edit** on a
 | **Add a step** | One button per step type. Choosing one adds the step where **Put new steps** says: after the selected step, into a selected branch's `then` or `else`, at the end of the workflow, or unconnected. You can also drag a step type onto the canvas. |
 | **Canvas** | Drag steps to arrange them, and drag from a step's handle to another step to connect them. A `branch` has three handles: **next** (bottom) for what runs after the branch, and **then** and **else** (right) for its two arms. Drag the background to pan; hold Ctrl (or ⌘) and scroll, or pinch, to zoom. The minimap shows the whole workflow. |
 | **Toolbar** | Undo, redo, duplicate, delete, auto-layout, zoom in, zoom out and fit to screen. |
-| **Edit panel** | The selected step's settings, as a form for its type: dataset pickers that list the project's datasets (or take a new name), an AI-agent dropdown, condition rows (path, operator, value), header and mapping rows, and JSON fields for payloads and bodies. **Connections** sets what runs next, or a branch's `then` and `else`, from a list, so you can connect steps without dragging. |
+| **Edit panel** | The selected step's settings, as a form for its type: dataset pickers that list the project's datasets (or take a new name), an AI-agent dropdown, condition rows (path, operator, value) and, for entry, branch and wait conditions, condition groups, header and mapping rows, and JSON fields for payloads and bodies. **Connections** sets what runs next, or a branch's `then` and `else`, from a list, so you can connect steps without dragging. |
 | **Definition (JSON)** | Exactly what **Save** sends: the same definition the API, the CLI and MCP agents read and write. The canvas is a view of that definition, not a second format. |
 
 Everything works from the keyboard. Tab moves through the palette, the toolbar, the steps on the canvas and the edit panel. Enter selects a focused step, and the arrow keys move it. The **Edit** menu jumps to any step. Shortcuts: Ctrl+Z undo, Ctrl+Shift+Z (or Ctrl+Y) redo, Ctrl+D duplicate, and Delete removes the selected steps while the canvas has focus.
@@ -91,6 +91,8 @@ Every place Hookie takes conditions uses one shape and the same ten operators: r
 The second line is shorthand for the first. Every condition in a list must hold, and an empty list matches everything. A list holds at most 50 conditions.
 
 In a workflow's entry conditions, and in `branch` and `wait_for_event` conditions, a condition can also be a **group**. `{"any": [...]}` holds when one member holds, and `{"all": [...]}` holds when every member does. A member is a condition or another group, and groups nest at most two levels deep. A rule, an endpoint's criteria or a trigger refuses a group with `400`, because it tests one condition at a time.
+
+In the builder's edit panel, **Add group** adds a boxed group whose **Match** is **Any of these (or)** or **All of these (and)**. A group holds its own condition rows and, at the top level, one more group inside it. A group cannot be empty. Condition rows outside any group must all hold.
 
 | Operator | Value | Matches when the field… |
 | --- | --- | --- |
