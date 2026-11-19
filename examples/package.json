@@ -6,7 +6,7 @@
     "start": "vite plain --host 0.0.0.0",
     "html": "vite plain --host 0.0.0.0",
     "react": "vite react --host 0.0.0.0",
-    "next": "next dev next -H 0.0.0.0",
+    "next": "next dev next --webpack -H 0.0.0.0",
     "astro": "astro dev --root astro --host 0.0.0.0 --ignore-lock",
     "vue": "vite vue --config vue/vite.config.mjs --host 0.0.0.0",
     "svelte": "vite svelte --config svelte/vite.config.mjs --host 0.0.0.0",
