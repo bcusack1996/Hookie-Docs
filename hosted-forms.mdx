@@ -1,0 +1,56 @@
+---
+title: "Build and share a hosted form"
+description: "Create a form in the console, publish a version, and share a direct link or embed it on your site."
+icon: "rectangle-list"
+---
+
+Open your project’s **Endpoints** tab and choose **New form**. To change an existing endpoint, open its **Form** tab. You need write access to publish.
+
+## Build a draft
+
+1. Choose a starting template and apply it. Contact, newsletter, waitlist, feedback and survey each start with different fields. Give a new endpoint a name and choose its submissions dataset.
+2. Add or remove fields, then drag them into order or use their move buttons. Set each field’s name, type and validation. Labels, placeholders, defaults and help text control what visitors see.
+3. Set the title, submit label, success message and theme. Choose your honeypot field and enable Turnstile if needed. Add each site that will embed the form to its allowed origins.
+4. Check the **Live preview** as you edit. It renders your draft locally. Your browser saves the draft for the current user, workspace, project and endpoint. If you close it after entering a new Turnstile secret, enter the secret again before publishing.
+
+## Publish and test
+
+Choose **Publish form** for a new form or **Publish new version** for an existing form. Publishing an edit creates a minor endpoint version with a new public URL. It keeps the source version’s dataset, routing and stored protection settings unless you change the supported form settings. Existing shared URLs continue to refer to their original version.
+
+Under **Share this version**, choose **Open hosted form** or copy the URL. The page uses the published fields and appearance. Visitors see field errors inline. A successful submission follows your configured redirect or displays your success message.
+
+**Try published form** sends a real submission. It creates a record and can run workflows and destinations for the dataset. Use **View submissions** to find the record, or **Add destination** to send new records to a destination filtered to this dataset. See [Email notifications](/destinations#email-notifications) and [post-submit actions](/forms#set-up-actions-after-submission).
+
+## Embed a form
+
+The **Share this version** panel has an embed script and framework snippets. The endpoint’s **Share hosted form** controls also provide the direct URL, script and iframe. Use the URL for the version you want to show.
+
+```html
+<div id="contact-form"></div>
+<script async
+  src="https://app.hookie.ai/assets/hookie-form-embed.js"
+  data-form="https://app.hookie.ai/v1/forms/YOUR_WORKSPACE/YOUR_PROJECT/YOUR_SLUG/page"
+  data-target="contact-form"
+  data-title="Contact us"></script>
+```
+
+Omit `data-target` to insert the iframe where the script appears. Supply a descriptive `data-title` or set `title` on a plain iframe.
+
+```html
+<iframe title="Contact us" width="100%" height="576"
+  src="https://app.hookie.ai/v1/forms/YOUR_WORKSPACE/YOUR_PROJECT/YOUR_SLUG/page"></iframe>
+```
+
+Add the full origin for each embedding site, including its port if applicable. For nested frames, allow every ancestor origin. An empty list permits direct visits only. A standalone `*` allows any site to frame the form. Rotating an endpoint URL also changes its hosted URL. Update your links and embeds before the rotation overlap expires.
+
+## Bot protection and availability
+
+Hosted forms include a honeypot. Each Cloudflare location limits hosted requests to 60 per minute per connecting IP. The published form uses the same field checks, submission quota and destinations as the endpoint.
+
+Visitors can submit a native form with JavaScript disabled unless you require Turnstile. When configuring a Turnstile site key, allow `hookie.ai` as a widget hostname. The widget runs there in an isolated frame, and the endpoint checks its token on submission.
+
+Every hosted page has a Hookie footer with a link to [report abuse](mailto:abuse@hookie.ai). A platform moderation hold takes hosted pages and hosted submissions offline across the endpoint’s versions. A disabled or unavailable hosted form returns `404`. The endpoint’s own access controls continue to govern direct webhook traffic.
+
+## API routes
+
+Use `GET /v1/forms/{workspace}/{project}/{slug}` for the public JSON schema. Append `/page` for the hosted HTML page. A native browser submits a URL-encoded or multipart `POST` to that same page URL. For programmatic version publishing, send a `form` object to `POST /admin/api/projects/{project_id}/webhooks/{id}/versions`. Include at least one field. The response contains the new version’s public URL. See the [API reference](/api-reference).

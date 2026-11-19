@@ -1023,14 +1023,45 @@
           "slack",
           "s3",
           "sqs",
-          "pubsub"
+          "pubsub",
+          "email"
         ],
         "default": "webhook",
-        "description": "How a delivery leaves Hookie (DLV-13, #313, #322). `webhook`: the signed HTTPS POST to `url` (Hookie-Signature and the Standard Webhooks headers), unchanged. `slack`: a POST to a Slack incoming webhook with a readable message ({text, blocks}: dataset, event id, received time and the payload as pretty JSON truncated to 2,500 characters), or the destination's own template when it has a transform; it carries only Content-Type and User-Agent, no signature headers. `s3`: one object per event PUT to an S3-compatible bucket (AWS S3, Cloudflare R2, GCS interoperability, MinIO) at {prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json (dated by when the event was received, UTC), Content-Type application/json, x-amz-meta-hookie-event-id and x-amz-meta-hookie-dataset, signed with AWS SigV4; the key is the event's, so a retry or replay overwrites the same object. `sqs` (#322): one SendMessage per event to an Amazon SQS queue over the JSON protocol (POST to the queue URL's host, X-Amz-Target AmazonSQS.SendMessage, Content-Type application/x-amz-json-1.0, signed with AWS SigV4 for service sqs); MessageBody is the delivery body, and the message attributes event_id and dataset (String) carry the event's id and dataset. A FIFO queue (name ending .fifo) also gets MessageDeduplicationId = the event id and MessageGroupId = the dataset, so a retry or replay inside SQS's five-minute window is one message. A message over SQS's 1 MiB limit (1,048,576 bytes, body and attributes together) fails at once and is not retried. SQS's error code decides a retry: throttling (ThrottlingException, RequestThrottled, KmsThrottled) and SQS-side failures are retried, refusals (AccessDenied, QueueDoesNotExist, InvalidParameterValue, InvalidMessageContents, signature and KMS errors) are not; the code is added to the delivery's error. `pubsub` (#322): one publish per event, POST https://pubsub.googleapis.com/v1/projects/{project}/topics/{topic}:publish with {messages: [{data: base64(body), attributes: {event_id, dataset}}]}, authorised by an OAuth access token minted from the destination's service-account key (an RS256 JWT exchanged at https://oauth2.googleapis.com/token) and cached until 60 s before it expires, never minted per delivery. A 401 drops the cached token and is retried; a key Google refuses fails the delivery without retrying. Pub/Sub has no deduplication on publish: receivers dedupe on the event_id attribute. All of them share retries with backoff, pacing, the delivery allowance and holds, replay and the delivery log. The type is fixed at creation."
+        "description": "How a delivery leaves Hookie (DLV-13, #313, #322). `webhook`: the signed HTTPS POST to `url` (Hookie-Signature and the Standard Webhooks headers), unchanged. `slack`: a POST to a Slack incoming webhook with a readable message ({text, blocks}: dataset, event id, received time and the payload as pretty JSON truncated to 2,500 characters), or the destination's own template when it has a transform; it carries only Content-Type and User-Agent, no signature headers. `s3`: one object per event PUT to an S3-compatible bucket (AWS S3, Cloudflare R2, GCS interoperability, MinIO) at {prefix}{dataset}/{yyyy}/{mm}/{dd}/{event id}.json (dated by when the event was received, UTC), Content-Type application/json, x-amz-meta-hookie-event-id and x-amz-meta-hookie-dataset, signed with AWS SigV4; the key is the event's, so a retry or replay overwrites the same object. `sqs` (#322): one SendMessage per event to an Amazon SQS queue over the JSON protocol (POST to the queue URL's host, X-Amz-Target AmazonSQS.SendMessage, Content-Type application/x-amz-json-1.0, signed with AWS SigV4 for service sqs); MessageBody is the delivery body, and the message attributes event_id and dataset (String) carry the event's id and dataset. A FIFO queue (name ending .fifo) also gets MessageDeduplicationId = the event id and MessageGroupId = the dataset, so a retry or replay inside SQS's five-minute window is one message. A message over SQS's 1 MiB limit (1,048,576 bytes, body and attributes together) fails at once and is not retried. SQS's error code decides a retry: throttling (ThrottlingException, RequestThrottled, KmsThrottled) and SQS-side failures are retried, refusals (AccessDenied, QueueDoesNotExist, InvalidParameterValue, InvalidMessageContents, signature and KMS errors) are not; the code is added to the delivery's error. `pubsub` (#322): one publish per event, POST https://pubsub.googleapis.com/v1/projects/{project}/topics/{topic}:publish with {messages: [{data: base64(body), attributes: {event_id, dataset}}]}, authorised by an OAuth access token minted from the destination's service-account key (an RS256 JWT exchanged at https://oauth2.googleapis.com/token) and cached until 60 s before it expires, never minted per delivery. A 401 drops the cached token and is retried; a key Google refuses fails the delivery without retrying. Pub/Sub has no deduplication on publish: receivers dedupe on the event_id attribute. `email` sends a field list through Cloudflare Email Sending to verified project recipients. Each distinct submission uses one daily workspace unit across recipients and destinations. Excess mail waits until the next UTC day. All of them share retries with backoff, pacing, the delivery allowance and holds, replay and the delivery log. The type is fixed at creation."
       },
       "DestinationConfigInput": {
         "description": "A typed destination's settings (DLV-13, #313, #322). Required on create for those types; refused for a webhook. Credentials are stored AES-256-GCM encrypted and never returned, exported or logged. On PATCH, a credential that is not sent keeps the stored one, and settings that are not sent keep their stored values. On create, the Slack variant needs webhook_url.",
         "anyOf": [
+          {
+            "type": "object",
+            "title": "Email",
+            "additionalProperties": false,
+            "properties": {
+              "recipient_ids": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 10,
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "subject": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Supports {{dataset}} and {{field}} placeholders. Defaults to New submission to {{dataset}}."
+              },
+              "reply_to_field": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Name of a submission field containing a single email address."
+              }
+            },
+            "description": "A create needs recipient_ids from this project. Pending and unsubscribed recipients receive no submissions."
+          },
           {
             "type": "object",
             "title": "Slack",
@@ -1142,7 +1173,7 @@
           "object",
           "null"
         ],
-        "description": "The type's settings as returned (DLV-13, #322): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3; {queue_url, region, access_key_id, fifo} for SQS; {project_id, topic, service_account_email} for Pub/Sub. No credential is ever included.",
+        "description": "The type's settings as returned (DLV-13, #322): null for a webhook; {webhook_url} (masked) for Slack; {endpoint, region, bucket, prefix, access_key_id} for S3; {queue_url, region, access_key_id, fifo} for SQS; {project_id, topic, service_account_email} for Pub/Sub; {recipient_ids, subject, reply_to_field} for email. No credential is ever included.",
         "properties": {
           "webhook_url": {
             "type": [
@@ -1209,6 +1240,28 @@
               "null"
             ],
             "description": "Pub/Sub: the service account whose key is stored (the key itself is never returned)."
+          },
+          "recipient_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Supports {{dataset}} and {{field}} placeholders. Defaults to New submission to {{dataset}}."
+          },
+          "reply_to_field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of a submission field containing a single email address."
           }
         }
       },
@@ -2334,6 +2387,73 @@
           },
           "theme": {
             "$ref": "#/components/schemas/FormTheme"
+          }
+        }
+      },
+      "FormField": {
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "1-64 letters, digits, _ . - [ or ]"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "email",
+              "number",
+              "url",
+              "tel",
+              "textarea",
+              "select",
+              "checkbox",
+              "date",
+              "hidden"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Required for select; for checkbox, limits the allowed values"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Shown above the field. Display only."
+          },
+          "placeholder": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Shown inside an empty field. Display only."
+          },
+          "help": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Shown under the field. Display only."
+          },
+          "default": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ],
+            "description": "The value a rendered form starts with. Display only: never applied to a submission."
           }
         }
       }
@@ -10976,6 +11096,15 @@
                           },
                           "form_settings": {
                             "$ref": "#/components/schemas/FormSettings"
+                          },
+                          "hosted_disabled": {
+                            "type": "integer",
+                            "enum": [
+                              0,
+                              1
+                            ],
+                            "readOnly": true,
+                            "description": "An operator has disabled the hosted page for this endpoint."
                           }
                         }
                       }
@@ -11689,7 +11818,7 @@
             "$ref": "#/components/responses/RateLimited"
           }
         },
-        "description": "Top-level alias: POST /admin/api/webhooks/{id}/versions. Write role required. The new version carries the source version's signature verification (scheme, settings and secret).",
+        "description": "Top-level alias: POST /admin/api/webhooks/{id}/versions. Write role required. The new version carries the source version's signature verification (scheme, settings and secret). A request containing only form publishes a minor version of the source form. It requires at least one form field and inherits its dataset, routing, enabled state, verification, and any omitted form options. Its public URL is new.",
         "parameters": [
           {
             "name": "project_id",
@@ -11718,75 +11847,217 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "slug",
-                  "dataset"
-                ],
-                "description": "A complete webhook spec (same validator as create) plus the optional major flag.",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80
-                  },
-                  "slug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9][a-z0-9-]{0,46}$",
-                    "description": "Must equal the base slug of the webhook named by {id}."
-                  },
-                  "dataset": {
-                    "type": "string",
-                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
-                  },
-                  "enabled": {
-                    "type": "boolean",
-                    "default": true
-                  },
-                  "criteria": {
-                    "type": "array",
-                    "maxItems": 10,
-                    "items": {
-                      "$ref": "#/components/schemas/Condition"
-                    }
-                  },
-                  "mappings": {
-                    "type": "array",
-                    "maxItems": 50,
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "path",
-                        "key"
-                      ],
-                      "properties": {
-                        "path": {
-                          "type": "string",
-                          "maxLength": 200
-                        },
-                        "key": {
-                          "type": "string",
-                          "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "dataset"
+                    ],
+                    "description": "A complete webhook spec (same validator as create) plus the optional major flag.",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "slug": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,46}$",
+                        "description": "Must equal the base slug of the webhook named by {id}."
+                      },
+                      "dataset": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
+                      },
+                      "enabled": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "criteria": {
+                        "type": "array",
+                        "maxItems": 10,
+                        "items": {
+                          "$ref": "#/components/schemas/Condition"
                         }
+                      },
+                      "mappings": {
+                        "type": "array",
+                        "maxItems": 50,
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "path",
+                            "key"
+                          ],
+                          "properties": {
+                            "path": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$"
+                            }
+                          }
+                        }
+                      },
+                      "dedupe_path": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 200,
+                        "description": "Opt-in (HK-006): the payload field whose value identifies an event, as a mapping path names one (for example \"event_id\" or \"data.id\"; not $payload, $submission.id or $submission.received_at). A POST whose body has the same non-empty string, or the same number, there as an earlier POST to this endpoint is answered 200 with that submission's id, idempotent: true and deduplicated_by: \"body\", and creates no record or run. A missing field, or a value that is neither, deduplicates nothing. An Idempotency-Key header and a provider delivery id still take precedence. The window is the submission's retention: a repeat is deduplicated for as long as the first submission is kept (the plan's retention window), after which the submission is pruned and a repeat is stored again. This is not the 24-hour Idempotency-Key replay on /admin/api. Off when omitted or null. It is set per version (POST .../versions) and cannot be changed with PATCH.",
+                        "example": "event_id"
+                      },
+                      "major": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "true bumps the major version (2), otherwise the minor is incremented (1.1)."
                       }
                     }
                   },
-                  "dedupe_path": {
-                    "type": [
-                      "string",
-                      "null"
+                  {
+                    "type": "object",
+                    "required": [
+                      "form"
                     ],
-                    "maxLength": 200,
-                    "description": "Opt-in (HK-006): the payload field whose value identifies an event, as a mapping path names one (for example \"event_id\" or \"data.id\"; not $payload, $submission.id or $submission.received_at). A POST whose body has the same non-empty string, or the same number, there as an earlier POST to this endpoint is answered 200 with that submission's id, idempotent: true and deduplicated_by: \"body\", and creates no record or run. A missing field, or a value that is neither, deduplicates nothing. An Idempotency-Key header and a provider delivery id still take precedence. The window is the submission's retention: a repeat is deduplicated for as long as the first submission is kept (the plan's retention window), after which the submission is pruned and a repeat is stored again. This is not the 24-hour Idempotency-Key replay on /admin/api. Off when omitted or null. It is set per version (POST .../versions) and cannot be changed with PATCH.",
-                    "example": "event_id"
-                  },
-                  "major": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "true bumps the major version (2), otherwise the minor is incremented (1.1)."
+                    "additionalProperties": false,
+                    "properties": {
+                      "form": {
+                        "type": "object",
+                        "required": [
+                          "form_fields"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "form_fields": {
+                            "type": "array",
+                            "description": "At least one field in the published form.",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "type"
+                              ],
+                              "additionalProperties": false,
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "description": "1-64 letters, digits, _ . - [ or ]"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "text",
+                                    "email",
+                                    "number",
+                                    "url",
+                                    "tel",
+                                    "textarea",
+                                    "select",
+                                    "checkbox",
+                                    "date",
+                                    "hidden"
+                                  ]
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "max_length": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "Required for select; for checkbox, limits the allowed values"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "description": "Shown above the field. Display only."
+                                },
+                                "placeholder": {
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "description": "Shown inside an empty field. Display only."
+                                },
+                                "help": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "description": "Shown under the field. Display only."
+                                },
+                                "default": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean"
+                                  ],
+                                  "description": "The value a rendered form starts with. Display only: never applied to a submission."
+                                }
+                              }
+                            },
+                            "minItems": 1
+                          },
+                          "form_settings": {
+                            "$ref": "#/components/schemas/FormSettings"
+                          },
+                          "redirect_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uri",
+                            "maxLength": 2048,
+                            "description": "ING-8: an https:// URL (no user:password) a browser's native form POST is sent to (303) once stored. null or \"\" clears it.",
+                            "example": "https://example.com/thanks"
+                          },
+                          "cors_origins": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "maxItems": 20,
+                            "items": {
+                              "type": "string",
+                              "description": "An origin - scheme, host and optional port, no path - or \"*\" for any page."
+                            },
+                            "description": "ING-8: origins whose fetch() may call the endpoint URL and read the answer, OPTIONS preflight included. [] or null allows none, which is the default. Stored normalised (a trailing slash dropped).",
+                            "example": [
+                              "https://example.com"
+                            ]
+                          },
+                          "honeypot": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Hookie Forms (#342): a form field hidden from people, such as _gotcha. A submission that fills it is answered 201 (or the redirect, or the thank-you page) but is not stored, counted or delivered, and is logged as reason honeypot. The field is stripped from what is stored. null: none."
+                          },
+                          "turnstile_site_key": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Hookie Forms (#342): the site key of the customer's Cloudflare Turnstile widget. Public."
+                          },
+                          "turnstile_secret": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Hookie Forms (#342): the Turnstile widget's secret key. With one set, a submission to the endpoint URL must carry a valid cf-turnstile-response token, checked with Siteverify before it is stored or counted: missing or invalid is 403 (503 if Siteverify cannot be reached), reason turnstile_failed. The token is stripped from what is stored. Write-only: stored encrypted, never returned (see turnstile_enabled), audited as set or cleared. null turns it off."
+                          }
+                        }
+                      }
+                    }
                   }
-                }
+                ]
               }
             }
           }
@@ -25043,6 +25314,16 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "200": {
+            "description": "An existing workflow matched a create-if-absent request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/paths/~1admin~1api~1projects~1{project_id}~1workflows/post/responses/201/content/application~1json/schema"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -25078,7 +25359,7 @@
                   },
                   "slug": {
                     "type": "string",
-                    "description": "Slugified server-side: lowercased, non-alphanumerics collapsed to '-', trimmed, max 48 chars, falling back to 'workflow'. Defaults to a slug of `name`. Not uniqueness-checked."
+                    "description": "Slugified server-side: lowercased, non-alphanumerics collapsed to '-', trimmed, max 48 chars, falling back to 'workflow'. Defaults to a slug of `name`. Used with entry_dataset to identify an existing workflow when if_absent is enabled."
                   },
                   "active": {
                     "type": "boolean",
@@ -25473,6 +25754,11 @@
                         }
                       ]
                     }
+                  },
+                  "if_absent": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When true, return the earliest existing workflow in this project with the same normalized slug and entry dataset. Concurrent requests can create at most one new workflow for that pair. Its existing configuration and active state are preserved."
                   }
                 }
               }
@@ -38123,6 +38409,10 @@
                               "null"
                             ],
                             "description": "Received only."
+                          },
+                          "email_held": {
+                            "type": "boolean",
+                            "description": "True while a delivery for this submission is held by the workspace's daily email allowance. It resumes on the next UTC day."
                           }
                         }
                       }
@@ -48097,6 +48387,659 @@
                 }
               }
             },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/forms/{workspace}/{project}/{slug}/page": {
+      "parameters": [
+        {
+          "name": "workspace",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "project",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getHostedFormPage",
+        "summary": "Open a hosted form",
+        "tags": [
+          "Ingest"
+        ],
+        "security": [],
+        "description": "Displays the published fields, theme and configured bot protection. Direct visits are supported automatically. The endpoint's allowed origins govern embedding.",
+        "responses": {
+          "200": {
+            "description": "Hosted HTML form",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, unpublished or unavailable form"
+          },
+          "429": {
+            "description": "Hosted page rate limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitHostedForm",
+        "summary": "Submit a hosted form using a native browser POST",
+        "tags": [
+          "Ingest"
+        ],
+        "security": [],
+        "description": "Processes the submission through the endpoint's normal ingestion, validation and routing. The page always includes a honeypot. Turnstile is checked when configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thank-you page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Redirect to the configured success URL"
+          },
+          "403": {
+            "description": "Origin, verification or endpoint access refused"
+          },
+          "404": {
+            "description": "Unknown or unavailable form"
+          },
+          "415": {
+            "description": "Unsupported form content type"
+          },
+          "422": {
+            "description": "Form with field errors and entered values",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or usage limit"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/email-recipients": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "operationId": "listEmailRecipients",
+        "summary": "List project email recipients and their consent status",
+        "description": "Requires an owner or admin session.",
+        "responses": {
+          "200": {
+            "description": "Recipient list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recipients"
+                  ],
+                  "properties": {
+                    "recipients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "address",
+                          "state"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "address": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "verified",
+                              "unsubscribed"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires an owner or admin session"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "operationId": "inviteEmailRecipient",
+        "summary": "Invite an address to receive submission notifications for this project",
+        "description": "Eligible recipients receive a confirmation link valid for 24 hours. Opted-out addresses stay unsubscribed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "address"
+                ],
+                "properties": {
+                  "address": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Invitation processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid address"
+          },
+          "403": {
+            "description": "Requires an owner or admin session"
+          },
+          "429": {
+            "description": "Invitation rate limited"
+          },
+          "503": {
+            "description": "Email sending unavailable"
+          }
+        }
+      }
+    },
+    "/v1/email-consent/confirm": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "operationId": "showEmailConfirm",
+        "summary": "Show the recipient consent form",
+        "description": "The email link carries a private proof in its URL fragment. Opening the link leaves the recipient state intact. The form submits the proof only after the visitor presses the button.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "HTML form"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "operationId": "submitEmailConfirm",
+        "summary": "Confirm project email notifications",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "proof"
+                ],
+                "properties": {
+                  "proof": {
+                    "type": "string",
+                    "description": "Recipient ID and private link token, joined by a period"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consent saved"
+          },
+          "400": {
+            "description": "Invalid or expired proof"
+          },
+          "413": {
+            "description": "Body exceeds 256 bytes"
+          }
+        }
+      }
+    },
+    "/v1/email-consent/unsubscribe": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "operationId": "showEmailUnsubscribe",
+        "summary": "Show the recipient consent form",
+        "description": "The email link carries a private proof in its URL fragment. Opening the link leaves the recipient state intact. The form submits the proof only after the visitor presses the button.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "HTML form"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "operationId": "submitEmailUnsubscribe",
+        "summary": "Unsubscribe project email notifications",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "proof"
+                ],
+                "properties": {
+                  "proof": {
+                    "type": "string",
+                    "description": "Recipient ID and private link token, joined by a period"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consent saved"
+          },
+          "400": {
+            "description": "Invalid or expired proof"
+          },
+          "413": {
+            "description": "Body exceeds 256 bytes"
+          }
+        }
+      }
+    },
+    "/admin/api/projects/{project_id}/webhooks/{id}/form-sync": {
+      "get": {
+        "operationId": "pullForm",
+        "summary": "Download framework markup and fields for a published endpoint form",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Requires write access because markup contains the endpoint submission URL.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "framework",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "html",
+                "react",
+                "astro"
+              ],
+              "default": "html"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markup and ordered fields for the endpoint version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "project_id",
+                    "endpoint_id",
+                    "base_slug",
+                    "form_fields",
+                    "markup"
+                  ],
+                  "properties": {
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "endpoint_id": {
+                      "type": "string"
+                    },
+                    "base_slug": {
+                      "type": "string"
+                    },
+                    "form_fields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "markup": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid framework or field declaration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Endpoint not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "post": {
+        "operationId": "pushForm",
+        "summary": "Preview or confirm an ordered form field update",
+        "tags": [
+          "Webhooks"
+        ],
+        "description": "Preview with form_fields. To apply, also send expected_fields equal to the before array from the preview. An unchanged array does not write.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project id (UUID) belonging to the caller workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Webhook id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "form_fields"
+                ],
+                "properties": {
+                  "form_fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/FormField"
+                    },
+                    "maxItems": 50
+                  },
+                  "expected_fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/FormField"
+                    },
+                    "maxItems": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current and proposed lists and whether a change was applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "before",
+                    "after",
+                    "changed",
+                    "applied"
+                  ],
+                  "properties": {
+                    "before": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "after": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormField"
+                      },
+                      "maxItems": 50
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "applied": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid framework or field declaration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Endpoint not found in this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "409": {
+            "description": "Fields have changed since the preview.",
             "content": {
               "application/json": {
                 "schema": {

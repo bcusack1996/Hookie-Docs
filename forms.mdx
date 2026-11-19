@@ -6,6 +6,8 @@ icon: "rectangle-list"
 
 A form on any site can post straight to a Hookie endpoint. There is no backend to write and no JavaScript to add: the endpoint URL takes the browser's post, checks it, stores it, runs your rules and workflows, and delivers it to Slack, your own webhook or your customers' portal.
 
+Use the console to publish a form with a shareable URL, embed it on your site and see where submissions go. [Build and share a hosted form](/hosted-forms).
+
 ## Try a form
 
 Open a preview in StackBlitz, choose a sample event and submit it. Each framework uses the same public demo endpoint and returns a receipt.
@@ -231,9 +233,7 @@ retain it until its short cache lifetime ends. Unknown, disabled, suspended or
 unconfigured forms return `404` (a previously cached response may remain until
 its cache lifetime ends).
 
-Use the [API reference](/api-reference) for limits and complete response fields.
-This schema is available for your own renderer; it does not by itself create
-or host an HTML form page.
+Use the public schema for your own renderer. Open the same URL with `/page` appended to view the published HTML form. [Hosted forms](/hosted-forms#embed-a-form) · [API reference](/api-reference).
 
 ## Where submissions go
 
@@ -241,7 +241,7 @@ A submission is an ordinary event, so everything else in Hookie works on it:
 
 - **Rules and mappings** reshape or filter what is stored. See [Rules and mappings](/rules-and-mappings).
 - **Workflows** branch on a field, call AI to classify or summarise a message, wait, or call another API. See [Workflows](/workflows).
-- **Destinations** deliver it: a [Slack card](/slack-app), your own signed webhook, S3, SQS or Pub/Sub. See [Destinations](/destinations).
+- **Destinations** can send a [Slack card](/slack-app), a signed webhook, an email notification to verified recipients, or a record to S3, SQS or Pub/Sub. See [Destinations](/destinations).
 - The **customer portal** lets your own customers subscribe to the form's dataset. See [Customer portal](/customer-portal).
 
 Each submission counts as one event, and each destination it is delivered to as one delivery. The Free plan's 10,000 events a month suit a contact form, and refused spam costs nothing. See [Limits and plans](/limits-and-plans).
@@ -260,6 +260,8 @@ the dataset also share its workflows.
 | Notify Slack | Posts the submission to the Slack channel you choose. Supply a channel ID and a bot token with `chat:write`, and invite the bot to the channel. |
 | Call a CRM API | Sends the routed record as a JSON POST to an HTTPS endpoint you supply, with an optional bearer token. |
 
+If Slack or the CRM API rejects a request, open the `form_action_errors` dataset to review the action and HTTP status.
+
 On Pro and Team, choose a workspace table under **Capture submissions in a
 workspace table**. Match each table column to an incoming field, then click
 **Connect table**. New submissions become typed rows. For older submissions,
@@ -274,9 +276,9 @@ all sources in that table. Individual record exclusions still apply.
 
 | Where | How |
 | --- | --- |
-| Console | **Endpoints** tab, **Edit…** in the endpoint's menu: honeypot, Turnstile keys, form fields, redirect and allowed origins |
+| Console | Open **Endpoints → New form**, or edit a published endpoint in its **Form** tab. See [Build and share a hosted form](/hosted-forms). |
 | CLI | `hookie forms init`, `hookie endpoints update --honeypot _gotcha` or `--form-settings '{"title":"Contact us"}'`, or an endpoint's keys in `hookie apply`. A config file never carries the Turnstile secret. |
 | MCP | `create_webhook` and `update_webhook` take `form_fields`, `form_settings`, `honeypot`, `turnstile_site_key` and `turnstile_secret` |
 | REST | The same fields on `POST` and `PATCH /admin/api/projects/{project_id}/webhooks`. See the [API reference](/api-reference). |
 
-A new version of an endpoint keeps its honeypot, Turnstile keys, form fields and form settings, so publishing one never opens the form to bots or changes how it looks.
+A new version inherits the source endpoint’s honeypot, Turnstile keys, fields and form settings unless you change the supported settings when publishing.

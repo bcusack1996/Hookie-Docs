@@ -1,7 +1,7 @@
 ---
 title: "Destination types and options"
 sidebarTitle: "Destination options"
-description: "Send events to an HTTPS endpoint, a Slack channel or an S3-compatible bucket, shape the body, add headers and authentication, and know when a destination keeps failing."
+description: "Send events to verified email recipients, an HTTPS endpoint, a Slack channel or an S3-compatible bucket, shape the body, add headers and authentication, and know when a destination keeps failing."
 icon: "send"
 ---
 
@@ -10,14 +10,49 @@ A destination sends every matching event somewhere, retried until it arrives. Ea
 | Type | What each event becomes | Credential (stored encrypted, never returned) |
 | --- | --- | --- |
 | **HTTPS webhook** (`webhook`, the default) | A signed `POST` to your https URL | Optional: a token, password or API key, and secret headers |
+| **Email** (`email`) | A submission notification sent separately to each verified project recipient | Recipient consent through a confirmation link |
 | **Slack** (`slack`) | A readable message in a Slack channel, through an incoming webhook | The incoming-webhook URL itself |
 | **S3-compatible bucket** (`s3`) | One JSON object in AWS S3, Cloudflare R2, Google Cloud Storage or MinIO | The secret access key |
 
-All three use the same delivery machinery: the retry schedule, the send rate and concurrency limits, the monthly delivery allowance and its holds, replay, the delivery log, and the failure streak that switches a failing destination off. Only the request differs. See [Destinations and deliveries](/destinations-and-deliveries).
+These destinations share the retry schedule, the send rate and concurrency limits, the monthly delivery allowance and its holds, replay, the delivery log, and the failure streak that switches a failing destination off. See [Destinations and deliveries](/destinations-and-deliveries).
 
 By default a webhook's body is Hookie's envelope, `{id, dataset, received_at, data}`. A webhook can also carry its own headers, a credential and a body template, so you can send straight to services such as Datadog or an email API without a relay in between.
 
 Choose the type under **Type** when you choose **Add destination** on a project's **Connections** tab. A destination's type is fixed once it exists: to change it, create a new destination of the type you want. Set the rest on the destination's tile under **Request options**, or when you create it. **From preset** fills them in for Slack, Datadog and email.
+
+## Email notifications
+
+Choose **Connections → Destinations → Add destination** and select **Email**. From a published form’s **Form** tab, **Add destination** preselects its submissions dataset. Set a dataset filter if you open the editor from Connections.
+
+1. A workspace owner or admin enters an address under **Invite by email** and clicks **Invite recipient**.
+2. The recipient opens the invitation within 24 hours and presses **Confirm form notifications**. Opening the link alone leaves its state unchanged.
+3. Click **Refresh recipients**, select up to ten recipients and save the destination. Only verified recipients receive messages. Each receives a separate copy from `forms@system.hookie.ai` with the submission fields in HTML and plain text.
+4. Optionally set a subject such as `New {{dataset}} submission`. A named field such as `{{name}}` inserts its value into the subject. The **Reply-To field** can use a submission field such as `email` when it contains a valid address.
+
+The unsubscribe link in each message lets that recipient stop notifications from the project. An invitation to a previously unsubscribed address leaves it unsubscribed.
+
+The daily allowance counts distinct submissions across the workspace. Sending one submission to several people or email destinations counts once. When the allowance is full, Hookie holds the remaining email deliveries and resumes them automatically after midnight UTC as capacity becomes available. [View daily allowances by plan](/limits-and-plans#daily-email-allowance).
+
+To send through your own provider account, choose the **Email** webhook preset under **From preset** and provide its API credentials.
+
+### Configure email through the API
+
+An owner or admin session can `POST {"address":"ops@example.com"}` to `/admin/api/projects/{project_id}/email-recipients` to request an invitation. Use `GET` on the same path to list the project’s recipients and their states. Choose verified IDs from that response and create an email destination with `POST /admin/api/projects/{project_id}/destinations`.
+
+```json
+{
+  "name": "Contact form notifications",
+  "type": "email",
+  "datasetFilter": ["contact_submissions"],
+  "config": {
+    "recipient_ids": ["RECIPIENT_ID"],
+    "subject": "New {{dataset}} submission",
+    "reply_to_field": "email"
+  }
+}
+```
+
+Invitation and unsubscribe links open `/v1/email-consent/confirm` and `/v1/email-consent/unsubscribe`. The visitor presses the button to submit the private proof. Treat these links as private. [API reference](/api-reference).
 
 ## Slack
 
@@ -259,7 +294,7 @@ Over the API, destinations and sources carry `paused_reason`: `"over_plan_limit"
 
 `POST` and `PATCH /admin/api/projects/{project_id}/destinations` take `headers`, `auth`, `transform` and `alert_url`. `PATCH` with `{"enabled": true}` re-enables a destination and clears its failing state. The dataset filter is `datasetFilter` on `POST` and `dataset_filter` on `PATCH`: a list of dataset names, or `null` for every dataset. An empty list is refused with `400`, because it used to mean every dataset rather than none.
 
-`POST` also takes `type`: `webhook` (the default), `slack` or `s3`. A Slack or S3 destination is addressed by `config` instead of `url`:
+`POST` takes a destination `type`, which defaults to `webhook`. Slack, S3 and [email destinations](/destinations#configure-email-through-the-api) accept their settings under `config`.
 
 ```json
 {

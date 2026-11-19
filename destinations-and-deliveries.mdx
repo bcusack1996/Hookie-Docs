@@ -4,13 +4,13 @@ description: "How a record becomes a signed request to a URL of yours, a Slack m
 icon: "paper-plane"
 ---
 
-A **destination** is where a project sends its records: an https URL of yours, a Slack channel, or an S3-compatible bucket. When a record lands in a dataset, Hookie creates a **delivery** for each enabled destination in the project whose dataset filter admits it: for an https URL, a signed `POST` of the record, retried until it arrives or runs out of attempts.
+A **destination** is where a project sends its records: an HTTPS endpoint, verified email recipients, a Slack channel or an S3-compatible bucket, for example. When a record lands in a dataset, Hookie creates a **delivery** for each enabled destination in the project whose dataset filter admits it: for an https URL, a signed `POST` of the record, retried until it arrives or runs out of attempts.
 
 ## Destinations
 
 Add one on a project's **Connections** tab with **Add destination**, or **From preset** for Slack, Datadog and email. A destination has:
 
-- a **type**, fixed when you create it: **HTTPS webhook** (the default), **Slack** or **S3-compatible bucket**. See [Destination types and options](/destinations);
+- a **type**, fixed when you create it: options include **HTTPS webhook** (the default), **Email**, **Slack** and **S3-compatible bucket**. See [Destination types and options](/destinations);
 - for a webhook, a **URL**, which must be `https`. A Slack destination has its incoming-webhook URL and an S3 destination its bucket settings instead, with the credential stored encrypted;
 - a **Dataset filter**: the datasets it receives, or all of them when you leave it empty. An empty list is refused, since it would mean nothing rather than everything: to stop deliveries, disable the destination;
 - a **signing secret** (`whsec_…`), shown in full when you create it. Owners and admins can reveal it again at any time with **Reveal secret** on the destination, and rotate it; see [Verify signatures](/signatures);
