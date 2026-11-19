@@ -2433,7 +2433,7 @@
           "null"
         ],
         "additionalProperties": false,
-        "description": "How a rendered form looks (#583): read by the hosted page, the embed and the renderers through GET /v1/forms/{workspace}/{project}/{slug}. Display only; ingest never reads it. null clears it.",
+        "description": "Presentation settings for an endpoint form. The public form schema exposes the field presentation and theme. Hosted pages apply hide_branding to their footer. Pass null to clear these settings.",
         "properties": {
           "title": {
             "type": "string",
@@ -2451,6 +2451,11 @@
           "success_message": {
             "type": "string",
             "maxLength": 1000
+          },
+          "hide_branding": {
+            "type": "boolean",
+            "default": false,
+            "description": "Hide the Powered by Hookie link on hosted forms and embeds. Setting true requires an active paid plan (403 on Free). The current plan is checked on every page request. The Report abuse link is always shown."
           },
           "theme": {
             "$ref": "#/components/schemas/FormTheme"
