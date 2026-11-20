@@ -64,6 +64,8 @@ For **Workspace Brain → Documents**, deletion removes the document from search
 
 The export also includes workspace tables and graph state. It excludes private AI memories, even when an owner or admin requests it. Shared memories are included.
 
+An endpoint URL is a credential, so the export never contains one. Wherever a row holds your own endpoint's URL, such as a destination, an alert or redirect URL, a workflow step, an AI trigger's settings, a cron trigger's payload, an AI agent's tools or an audit entry, the export writes `endpoint:<id>` instead.
+
 The file is [JSON Lines](https://jsonlines.org): one JSON object per line.
 
 ```json
