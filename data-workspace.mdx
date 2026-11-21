@@ -80,6 +80,32 @@ In the [workflow builder](/workflows), add a **Table records** step:
 These tools require a workspace-scoped credential and honor its read/write grant.
 Updating a record requires the current version and the complete desired values.
 
+## Read a table's records over the API
+
+`GET /admin/api/data-workspace/tables/{id}/rows` returns one page of a table:
+`{ rows, total, limit, offset, next, view }`, most recently updated first unless
+the view sorts it. It takes:
+
+| Parameter | Meaning |
+| --- | --- |
+| `view` | A saved view's id: its filters, and its sort if it has one. |
+| `search` | Text to find in a record's values. |
+| `limit` | Records per page, 1 to 100 (50 by default). |
+| `offset` | Records to skip, up to 1,000,000. |
+| `after` | The `next` value of the previous page. The page continues from that page's last record instead of skipping `offset` records, so a deep page is as fast as the first. |
+| `total` | `false` skips counting the matching records and answers `total: null`. |
+
+To read a large table from start to end, page by cursor: send `total=false`,
+then pass each page's `next` as `after` until `next` is `null`. `next` is offered
+only while a page comes back full and the view has no sort of its own. A cursor
+with a sorted view, or together with `offset`, is refused with `400`, and so is
+a cursor that cannot be read. Sorted views page by `offset`, with `total`
+telling you when to stop. The exact count reads every matching record, which
+is why you can turn it off.
+
+`query_workspace_table` takes the same choices as `view_id`, `search`, `limit`,
+`offset`, `after` and `total`.
+
 ## Limits and lifecycle
 
 | Resource | Pro | Team |

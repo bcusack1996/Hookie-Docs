@@ -24,6 +24,21 @@ Each role can do everything the role below it can:
 | **Developer** | Creating, changing and deleting what is inside a project: endpoints, ingest keys, rules, destinations, workflows, database sources, AI triggers, AI agents and the customer portal. Also sending test events, replaying deliveries and deleting single records. |
 | **Viewer** | Reading everything: projects, datasets and records, endpoints, rules, destinations, deliveries, triggers, workflows and the audit log. |
 
+### What a viewer sees of a URL that is a credential
+
+An endpoint's URL is its credential, and a URL with an ingest key in its path carries the key itself. Settings can hold such a URL when they point back into Hookie. Owners, admins and developers read it as saved, because they edit it. Viewers, API keys with the viewer role and agents with `hookie:read` see a reference instead, at any depth of the setting:
+
+| Where | An endpoint URL reads | An ingest-key URL reads |
+| --- | --- | --- |
+| Destinations (URL and alert URL) and deliveries | `endpoint:<id>` | `ingest_key:<id>` |
+| An endpoint's redirect URL | `endpoint:<id>` | `ingest_key:<id>` |
+| Workflows: an HTTP step's URL, a body template | `endpoint:<id>` | `ingest_key:<id>` |
+| AI triggers' settings, instructions included | `endpoint:<id>` | `ingest_key:<id>` |
+| Cron triggers' payloads | `endpoint:<id>` | `ingest_key:<id>` |
+| AI agents' settings | `endpoint:<id>` | `ingest_key:<id>` |
+
+`<id>` is the endpoint's or the key's id. A URL whose endpoint no longer exists reads `endpoint:removed`, and one whose key matches no key of the workspace `ingest_key:removed`. The console shows the same values, and so do the MCP tools, which run through the same API. The audit log and **Export all data** use these references for every role, and the [project configuration export](/api-reference#export-import-and-clone-a-project) holds no such URL for anyone.
+
 A `member` role, from before these four existed, reads as viewer. Single sign-on through your own identity provider (SAML or OIDC) is planned and not available yet, on any plan: **Settings → Single sign-on** says **Coming soon**. People sign in with an emailed code or with GitHub.
 
 ### How you signed in

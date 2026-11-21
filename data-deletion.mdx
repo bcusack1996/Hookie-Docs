@@ -64,7 +64,7 @@ For **Workspace Brain → Documents**, deletion removes the document from search
 
 The export also includes workspace tables and graph state. It excludes private AI memories, even when an owner or admin requests it. Shared memories are included.
 
-An endpoint URL is a credential, so the export never contains one. Wherever a row holds your own endpoint's URL, such as a destination, an alert or redirect URL, a workflow step, an AI trigger's settings, a cron trigger's payload, an AI agent's tools or an audit entry, the export writes `endpoint:<id>` instead.
+An endpoint URL is a credential, so the export never contains one. Wherever a row holds your own endpoint's URL, such as a destination, an alert or redirect URL, a workflow step, an AI trigger's settings, a cron trigger's payload, an AI agent's tools or an audit entry, the export writes `endpoint:<id>` instead, or `endpoint:removed` when no endpoint of the workspace holds that URL any more. An ingest key is never in it either: a URL that carries one (`/v1/ingest/<key>`), such as a destination that delivers back into Hookie, is written as `ingest_key:<id>`, the key's id, or `ingest_key:removed` when no key of the workspace matches.
 
 The file is [JSON Lines](https://jsonlines.org): one JSON object per line.
 

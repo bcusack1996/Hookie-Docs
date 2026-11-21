@@ -17,7 +17,7 @@ The Agentic Brain turns your workspace's [table records](/data-workspace) into a
 - **Focused context, not everything.** An agent starts from known records and follows only the relationships and fields it asks for. Depth, node, relationship and byte budgets keep every response bounded, and truncation flags tell the agent when something did not fit.
 - **Smaller prompts.** Retrieval follows node IDs before loading properties, and an agent can request only the properties a task needs. Large payloads stay out of the traversal and out of the prompt.
 - **Answers grounded in your records.** Context comes from the same table records your team works with, carrying their current revisions and a stable order for unchanged data. Agents work from your facts, so they have less to guess.
-- **Shared knowledge across agents and workflows.** Connected agents and workflows with graph access read one workspace graph and can queue changes to it. What one task records becomes context for the next once the change applies, normally within about 15 seconds.
+- **Shared knowledge across agents and workflows.** Connected agents and workflows with graph access read one workspace graph and can queue changes to it. What one task records becomes context for the next once the change applies. Applying starts about 15 seconds after a change is queued.
 - **Safe writes.** Agent and workflow changes carry the revision they expected. If someone changed the record first, the proposal is saved as a conflict for review instead of overwriting newer data.
 - **Traceable runs.** Execution lineage shows each workflow run's tasks, attempts and branches without copying prompts, payloads or HTTP headers.
 
@@ -51,7 +51,9 @@ returns to the map, and **Arrange** restores an automatic layout.
 Record pages show up to 100 records. Connection exploration shows up to 100 nodes
 and 200 edges within 64 KiB; notices identify truncated views. The overview shows
 up to 500 relationship groups while its total still counts all included saved
-relationships. Complete properties load when you select an individual record.
+relationships. Its counts are kept up to date as records and relationships
+change, so the overview loads quickly however large the graph is, and an
+exclusion, deletion or relationship change shows the next time it loads. Complete properties load when you select an individual record.
 
 ## Choose what belongs in your Brain
 
@@ -177,10 +179,18 @@ Example mutation step after an AI call:
 }
 ```
 
-Queued changes normally consolidate after about 15 seconds. A queue receipt
-means the change is durably queued, not yet applied. Outages and backlog can
-delay it. Poll the mutation receipt before depending on the changed data; the
-next workflow step may run before the queue flushes.
+Queued changes are applied in flushes. A flush starts 15 seconds after the
+first change is queued, so changes sent close together are applied together.
+One flush applies up to 8 batches of 25 changes, within about 10 seconds. While changes queued before it
+remain, the next flush starts about a second later rather than after another
+15 seconds. A change queued while a flush runs waits for its own 15 seconds.
+
+15 seconds is when applying starts, not a promise of when a change is applied.
+A queue receipt means the change is durably queued, not yet applied. Outages and
+a large backlog can delay it. Poll the mutation receipt before depending on the
+changed data; the next workflow step may run before the queue flushes. To see
+how far behind the queue is, read `backlog` on the pending list (see
+[Connected agents and the API](#connected-agents-and-the-api)).
 
 ## Review human and agent conflicts
 
@@ -239,6 +249,35 @@ object and require `expected_version`. Supported operations are `create_node`,
 `update_node`, `delete_node`, `upsert_edge`, and `delete_edge`. For an edge,
 `node_id` is the source; provide `target_id` and `relation_type`. Revision zero
 creates an edge; a positive current revision updates or removes one.
+
+`GET /pending` lists the first 100 pending changes, oldest first, in `mutations`, with `total`
+and a `backlog` object that says how fresh the queue is:
+
+| Field | Meaning |
+| --- | --- |
+| `queued`, `flushing`, `error` | How many pending changes are in each state. |
+| `oldest_queued_at` | When the oldest queued change was queued, in epoch milliseconds; `null` when nothing is queued. |
+| `oldest_queued_age_ms` | How long ago that was, in milliseconds; `null` when nothing is queued. |
+| `next_flush_at` | When the next flush is scheduled, in epoch milliseconds; `null` when none is. |
+| `batch_size` | Changes one batch applies (25). |
+| `batches_per_flush` | Batches one flush applies at most (8). |
+
+```json
+{
+  "total": 140,
+  "backlog": {
+    "queued": 120,
+    "flushing": 20,
+    "error": 0,
+    "oldest_queued_at": 1763712000000,
+    "oldest_queued_age_ms": 4200,
+    "next_flush_at": 1763712005000,
+    "batch_size": 25,
+    "batches_per_flush": 8
+  },
+  "mutations": […]
+}
+```
 
 ## Limits and data lifecycle
 

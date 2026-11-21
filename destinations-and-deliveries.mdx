@@ -19,6 +19,17 @@ Add one on a project's **Connections** tab with **Add destination**, or **From p
 
 A workspace runs 1 destination on Free, 10 on Pro and 25 on Team, counted across all of its projects, whatever their type.
 
+### URLs that are credentials
+
+A destination can deliver back into Hookie, and then its URL holds a credential: an endpoint's URL is that endpoint's credential, and an `https://app.hookie.ai/v1/ingest/<key>/…` URL carries an ingest key in plain text. Owners, admins and developers read such a URL as saved, because they edit it. Viewers, API keys with the viewer role and read-only [connected agents](/roles-and-agents#what-a-viewer-sees-of-a-url-that-is-a-credential) see a reference instead, in the destination's URL and alert URL and in its deliveries:
+
+- a URL into one of your endpoints is shown as `endpoint:<id>`, the endpoint's id;
+- a URL that carries an ingest key is shown as `ingest_key:<id>`, the key's id, with any dataset after the key kept (`ingest_key:<id>/orders`). It reads `ingest_key:removed` when no key of the workspace matches.
+
+The [audit log](/ingest-keys#from-the-api-an-agent-or-the-cli) and [Export all data](/data-deletion#export-all-data) use the same references for every role, and a [project configuration export](/api-reference#export-import-and-clone-a-project) leaves out a destination into an ingest-key URL.
+
+Saving a destination whose URL or alert URL carries an ingest key still works, but the save answers with a `warning`, which the console shows when you save. Hookie stores and sends that URL as written. To deliver into Hookie, use an endpoint's URL instead: create an endpoint in the target project and paste its URL as the destination's URL.
+
 ## Deliveries
 
 A delivery is one record sent to one destination. To an HTTPS webhook it is, by default, the envelope `{"id", "dataset", "received_at", "data"}`, with these headers:
