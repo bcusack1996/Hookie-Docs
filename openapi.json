@@ -505,7 +505,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "description": "{name, url | endpoint, enabled, dataset_filter?, timeout_seconds?, max_per_second?, max_concurrency?} \u2014 endpoint is the base slug of one of this project's endpoints, written in place of url for a destination into it; an import sets the url to that endpoint's URL, and an entry that names neither, or both, fails. Portal-owned destinations are excluded, and so are destinations into another project's endpoint, into an endpoint since deleted, or into one with a dataset segment in its URL: those are counted under not_exported."
+              "description": "{name, url | endpoint, enabled, dataset_filter?, timeout_seconds?, max_per_second?, max_concurrency?} \u2014 endpoint is the base slug of one of this project's endpoints, written in place of url for a destination into it; an import sets the url to that endpoint's URL, and an entry that names neither, or both, fails. Portal-owned destinations are excluded, and so are destinations into another project's endpoint, into an endpoint since deleted, or into one with a dataset segment in its URL, and destinations into an ingest key's URL (`/v1/ingest/<key>`, #626): those are counted under not_exported."
             }
           },
           "ai_agents": {
@@ -11043,7 +11043,7 @@
                               "string",
                               "null"
                             ],
-                            "description": "ING-8 (#193): where a browser form POST is sent once stored. Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
+                            "description": "ING-8 (#193): where a browser form POST is sent once stored. Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers."
                           },
                           "cors_origins": {
                             "type": "array",
@@ -15020,7 +15020,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. Endpoint URLs embedded in destination settings are replaced by `endpoint:<id>` for read-only callers. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack, s3, sqs or pubsub) and config holds its settings without any credential (DLV-13).",
+            "description": "Destinations of the project, newest first. Neither signing secret is included here, nor any secret header value or authentication credential (DLV-7): a secret header is listed by name only and auth by its type. Endpoint URLs embedded in destination settings are replaced by `endpoint:<id>`, and ingest-key URLs by `ingest_key:<id>` (`ingest_key:removed` when no key of the workspace matches; #626), for read-only callers. dataset_filter is the stored JSON string (or null for every dataset). timeout_seconds, max_per_second and max_concurrency are null when the destination uses the default. type says how each destination delivers (webhook, slack, s3, sqs or pubsub) and config holds its settings without any credential (DLV-13).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15050,7 +15050,7 @@
                           },
                           "url": {
                             "type": "string",
-                            "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>` for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
+                            "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
                           },
                           "dataset_filter": {
                             "type": [
@@ -15281,7 +15281,7 @@
                               "string",
                               "null"
                             ],
-                            "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
+                            "description": "Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers."
                           },
                           "failing": {
                             "type": "boolean",
@@ -15458,7 +15458,7 @@
                     },
                     "warning": {
                       "type": "string",
-                      "description": "Present when the destination's URL is one of this project's own endpoint URLs or ingest keys and its dataset filter admits the dataset that writes to, so every event would loop back (stopped after 8 hops by Hookie-Hop). The destination is still created."
+                      "description": "Present when the destination's URL is one of this project's own endpoint URLs or ingest keys and its dataset filter admits the dataset that writes to, so every event would loop back (stopped after 8 hops by Hookie-Hop); or when the url or alert_url carries an ingest key of this deployment (`/v1/ingest/<key>`, #626): the key is a credential, shown as `ingest_key:<id>` to viewers, in the audit log and in exports, and an endpoint URL is the supported way to deliver into Hookie. The destination is still created."
                     },
                     "destination": {
                       "type": "object",
@@ -15959,7 +15959,7 @@
         "tags": [
           "Destinations"
         ],
-        "description": "The object as one row of the list returns it, or 404. Endpoint URLs embedded in the destination settings are replaced by `endpoint:<id>` for read-only callers. Readable by any role.",
+        "description": "The object as one row of the list returns it, or 404. Endpoint URLs embedded in the destination settings are replaced by `endpoint:<id>`, and ingest-key URLs by `ingest_key:<id>` (#626), for read-only callers. Readable by any role.",
         "parameters": [
           {
             "name": "project_id",
@@ -16021,7 +16021,7 @@
                         },
                         "url": {
                           "type": "string",
-                          "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>` for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
+                          "description": "Where deliveries go. Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers; write-capable callers receive the configured URL. For Slack, the masked webhook URL; for S3, the bucket's base URL (with the prefix)."
                         },
                         "dataset_filter": {
                           "type": [
@@ -16247,7 +16247,7 @@
                     },
                     "warning": {
                       "type": "string",
-                      "description": "When a new url points back at this workspace's own ingest - legal, but usually a loop."
+                      "description": "When a new url points back at this workspace's own ingest - legal, but usually a loop - or a new url or alert_url carries an ingest key of this deployment (`/v1/ingest/<key>`, #626), for which an endpoint URL is the supported way to deliver into Hookie."
                     }
                   }
                 }
@@ -17111,7 +17111,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The project's deliveries, newest first, joined to their destination for name and URL, optionally filtered by status and destination. Endpoint URLs are represented as `endpoint:<id>` for read-only callers. With `limit`/`offset` the list is paged and `total` counts every match; without them it is the 500 newest. The stored response body is deliberately omitted here - fetch one delivery for it.",
+            "description": "The project's deliveries, newest first, joined to their destination for name and URL, optionally filtered by status and destination. Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers. With `limit`/`offset` the list is paged and `total` counts every match; without them it is the 500 newest. The stored response body is deliberately omitted here - fetch one delivery for it.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17159,7 +17159,7 @@
                               "string",
                               "null"
                             ],
-                            "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
+                            "description": "Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers."
                           },
                           "event_id": {
                             "type": "string",
@@ -18302,7 +18302,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The delivery, including the captured response body (the only endpoint that returns it), and `attempts`: every attempt it made, oldest first. Endpoint URLs are represented as `endpoint:<id>` for read-only callers, including when echoed in a response body. A failed attempt is kept as its own row; the successful one is the delivery itself.",
+            "description": "The delivery, including the captured response body (the only endpoint that returns it), and `attempts`: every attempt it made, oldest first. Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers, including when echoed in a response body. A failed attempt is kept as its own row; the successful one is the delivery itself.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18353,7 +18353,7 @@
                             "string",
                             "null"
                           ],
-                          "description": "Endpoint URLs are represented as `endpoint:<id>` for read-only callers."
+                          "description": "Endpoint URLs are represented as `endpoint:<id>`, and ingest-key URLs (`/v1/ingest/<key>`) as `ingest_key:<id>` (#626), for read-only callers."
                         },
                         "event_id": {
                           "type": "string",
@@ -20883,7 +20883,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Newest first. JSON by default; endpoint URLs within details are represented as `endpoint:<id>` for every caller, in JSON and CSV alike (#411): the audit log is history, so its redaction does not depend on the caller. With format=csv the body is a text/csv attachment (hookie-audit.csv) with the header at,actor_email,actor_sub,actor_agent,action,target,details (owner/admin only).",
+            "description": "Newest first. JSON by default; endpoint URLs within details are represented as `endpoint:<id>`, and ingest-key URLs as `ingest_key:<id>` (#626), for every caller, in JSON and CSV alike (#411): the audit log is history, so its redaction does not depend on the caller. With format=csv the body is a text/csv attachment (hookie-audit.csv) with the header at,actor_email,actor_sub,actor_agent,action,target,details (owner/admin only).",
             "content": {
               "application/json": {
                 "schema": {
@@ -22324,7 +22324,7 @@
             "apiKey": []
           }
         ],
-        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201)."
+        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201). Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in AI trigger config (the instructions included), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627)."
       },
       "post": {
         "operationId": "createTrigger",
@@ -22567,7 +22567,7 @@
         "tags": [
           "Triggers"
         ],
-        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
+        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role. Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in AI trigger config (the instructions included), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627).",
         "parameters": [
           {
             "name": "project_id",
@@ -23075,7 +23075,7 @@
             "apiKey": []
           }
         ],
-        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201)."
+        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201). Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the cron payload, at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627)."
       },
       "post": {
         "operationId": "createCronTrigger",
@@ -23457,7 +23457,7 @@
         "tags": [
           "Cron triggers"
         ],
-        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role.",
+        "description": "The object, as one row of the list returns it, or 404. This used to answer 200 with the whole list for any id (DX-6, #201). Readable by any role. Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the cron payload, at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627).",
         "parameters": [
           {
             "name": "project_id",
@@ -25251,7 +25251,7 @@
             "apiKey": []
           }
         ],
-        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array. All HTTP-step header values are masked as `[redacted]`; round-tripping the marker in an update preserves the stored value (DX-6, #201)."
+        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array. All HTTP-step header values are masked as `[redacted]`; round-tripping the marker in an update preserves the stored value (DX-6, #201). Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the workflow steps (an HTTP step's url, a body template), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627)."
       },
       "post": {
         "operationId": "createWorkflow",
@@ -25790,6 +25790,7 @@
       "get": {
         "operationId": "getWorkflow",
         "summary": "Get one workflow definition",
+        "description": "The object, as one row of the list returns it, or 404. Readable by any role. Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the workflow steps (an HTTP step's url, a body template), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627).",
         "tags": [
           "Workflows"
         ],
@@ -28785,7 +28786,7 @@
             "apiKey": []
           }
         ],
-        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201)."
+        "description": "Pages with ?limit and ?offset and returns total, limit and offset beside the array, which is unchanged (DX-6, #201). Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the agent's settings (a legacy row's tools included), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627)."
       },
       "post": {
         "operationId": "createAiAgent",
@@ -29016,6 +29017,7 @@
       "get": {
         "operationId": "getAiAgent",
         "summary": "Get one AI agent",
+        "description": "The object, as one row of the list returns it, or 404. Readable by any role. Read-only callers (viewers, and agents with `hookie:read`) receive every endpoint URL in the agent's settings (a legacy row's tools included), at any depth, as `endpoint:<id>`; write-capable callers receive the stored value (#627).",
         "tags": [
           "AI agents"
         ],
@@ -37892,7 +37894,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "The project's configuration as JSON, or as YAML with ?format=yaml (the subset `hookie apply` reads). All workflow HTTP header maps are empty in project configuration exports; `not_exported` counts every omitted header value. Readable by any role (DX-10, #201).",
+        "description": "The project's configuration as JSON, or as YAML with ?format=yaml (the subset `hookie apply` reads). All workflow HTTP header maps are empty in project configuration exports; `not_exported` counts every omitted header value. No endpoint URL is ever in it (its slug is the endpoint's credential): a destination or a workflow HTTP step into one of the project's own endpoints is written as `endpoint: <base slug>` in place of its url, and any other entry that still holds an endpoint URL (one into another project's endpoint, or one in a body template, AI trigger config, a cron payload or an agent's tools) is left out and counted in `not_exported` by kind (#627). So it is readable by any role (DX-10, #201).",
         "parameters": [
           {
             "name": "project_id",
@@ -37975,7 +37977,7 @@
         "tags": [
           "Projects"
         ],
-        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A destination's `endpoint` (an endpoint's base slug) is resolved to that endpoint's URL, in the document or in the project; one that names neither fails by name. A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
+        "description": "Create what the document describes, in dependency order (AI agents, record views, rules, endpoints, destinations, workflows, AI triggers, cron triggers), each through its own create route \u2014 so it is validated, plan-limited and audited as a create by hand is, and every endpoint gets a NEW URL and every destination a NEW signing secret (reveal it with GET destinations/{id}/secret). An endpoint that verifies a provider's signature is created with its scheme and settings but NO secret, so it refuses every request with 401 until one is set, and is listed under needs_verification_secret (#238). A resource whose identity already exists in the project is skipped, never overwritten. A destination's `endpoint` (an endpoint's base slug) is resolved to that endpoint's URL, in the document or in the project; one that names neither fails by name. A workflow HTTP step's `endpoint` is resolved the same way, through branches, and the step is created with that URL (#627). A failed create is reported and the import carries on. JSON only; import YAML with `hookie apply`. Write role required; cron triggers need owner or admin.",
         "parameters": [
           {
             "name": "project_id",
@@ -39355,7 +39357,7 @@
         "tags": [
           "Workspace"
         ],
-        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. Every workflow HTTP-step header value is replaced with `[redacted]`. An endpoint's URL wherever a row holds one (a destination's url or alert URL, an endpoint's redirect URL, a workflow's steps, an AI trigger's config, a cron trigger's payload, an AI agent's tools, an audit row's details) is written as `endpoint:<row id>`, or `endpoint:removed` when no endpoint of the workspace holds its slug. A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
+        "description": "Owner or admin. One JSON Lines file (`Content-Disposition: attachment`), streamed as it is read so a workspace of any size downloads in constant memory. Lines, in order: `{\"type\":\"header\", \"format\":\"hookie-workspace-export\", \"version\":1, \"workspace\", \"generated_at\", \"tables\", \"omitted_columns\"}`; then per table `{\"type\":\"row\", \"table\", \"row\"}` lines and a `{\"type\":\"table_end\", \"table\", \"rows\"}`; and last `{\"type\":\"end\", \"complete\":true, \"counts\"}`. A file without the `end` line is incomplete; a read that fails writes `{\"type\":\"error\"}` instead. Covers configuration (projects, endpoints, rules, keys, destinations, sources, triggers, workflows, AI agents, portals, Data API, Broadcast Logs, SSO, subscription), members (with email and name), records, submissions, deliveries, holds, AI and workflow runs, AI calls, usage, former workspace slugs, the refused-request log and the audit log. Secrets are never included: signing secrets, destination credentials (`auth_secret`) and secret custom-header values (a secret header is written by name only), endpoint handshake secrets, encrypted source/listener configs and telemetry secrets, key and token hashes, and endpoint URL slugs are omitted, as `omitted_columns` lists. Every workflow HTTP-step header value is replaced with `[redacted]`. An endpoint's URL wherever a row holds one (a destination's url or alert URL, an endpoint's redirect URL, a workflow's steps, an AI trigger's config, a cron trigger's payload, an AI agent's tools, an audit row's details) is written as `endpoint:<row id>`, or `endpoint:removed` when no endpoint of the workspace holds its slug. An ingest-key URL (`/v1/ingest/<key>`, or the legacy `/v1/webhooks/<key>/<slug>`) in the same places is written as `ingest_key:<row id>`, or `ingest_key:removed` when no key of the workspace hashes to it (#626). A workflow run's `context` is written redacted the way the run-detail API shows it (#247): credential-named keys, Bearer/Basic values and URL passwords read `[redacted]`. Audited as `export_workspace`.",
         "security": [
           {
             "session": []
@@ -43529,6 +43531,24 @@
               "minimum": 0,
               "maximum": 1000000
             }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "description": "Keyset cursor: the `next` value of the previous page (#508). Pages the default order (most recently updated first) from the last row instead of skipping `offset` rows, so a deep page costs the same as the first. Not accepted with `offset` or with a view that has its own sort.",
+            "schema": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          {
+            "in": "query",
+            "name": "total",
+            "description": "`false` skips the exact count of matching records and answers `total: null`. The count reads every matching record, so leave it off when paging by cursor.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
           }
         ]
       },
@@ -45377,7 +45397,7 @@
       "post": {
         "operationId": "queueGraphMutations",
         "summary": "Queue asynchronous knowledge changes",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. At most 256 KiB per request, 500 pending mutations or 16 MiB per workspace. One durable coordinator per workspace schedules batches after 15 seconds. Acknowledgement means queued, not applied; poll mutation status. Database outages and backlog can delay visibility. Applied/resolved receipts are retained for at least 30 days; keep IDs stable across retries.",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. At most 256 KiB per request, 500 pending mutations or 16 MiB per workspace. One durable coordinator per workspace starts flushing 15 seconds after the first queued change (the coalescing window, `flush_after_ms`); a flush then applies up to 8 batches of 25 and, while a backlog remains, continues about a second later. 15 seconds is when the first flush starts, not a guarantee of when a change is applied: read `backlog` on the pending list for the queue's depth and age. Acknowledgement means queued, not applied; poll mutation status. Database outages and backlog can delay visibility. Applied/resolved receipts are retained for at least 30 days; keep IDs stable across retries.",
         "tags": [
           "Knowledge graph"
         ],
@@ -45497,7 +45517,7 @@
       "get": {
         "operationId": "listPendingGraphMutations",
         "summary": "List the first 100 pending changes",
-        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. ",
+        "description": "Pro or Team. Workspace-scoped credentials only. Reads require read access; mutations require write access and X-Requested-With for cookie sessions. The authenticated workspace registry selects the database. `backlog` reports queue freshness: how many changes are `queued`, `flushing` or in `error`, when the oldest queued one was queued (`oldest_queued_at`, epoch milliseconds) and how long ago (`oldest_queued_age_ms`), and when the next flush is scheduled (`next_flush_at`, epoch milliseconds, null when none is).",
         "tags": [
           "Knowledge graph"
         ],
@@ -45517,6 +45537,54 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/GraphReceipt"
+                      }
+                    },
+                    "backlog": {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "flushing": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "error": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "oldest_queued_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "description": "Epoch milliseconds; null when nothing is queued."
+                        },
+                        "oldest_queued_age_ms": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "next_flush_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "description": "Epoch milliseconds of the next scheduled flush; null when none is scheduled."
+                        },
+                        "batch_size": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "batches_per_flush": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
                       }
                     }
                   }
