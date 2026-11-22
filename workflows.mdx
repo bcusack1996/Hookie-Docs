@@ -292,6 +292,8 @@ A WebSocket trigger holds a connection to a feed open and turns every frame that
 - The URL, headers and connect message are stored encrypted and never shown again, so the Edit form leaves the URL blank: leave it blank to keep the current connection. A new URL is saved with the connect message you enter, and none if you leave it blank.
 - Moving the URL to a **different host** is refused unless the request also sends each stored connection header and connect message (`null` for none). They often carry the feed's credentials, and Hookie will not pass them to a new host that nobody chose to give them to.
 
+For a worked example, a market data feed filed into a dataset and written up for Slack, email and your own bot, see [crypto price alerts and trading signals](https://hookie.ai/use-cases/crypto-trading-alerts-signals/).
+
 ### Triggers with no dataset
 
 The **Dataset** field on a cron or WebSocket trigger is optional. If you set it, every cron run or matching frame is stored there as one record. If you leave it blank, each event goes through your project's [rules](/rules-and-mappings#rules) instead, and every rule that matches writes its own record. The trigger lists show such a trigger's dataset as **rules, else default**.
