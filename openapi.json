@@ -33312,7 +33312,7 @@
             }
           },
           "403": {
-            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Missing X-Requested-With header`. An agent \u2014 at any scope \u2014 is refused first, with `code: \"agent_not_permitted\"`.",
+            "description": "`Only the owner can manage billing` \u2014 billing is the one capability an OAuth agent can never reach at any scope. Also `Ultimate is arranged with Hookie directly and cannot be bought here` for `plan: \"ultimate\"` (#655): a platform admin assigns Ultimate. Also `Missing X-Requested-With header`. An agent \u2014 at any scope \u2014 is refused first, with `code: \"agent_not_permitted\"`.",
             "content": {
               "application/json": {
                 "schema": {
