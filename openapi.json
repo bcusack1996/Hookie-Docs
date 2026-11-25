@@ -33183,6 +33183,37 @@
                         "null"
                       ],
                       "description": "Stripe's hosted Customer Portal link. Non-null only on the starter/standard/team plans and only when STRIPE_PORTAL_URL is configured. Cancel/update-payment-method happen there, not in this API."
+                    },
+                    "starter_offer": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "#653: the Black Friday Starter deal while it can be bought ($2.00 a month billed annually for the first year, $24.00, then $48.00/year), else null. Checkout it with `{\"plan\":\"starter\",\"offer\":\"bf2026\"}`.",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ends_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "price_usd_month": {
+                          "type": "string"
+                        },
+                        "price_usd_year": {
+                          "type": "string"
+                        },
+                        "renews_usd_year": {
+                          "type": "string"
+                        },
+                        "interval": {
+                          "type": "string",
+                          "enum": [
+                            "year"
+                          ]
+                        }
+                      }
                     }
                   }
                 }
@@ -33240,7 +33271,7 @@
       "post": {
         "operationId": "createBillingCheckoutSession",
         "summary": "Start a new subscription via Stripe Checkout",
-        "description": "Owner only. Starts a Stripe Checkout session for a NEW subscription; a workspace with a live one (active, trialing, past_due, unpaid, paused) is refused with 409. A workspace on a Hookie trial that checks out the plan it is trying keeps the rest of the trial: with at least 48 hours and ten minutes left, the session carries `subscription_data[trial_end]` = the trial's end (unix seconds, rounded down, so never later), the subscription starts in Stripe's trial, and the card is first charged when the trial ends. Stripe refuses a trial end less than 48 hours out, so closer than that, for any other plan, or with no trial, billing starts today.",
+        "description": "Owner only. Starts a Stripe Checkout session for a NEW subscription; a workspace with a live one (active, trialing, past_due, unpaid, paused) is refused with 409. A workspace on a Hookie trial that checks out the plan it is trying keeps the rest of the trial: with at least 48 hours and ten minutes left, the session carries `subscription_data[trial_end]` = the trial's end (unix seconds, rounded down, so never later), the subscription starts in Stripe's trial, and the card is first charged when the trial ends. Stripe refuses a trial end less than 48 hours out, so closer than that, for any other plan, or with no trial, billing starts today. `offer` (#653) names a time-limited deal on the plan: `bf2026` with `plan: \"starter\"` checks out the yearly Black Friday Starter price while `billing/status` reports `starter_offer`. An unknown offer, or one for another plan, answers 400; an ended or unconfigured one 410.",
         "tags": [
           "Billing"
         ],
@@ -33342,6 +33373,26 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "400": {
+            "description": "`Unknown offer for this plan` (#653).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`This offer has ended` (#653): the deal's window has closed, or it is not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -33360,6 +33411,13 @@
                     ],
                     "default": "standard",
                     "description": "Only the exact string 'team' selects Team; every other value, and an absent or unparseable body, means 'standard' (Pro). Team checks out on one flat price (STRIPE_PRICE_TEAM, $30.00 a month for up to 10 members) at quantity 1; it answers 501 `No Team plan configured` until that price id is set."
+                  },
+                  "offer": {
+                    "type": "string",
+                    "enum": [
+                      "bf2026"
+                    ],
+                    "description": "#653: a time-limited deal on `plan`. `bf2026` is the Black Friday Starter deal ($24.00/year), valid only with `plan: \"starter\"` and only until `billing/status` stops reporting `starter_offer`."
                   }
                 }
               }
