@@ -33189,7 +33189,7 @@
                         "object",
                         "null"
                       ],
-                      "description": "#653: the Black Friday Starter deal while it can be bought ($2.00 a month billed annually, $24.00/year), else null. Checkout it with `{\"plan\":\"starter\",\"offer\":\"bf2026\"}`.",
+                      "description": "#653: the Black Friday Starter deal while it can be bought ($2.00 a month billed annually for the first year, $24.00, then $48.00/year), else null. Checkout it with `{\"plan\":\"starter\",\"offer\":\"bf2026\"}`.",
                       "properties": {
                         "id": {
                           "type": "string"
@@ -33202,6 +33202,9 @@
                           "type": "string"
                         },
                         "price_usd_year": {
+                          "type": "string"
+                        },
+                        "renews_usd_year": {
                           "type": "string"
                         },
                         "interval": {
