@@ -1,0 +1,39 @@
+---
+title: "Two-step sign-in"
+description: "Add an authenticator app so Hookie asks for a six-digit code after you sign in, and require one for everyone in a workspace."
+icon: "shield-check"
+---
+
+Two-step sign-in adds a second check to the console. After you sign in with an emailed code, GitHub or Google, Hookie asks for a six-digit code from an authenticator app on your phone before it shows your workspace.
+
+Set it up in **Settings → Sign-in & SSO** (`#/settings/sso`).
+
+## Add an authenticator app
+
+1. Choose **Add an authenticator app**.
+2. Scan the QR code with an app such as 1Password, Google Authenticator or Authy. If you can't scan it, type in the key shown below the code.
+3. Enter the six-digit code the app shows, and choose **Turn on**.
+
+From then on, each new sign-in asks for a code. Two-step sign-in belongs to your account, so it applies in every workspace you belong to.
+
+<Note>
+Five wrong codes in a row lock the check for 15 minutes. If you lose the device with your authenticator app, contact support to have it cleared.
+</Note>
+
+## Remove it
+
+Choose **Remove authenticator app** and enter a current code. You can't remove it while you belong to a workspace that requires one.
+
+## Require it for a workspace
+
+The owner of a **Pro**, **Team** or **Ultimate** workspace can turn on **Require an authenticator app for every member**. The owner needs an app on their own account first.
+
+Members who don't have one are asked to add it the next time they open Hookie, and can't use the workspace until they do. Every change is recorded in the audit log (**Settings → Audit log**) as `mfa_policy_changed`; adding, removing and lockouts are `mfa_enrolled`, `mfa_removed` and `mfa_locked`.
+
+## Agents and API keys
+
+[Connected agents](/connected-agents) and [API keys](/api-keys) are not asked for a code. An agent signs in on the authorization page it opens when you connect it, and an API key is a credential you created.
+
+## In the API
+
+`GET /admin/api/me` returns `mfa` with `enrolled`, `required` and `verified`. While a console session owes a code, every other admin route answers `403` with `reason: "mfa_required"` (or `"mfa_enrollment_required"`). The routes are under `/admin/api/mfa` in the [API reference](/api-reference).

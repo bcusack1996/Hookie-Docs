@@ -2522,6 +2522,28 @@
             "description": "The saved workflow, as returned by a GET by ID."
           }
         }
+      },
+      "MfaState": {
+        "type": "object",
+        "required": [
+          "enrolled",
+          "required",
+          "verified"
+        ],
+        "properties": {
+          "enrolled": {
+            "type": "boolean",
+            "description": "The person has an authenticator app."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "The active workspace requires one of every member."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "This console session has entered a code."
+          }
+        }
       }
     },
     "parameters": {
@@ -7058,7 +7080,8 @@
                     "retentionGrace",
                     "signInMethod",
                     "googleWorkspaceDomain",
-                    "googleWorkspaceNotice"
+                    "googleWorkspaceNotice",
+                    "mfa"
                   ],
                   "properties": {
                     "user": {
@@ -7262,6 +7285,17 @@
                         true
                       ],
                       "description": "Present only when the caller is the self-registered agent itself, before a person claims the workspace (#331)."
+                    },
+                    "mfa": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/MfaState"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Two-step sign-in state of this console session (SEC-12, #314). While `enrolled` or `required` is true and `verified` is false, every other admin route answers 403 `mfa_required` or `mfa_enrollment_required`. Null for a connected agent or an API key."
                     }
                   }
                 }
@@ -49181,6 +49215,386 @@
           },
           "413": {
             "description": "Body exceeds 256 bytes"
+          }
+        }
+      }
+    },
+    "/admin/api/mfa": {
+      "get": {
+        "operationId": "getMfa",
+        "summary": "Read your two-step sign-in state",
+        "tags": [
+          "Account"
+        ],
+        "description": "Whether you have an authenticator app, whether the workspace requires one, and whether this session has entered a code (SEC-12, #314). `can_require` says whether the workspace's plan lets its owner require one (Pro, Team, Ultimate). A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+        "responses": {
+          "200": {
+            "description": "The state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mfa",
+                    "can_require"
+                  ],
+                  "properties": {
+                    "mfa": {
+                      "$ref": "#/components/schemas/MfaState"
+                    },
+                    "can_require": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMfa",
+        "summary": "Remove your authenticator app",
+        "tags": [
+          "Account"
+        ],
+        "description": "Takes a current code, whatever the session already proved. Deletes the factor in WorkOS, audited as `mfa_removed`. Refused while the workspace requires one (409 `mfa_required_by_workspace`). A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$",
+                    "description": "The six-digit code from the authenticator app."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mfa"
+                  ],
+                  "properties": {
+                    "mfa": {
+                      "$ref": "#/components/schemas/MfaState"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`mfa_code_missing` (no six-digit `code`) or `mfa_invalid_code` (wrong code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`mfa_locked`: five wrong codes in a row lock the check for 15 minutes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No authenticator app is set up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`mfa_required_by_workspace`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/mfa/enroll": {
+      "post": {
+        "operationId": "enrollMfa",
+        "summary": "Start adding an authenticator app",
+        "tags": [
+          "Account"
+        ],
+        "description": "Creates a TOTP factor in WorkOS and returns its QR code and secret once, for the person to add to their app; Hookie keeps no copy of the secret. Confirm it with POST /admin/api/mfa/verify within ten minutes, in the same session. A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+        "responses": {
+          "201": {
+            "description": "The factor to add.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "qr_code",
+                    "secret",
+                    "uri"
+                  ],
+                  "properties": {
+                    "qr_code": {
+                      "type": "string",
+                      "description": "A data: URL of a PNG QR code."
+                    },
+                    "secret": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "type": "string",
+                      "description": "The otpauth:// URI the QR code encodes."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`mfa_already_enrolled`: remove the current one first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/mfa/verify": {
+      "post": {
+        "operationId": "verifyMfa",
+        "summary": "Enter a code from your authenticator app",
+        "tags": [
+          "Account"
+        ],
+        "description": "With an authenticator: the sign-in step. A new console session reaches only GET /admin/api/me and these routes until it enters a code; every other admin route answers 403 `mfa_required` (or `mfa_enrollment_required` when the workspace requires an app the person has not added). Without one: confirms the app started with POST /admin/api/mfa/enroll, audited as `mfa_enrolled`. Either way the session is marked verified with an HttpOnly cookie bound to this WorkOS session. Codes are checked by WorkOS. A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$",
+                    "description": "The six-digit code from the authenticator app."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mfa"
+                  ],
+                  "properties": {
+                    "mfa": {
+                      "$ref": "#/components/schemas/MfaState"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`mfa_code_missing` (no six-digit `code`) or `mfa_invalid_code` (wrong code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`mfa_locked`: five wrong codes in a row lock the check for 15 minutes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A person's console session only: a connected agent or an API key gets 403 `mfa_console_only`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`mfa_enrollment_expired`: start adding the app again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/mfa/policy": {
+      "put": {
+        "operationId": "setMfaPolicy",
+        "summary": "Require an authenticator app in this workspace",
+        "tags": [
+          "Workspace"
+        ],
+        "description": "Owner only, on plans with members (Pro, Team, Ultimate). Turning it on needs the owner's own app first. Members without one are asked to add one the next time they open the console. Connected agents and API keys are not affected. Audited as `mfa_policy_changed`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "require_mfa"
+                ],
+                "properties": {
+                  "require_mfa": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mfa"
+                  ],
+                  "properties": {
+                    "mfa": {
+                      "$ref": "#/components/schemas/MfaState"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`require_mfa must be true or false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "`plan_required`: Free and Starter have no members to require it of.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`owner_only`, or `mfa_console_only` for an agent or API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`mfa_enrollment_required`: add your own authenticator app first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

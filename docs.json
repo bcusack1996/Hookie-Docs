@@ -66,6 +66,7 @@
           "broadcast-logs",
           "analytics",
           "team-members",
+          "two-step-sign-in",
           "connected-agents",
           "agent-self-registration",
           "workos-agent-auth",
