@@ -1,0 +1,32 @@
+---
+title: "Single sign-on"
+description: "Let your team sign in to Hookie through Okta, Microsoft Entra ID, Google Workspace or another SAML or OIDC identity provider. An add-on on the Team plan."
+icon: "key-round"
+---
+
+Single sign-on (SAML or OIDC) lets people at your company's email domain sign in to Hookie through your identity provider. It is an add-on on the **Team** plan for **$149 a month**, billed on your Team subscription. The **Ultimate** plan includes it.
+
+Directory Sync (SCIM), which adds and removes people automatically, is part of Team and needs no add-on.
+
+## Set it up
+
+1. **Add the add-on.** As the workspace owner, open **Settings → Billing** and choose **Add single sign-on**. It turns on when Stripe confirms the charge.
+2. **Request it.** In **Settings → Sign-in & SSO**, choose **Request single sign-on**, tick **Single sign-on**, and list your email domains, for example `acme.com`. The Hookie team reviews each request, usually within one business day.
+3. **Connect your identity provider.** Once the request is approved, choose **Set up single sign-on**. A setup portal walks your IT admin through your identity provider's settings and asks you to prove you own each domain.
+
+## Signing in
+
+Once the connection is active, people at your domains sign in from the usual sign-in page. They enter their work email, and Hookie sends them to your identity provider. Emailed codes, GitHub and Google no longer work for those addresses.
+
+[Two-step sign-in](/two-step-sign-in) still applies on top of single sign-on if someone has an authenticator app, or if the workspace requires one.
+
+## Removing the add-on
+
+If you remove the add-on, or a payment fails, people keep signing in through your identity provider, so nobody is locked out. Changing the setup or requesting single sign-on again needs the add-on.
+
+## API
+
+- `POST` and `DELETE /admin/api/billing/sso-addon` add and remove the add-on. These are owner only, and never available to an agent.
+- `GET /admin/api/sso/requests` reports `sso_addon`. Without the add-on, asking for `sso` or opening its setup answers `402` with `reason: "sso_addon_required"`.
+
+Requesting and setting up single sign-on is done by a person in the console. Connected agents and API keys are refused.
