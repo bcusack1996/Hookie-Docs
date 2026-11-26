@@ -2697,7 +2697,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2707,7 +2707,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must match BOTH the webhook's IP allowlist and the tenant's (an empty allowlist matches everything; a request with no client IP skips the check). The block is written to the audit log. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must match BOTH the webhook's IP allowlist and the tenant's (an empty allowlist matches everything; a request with no client IP skips the check). The block is written to the audit log. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2727,7 +2727,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Checked against Content-Length first, then against the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Checked against Content-Length first, then against the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2737,7 +2737,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2747,7 +2747,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2770,13 +2770,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -2809,7 +2814,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2834,7 +2839,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3075,7 +3080,7 @@
             }
           },
           "403": {
-            "description": "The origin is not allowed (logged as reason cors_origin_not_allowed). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The origin is not allowed (logged as reason cors_origin_not_allowed). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3180,7 +3185,7 @@
             }
           },
           "400": {
-            "description": "reason 'handshake_failed': no usable hub.challenge. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "reason 'handshake_failed': no usable hub.challenge. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3190,7 +3195,7 @@
             }
           },
           "403": {
-            "description": "reason 'handshake_failed': hub.verify_token does not match. Also 'Source IP not allowed' and workspace_suspended. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "reason 'handshake_failed': hub.verify_token does not match. Also 'Source IP not allowed' and workspace_suspended. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3220,7 +3225,7 @@
             }
           },
           "429": {
-            "description": "Burst rate limit (about 100 requests per 10 seconds per endpoint URL; best-effort). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Burst rate limit (about 100 requests per 10 seconds per endpoint URL; best-effort). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3230,7 +3235,7 @@
             }
           },
           "503": {
-            "description": "The endpoint is disabled. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint is disabled. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3332,7 +3337,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota. Also reason 'handshake_failed' when the endpoint's URL-verification challenge arrives without a usable challenge or token.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3342,7 +3347,7 @@
             }
           },
           "403": {
-            "description": "The fourth segment names a dataset other than the endpoint's own. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The fourth segment names a dataset other than the endpoint's own. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3362,7 +3367,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3372,7 +3377,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3382,7 +3387,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3403,13 +3408,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -3442,7 +3452,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3467,7 +3477,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3733,7 +3743,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3743,7 +3753,7 @@
             }
           },
           "401": {
-            "description": "Only when the key has require_signature: 'Signature required' (header absent or no stored secret) or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Only when the key has require_signature: 'Signature required' (header absent or no stored secret) or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3753,7 +3763,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must satisfy BOTH the key's allowlist and the tenant's (an empty allowlist matches everything); the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. The Cloudflare client IP must satisfy BOTH the key's allowlist and the tenant's (an empty allowlist matches everything); the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3773,7 +3783,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes' \u2014 from Content-Length, or from the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes' \u2014 from Content-Length, or from the buffered byte length. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3783,7 +3793,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3793,7 +3803,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3816,13 +3826,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -3855,7 +3870,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4079,7 +4094,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4089,7 +4104,7 @@
             }
           },
           "401": {
-            "description": "'Signature required' or 'Invalid signature' (signature-required keys only). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "'Signature required' or 'Invalid signature' (signature-required keys only). Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4099,7 +4114,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4119,7 +4134,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4129,7 +4144,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4139,7 +4154,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4160,13 +4175,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -4199,7 +4219,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4419,7 +4439,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4429,7 +4449,7 @@
             }
           },
           "401": {
-            "description": "Signature-required keys only: 'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Signature-required keys only: 'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4439,7 +4459,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 key allowlist AND tenant allowlist must both match. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed' \u2014 key allowlist AND tenant allowlist must both match. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4459,7 +4479,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4469,7 +4489,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4479,7 +4499,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4500,13 +4520,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -4539,7 +4564,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4766,7 +4791,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4776,7 +4801,7 @@
             }
           },
           "401": {
-            "description": "'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "'Signature required' or 'Invalid signature'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4786,7 +4811,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4806,7 +4831,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4816,7 +4841,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4826,7 +4851,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4847,13 +4872,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -4886,7 +4916,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5124,7 +5154,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5144,7 +5174,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed' \u2014 the client IP failed the key allowlist or the tenant allowlist; the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed' \u2014 the client IP failed the key allowlist or the tenant allowlist; the block is audited. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5164,7 +5194,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5174,7 +5204,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5184,7 +5214,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5205,13 +5235,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -5244,7 +5279,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5269,7 +5304,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5503,7 +5538,7 @@
             }
           },
           "400": {
-            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Body could not be parsed: 'Body must be valid JSON' (the body declares application/json, a +json type or no Content-Type, and does not parse) or 'Body is not valid multipart/form-data'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5523,7 +5558,7 @@
             }
           },
           "403": {
-            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Source IP not allowed'. Also `reason: \"workspace_suspended\"` when the workspace has been suspended by the operator: nothing is stored, counted or charged, so a sender should retry after the workspace is reinstated. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5543,7 +5578,7 @@
             }
           },
           "413": {
-            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "error: 'Body exceeds 1000000 bytes'. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5553,7 +5588,7 @@
             }
           },
           "415": {
-            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The body is not JSON and its Content-Type is neither a form encoding nor a textual type that can be stored as {body, content_type} (for example application/octet-stream or image/png). The error names the Content-Type. Nothing is stored and no quota is charged. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5563,7 +5598,7 @@
             }
           },
           "429": {
-            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Two cases, each with a Retry-After response header in seconds that equals the retry_after body field. Edge burst limit: about 100 requests per 10 seconds per credential (one endpoint URL, or one ingest key), the same on every plan: {error: 'Rate limit exceeded', retry_after: 10} with Retry-After: 10. It is a best-effort burst guard, not an exact count: it is counted separately at each Cloudflare location and catches up within seconds, so a short burst can get through above it. Monthly plan quota, the exact count (the plan's events plus its soft cap: +10% on Starter, Pro and Team, none on Free): {error: 'Monthly event quota reached: this event was not stored. The quota resets at <reset_at>; upgrade the plan to raise it sooner.', reason: 'quota_exceeded', limit: <events at which ingest refuses>, reset_at: '<00:00 UTC on the 1st of next month>', upgrade_url: '<APP_ORIGIN>/#/settings/billing', retry_after: 3600} with Retry-After: 3600. The event is refused, not queued: nothing is stored, so a sender must retry it after reset_at or an upgrade. Only the quota case carries reason, limit, reset_at and upgrade_url; branch on reason, not on the error text. Both limiters fail open if their backing service is unavailable. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5584,13 +5619,18 @@
                         "reason": {
                           "type": "string",
                           "enum": [
-                            "quota_exceeded"
+                            "quota_exceeded",
+                            "stored_bytes_quota_exceeded"
                           ],
-                          "description": "monthly-quota 429 only: quota_exceeded"
+                          "description": "monthly-quota 429 only: quota_exceeded (the event quota) or stored_bytes_quota_exceeded (the stored-data allowance, #312)"
                         },
                         "limit": {
                           "type": "integer",
                           "description": "monthly-quota 429 only: the event count at which ingest refuses (the plan's events plus its soft cap)"
+                        },
+                        "limit_bytes": {
+                          "type": "integer",
+                          "description": "stored_bytes_quota_exceeded only: the stored bytes a month at which ingest refuses (the plan's allowance plus its soft cap)"
                         },
                         "reset_at": {
                           "type": "string",
@@ -5623,7 +5663,7 @@
             }
           },
           "503": {
-            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "The endpoint exists but is disabled: {error: 'This endpoint is disabled, so events sent to it are not being stored. ...', reason: 'endpoint_disabled'}. Nothing is stored and no quota is charged. It is deliberately not the 404 of a wrong URL: providers treat a 404 as a dead endpoint (and may disable it or drop the events), while a 503 is retried, so events sent while it is disabled can still arrive if it is enabled again within the provider's retry window. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5648,7 +5688,7 @@
             }
           },
           "508": {
-            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. A refusal never counts against the event quota.",
+            "description": "Loop detected: the request's `Hookie-Hop` header says this event has already passed through Hookie 8 times, which almost always means a destination is delivering back into an endpoint that feeds it. Nothing is stored. Logged to the endpoint's rejection log (OBS-3, #193): see GET /admin/api/projects/{project_id}/webhooks/{id}/activity. Stored-data allowance (#312): the bytes of the bodies stored this month (50 MB Free, 100 MB Starter, 300 MB Pro, 1 GB Team, plus the soft cap) have a ceiling too; an event that would pass it gets the same 429 shape with reason: 'stored_bytes_quota_exceeded' and limit_bytes in place of limit. A refusal never counts against the event quota.",
             "content": {
               "application/json": {
                 "schema": {
@@ -33248,6 +33288,36 @@
                           ]
                         }
                       }
+                    },
+                    "sso_addon": {
+                      "type": "object",
+                      "description": "The single sign-on add-on on Team (#314): whether it is offered (its Stripe price exists), its monthly price, its Stripe status, and whether Hookie granted it at no charge.",
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "price_usd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "active",
+                            "past_due",
+                            "canceled",
+                            null
+                          ]
+                        },
+                        "granted": {
+                          "type": "boolean"
+                        }
+                      }
                     }
                   }
                 }
@@ -41387,6 +41457,7 @@
                     "plan",
                     "request",
                     "approved",
+                    "sso_addon",
                     "portal_intents"
                   ],
                   "properties": {
@@ -41424,6 +41495,10 @@
                       ],
                       "description": "The approved request in force, if any. Differs from `request` while a change is in review."
                     },
+                    "sso_addon": {
+                      "type": "boolean",
+                      "description": "Whether single sign-on can be set up: the single sign-on add-on on Team (bought or granted by Hookie), or the Ultimate plan. Directory Sync is part of Team."
+                    },
                     "portal_intents": {
                       "type": "array",
                       "items": {
@@ -41433,7 +41508,7 @@
                           "dsync"
                         ]
                       },
-                      "description": "The Admin Portal intents that can be opened at all in this deployment. Single sign-on (`sso`) is closed until Hookie's sign-in can start an SSO login, because an active SSO connection on a verified domain makes WorkOS refuse every other sign-in method for that domain; today this is `[\"dsync\"]`."
+                      "description": "The Admin Portal intents this workspace can open: `[\"sso\", \"dsync\"]` with the single sign-on add-on, else `[\"dsync\"]`."
                     }
                   }
                 }
@@ -41555,6 +41630,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "`reason: \"sso_addon_required\"`: the request asks for single sign-on (`sso`) and the workspace does not hold the single sign-on add-on (Team) or Ultimate. Directory Sync alone needs no add-on.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -41746,7 +41843,7 @@
         "tags": [
           "SSO"
         ],
-        "description": "Generates a WorkOS Admin Portal link for the workspace's organization, where the customer's IT admin connects their directory (`intent: \"dsync\"`). Refused unless a Hookie operator has approved the workspace's request, and the request included that intent. `intent: \"sso\"` is refused for every workspace, approved or not (`reason: \"sso_signin_not_available\"`) until Hookie's sign-in can start an SSO login: once an SSO connection is active and a domain verified, WorkOS refuses emailed codes, GitHub and Google for that domain across the whole environment, which would lock every Hookie user at it out. The link expires five minutes after it is made and is never stored, so the console opens it straight away. Owner only, on the Team plan.",
+        "description": "Generates a WorkOS Admin Portal link for the workspace's organization, where the customer's IT admin sets up single sign-on (`intent: \"sso\"`) or connects their directory (`intent: \"dsync\"`). Refused unless a Hookie operator has approved the workspace's request, and the request included that intent. `intent: \"sso\"` also needs the single sign-on add-on on Team, or Ultimate (`402`, `reason: \"sso_addon_required\"`, with no WorkOS call). Hookie's sign-in sends anyone whose domain WorkOS says requires single sign-on to their identity provider, so an active connection locks nobody out. The link expires five minutes after it is made and is never stored, so the console opens it straight away. Owner only, on the Team plan.",
         "requestBody": {
           "required": true,
           "content": {
@@ -41812,8 +41909,30 @@
               }
             }
           },
+          "402": {
+            "description": "`reason: \"sso_addon_required\"` (`intent: \"sso\"` without the single sign-on add-on or Ultimate; no WorkOS call is made).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "403": {
-            "description": "`reason: \"sso_signin_not_available\"` (`intent: \"sso\"`, closed for now; no WorkOS call is made), `reason: \"sso_request_not_approved\"` (no approved request yet), `reason: \"sso_intent_not_approved\"` (the approved request did not include this intent; file a change request), `reason: \"plan_upgrade_required\"` below Team, or not the owner. `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
+            "description": "`reason: \"sso_request_not_approved\"` (no approved request yet), `reason: \"sso_intent_not_approved\"` (the approved request did not include this intent; file a change request), `reason: \"plan_upgrade_required\"` below Team, or not the owner. `code: \"agent_not_permitted\"`: a connected agent or an admin API key, at every scope (reads included). Requesting single sign-on or Directory Sync can commit Hookie to a recurring WorkOS cost, so it is done by a person in the console. Also refused before the route is reached: `Missing X-Requested-With header` (a session without it), or `reason: \"workspace_suspended\"` while the workspace is suspended.",
             "content": {
               "application/json": {
                 "schema": {
@@ -48007,6 +48126,84 @@
           },
           "409": {
             "description": "Not on a paid Pro or Team subscription, already added, or Ultimate"
+          },
+          "501": {
+            "description": "The add-on is not offered yet"
+          }
+        }
+      }
+    },
+    "/admin/api/billing/sso-addon": {
+      "post": {
+        "operationId": "addSsoAddon",
+        "summary": "Add the single sign-on add-on",
+        "description": "Owner only, never an agent. Adds the single sign-on add-on ($149.00 a month: SAML and OIDC sign-in through the workspace's identity provider) as an item on the workspace's paid Team subscription, prorated. Ultimate includes single sign-on. Offered only when its Stripe price exists (501 otherwise). The add-on becomes active when Stripe's subscription event arrives, never from this response. It is what lets the owner ask for and set up single sign-on (`sso/requests`, `sso/portal-link`).",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted; applied when Stripe's subscription event arrives"
+          },
+          "200": {
+            "description": "Removal requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Stripe could not charge the payment method"
+          },
+          "403": {
+            "description": "Only the owner, never an agent"
+          },
+          "404": {
+            "description": "No add-on to remove"
+          },
+          "409": {
+            "description": "Not on a paid Team subscription, already added, or Ultimate (which includes it)"
+          },
+          "501": {
+            "description": "The add-on is not offered yet"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeSsoAddon",
+        "summary": "Remove the single sign-on add-on",
+        "description": "Owner only. Removes the add-on item from the subscription, prorated. A connection already set up keeps working, so nobody is locked out; asking for single sign-on again or opening its setup needs the add-on.",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted; applied when Stripe's subscription event arrives"
+          },
+          "200": {
+            "description": "Removal requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Stripe could not charge the payment method"
+          },
+          "403": {
+            "description": "Only the owner, never an agent"
+          },
+          "404": {
+            "description": "No add-on to remove"
+          },
+          "409": {
+            "description": "Not on a paid Team subscription, already added, or Ultimate (which includes it)"
           },
           "501": {
             "description": "The add-on is not offered yet"

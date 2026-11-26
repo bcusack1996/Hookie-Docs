@@ -39,7 +39,7 @@ An endpoint's URL is its credential, and a URL with an ingest key in its path ca
 
 `<id>` is the endpoint's or the key's id. A URL whose endpoint no longer exists reads `endpoint:removed`, and one whose key matches no key of the workspace `ingest_key:removed`. The console shows the same values, and so do the MCP tools, which run through the same API. The audit log and **Export all data** use these references for every role, and the [project configuration export](/api-reference#export-import-and-clone-a-project) holds no such URL for anyone.
 
-A `member` role, from before these four existed, reads as viewer. Single sign-on through your own identity provider (SAML or OIDC) is planned and not available yet, on any plan: **Settings → Single sign-on** says **Coming soon**. People sign in with an emailed code or with GitHub.
+A `member` role, from before these four existed, reads as viewer. People sign in with an emailed code, GitHub or Google, or through your own identity provider with the [single sign-on](/single-sign-on) add-on on Team.
 
 ### How you signed in
 

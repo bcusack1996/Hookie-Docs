@@ -67,6 +67,7 @@
           "analytics",
           "team-members",
           "two-step-sign-in",
+          "single-sign-on",
           "connected-agents",
           "agent-self-registration",
           "workos-agent-auth",
