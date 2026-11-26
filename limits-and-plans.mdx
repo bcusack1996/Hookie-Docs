@@ -13,6 +13,7 @@ Hookie offers **Free**, **Starter**, **Pro** and **Team**. **Ultimate** is arran
 | Workspace members, owner included | 1 | 1 | 3 | 10 |
 | Events a month | 10,000 | 35,000 | 100,000 | 300,000 |
 | New events refused after | 10,000 | 38,500 | 110,000 | 330,000 |
+| Stored event data a month | 50 MB | 100 MB | 300 MB | 1 GB |
 | Deliveries a month | 10,000 | 50,000 | 90,000 | 600,000 |
 | Deliveries held after | 10,000 | 55,000 | 99,000 | 660,000 |
 | AI tokens a month | 100,000 | 150,000 | 750,000 | 1,500,000 |
@@ -24,7 +25,7 @@ Hookie offers **Free**, **Starter**, **Pro** and **Team**. **Ultimate** is arran
 | Workflow runs active at once | 25 | 100 | 500 | 2,000 |
 | Data retention | 30 days | 90 days | 90 days | 90 days |
 
-Everything in this table is counted across the whole workspace, not per project. Starter, Pro and Team accept 10% over the event and delivery numbers before they bite; Free stops at the number. [Single sign-on](/single-sign-on) (SAML or OIDC) is a $149/month add-on on Team; Ultimate includes it.
+Everything in this table is counted across the whole workspace, not per project. Starter, Pro and Team accept 10% over the event, stored-data and delivery numbers before they bite; Free stops at the number. Single sign-on (SAML or OIDC) is planned and not available yet, on any plan.
 
 **Starter** is $4.00 a month, **Pro** is $10.00 a month, and **Team** is $30.00 a month for up to 10 members. These are flat workspace prices; member changes do not change the bill. **Ultimate**, which Hookie sets on a workspace directly, has a larger document Brain allowance and daily email allowance than Team. Pro and Team can add the document Brain for $10.00 a month when offered. See [Billing](/billing) and [Brain allowances](/brain-ingestion#allowances). **Nothing is billed as overage** on any plan: past a limit, new events are refused, deliveries held and AI calls refused, as described below, so a paid plan never charges more than its price.
 
@@ -74,6 +75,7 @@ While the window is open, **Home** shows a warning with the date the older data 
 Every monthly quota resets at 00:00 UTC on the 1st of the month, whatever day your subscription renews. **Home** shows this month's events, deliveries and AI tokens against your plan, with a warning from 80%.
 
 - **Events.** Every accepted submission counts once, however many records it makes, and so does every event a cron trigger, WebSocket trigger or database source writes. A database source row counts once, when it is stored; one Hookie could not store is not counted (see [Database sources](/database-sources#quota-and-retries)). Refused requests and recognised duplicates are not counted. The count is exact: one counter per workspace. Past the ceiling, a new event is refused with `429` and not stored. The answer carries `"reason": "quota_exceeded"`, `reset_at`, an `upgrade_url` and `Retry-After: 3600`. A trigger or source shows the refusal instead.
+- **Stored event data.** The bodies of the events stored this month, in bytes, as Hookie keeps them: a JSON body as it arrived, a form as its fields, a file as its name, type and size only. At about 3 KB for every event in the quota, a typical webhook of a few hundred bytes to 2 KB never reaches it; it stops a run of very large bodies from using a whole month in a few thousand events. Past the ceiling, a new event is refused with `429` and not stored, like the event quota, with `"reason": "stored_bytes_quota_exceeded"` and `limit_bytes` in place of `limit`. Ingest counts it: events that triggers, database sources and workflows write count as events only.
 - **Deliveries.** One delivery is one event sent to one destination, counted when it is created. Retries are free, and replays count. Past the ceiling, deliveries are held, not dropped: see [The delivery allowance and holds](/destinations-and-deliveries#the-delivery-allowance-and-holds).
 - **AI tokens.** The input and output tokens of every AI call count: AI trigger runs, and workflow `call_ai` and `agent_call` steps. There is no grace: once the allowance is used, the next AI call is refused before the model runs, and its step or run fails. See [AI allowance](/workflows#ai-allowance-and-the-ai-call-log).
 - **AI trigger runs.** Each AI trigger run counts once it starts running; one that fails is not counted. Past the quota, a new run fails.
